@@ -1,0 +1,13 @@
+﻿No,RuleId_KO,IssueTitle_KO,Category_KO,TargetStatus,CheckDetail_KO,ExceptionOrNote_KO,OwnerHint_KO,Source
+1,철거설비연결,철거설비연결,연결/상태,ERR,Trace 종료 상태가 ERR인 경우(철거·Delete 등) 이슈로 등록. Feedback에 건설코드 Delete 관련 안내.,없음,SCS(기준정보 계열 아님·상태 이슈),ErrStatusRule
+2,모델링미완료,모델링 미완료,모델링,ING,STATUS=ING이고 시작 POC의 UtilityGroup·ConnectorName이 예외대상이 아니면 모델링 미완료. Feedback에 T.Name(EndName) 포함.,예외대상이름여부(UT Group/Name)면 스킵. TraceValidator에서 ING+예외UT/elec 그룹은 별도 선처리 가능.,설계사,ModelingIncompleteRule
+3,설비정보상이,기준정보 이슈,기준정보,EQP,도착이 EQP일 때 StartEquipmentTag와 TargetNodeTag가 관련 없으면 이슈. Scrubber·콤마 Tag·Damper[a,b]는 EquipmentTagMatcher(포함/토큰/대괄호 unwrap)로 동일 계열 허용.,Start 또는 Target SubDivision1에 GCS 포함 시 제외.,SCS(기준정보),EquipmentInfoMismatchRule
+4,POCUT상이,기준정보 이슈,기준정보,NOZ,1층(PZ<5400): S.UT=GO2 이고 T.Lateral UT=O2 이면 상이. 2·3층(PZ>=5400): S.UT=PO2 이고 T.Lateral UT=O2 이면 상이.,해당 층·UT 조합만 해당.,SCS(기준정보),PocUtMismatchRule
+5,모델링없음,모델링 없음,모델링,EMP,STATUS=EMP이고 Start POC UtilityName에 '미사용'이 없으면 모델링 없음으로 판정.,UT에 미사용 포함 시 스킵.,설계사,ModelingAbsentRule
+6,연결정보누락,연결정보 누락,연결정보,"TOF,NOZ,EQP","TOF: T.Tag 공백. NOZ: T.ConnectionTag 공백. EQP+GCS+STICK: S 또는 T Connector Tag 공백(Module Name 미기입 안내).",GCS STICK만 EQP 누락 검사.,설계사,ConnectionMissingRule
+7,연결정보상이,연결정보 상이,연결정보,"TOF,NOZ,EQP","(1) MainLine VOC: MAIN+vent/vac/foreline TOF경유 EQP에서 S.Tag≠T.Tag. (2) TOF: S.Tag≠T.Tag(WATER 그룹은 별도 문구). (3) NOZ: S.Tag≠T.ConnectionTag. (4) EQP Scrubber/콤마 Tag: matcher 불일치. (5) GCS STICK: ConnectionTag와 상대 Tag 관계. (6) MAIN/SUB/PCS Equipment 및 6-GCS 가스/케미컬 ConnectionTag. (7) 분기 다수일 때 NOZ/TOF 중 일치 분기 없으면 상이.","IN/OUT POC는 EQP 연결상이 제외. Damper[설비a,설비b]가 S.Tag를 포함하면 정상.",설계사,ConnectionInfoMismatchRule
+8,FixResolve필요,Fix Resolve 필요,모델링/구조,EQP,"(1) EQP인데 T.Division에 Equipment 미포함. (2) 동일 StartPoc 분기가 1개뿐이고 S.GUID==T.GUID(자기회귀).",분기 1개+동일 GUID만 두 번째 조건.,설계사,FixResolveRule
+9,UT상이,"UT 상이 / UT 상이 (공백)",Utility,"NOZ,TOF,EQP","NOZ: 다수 VOC 예외 후 S.UT 공백이면 공백 이슈. TOF/EQP: VOC(IMP-GN2, FORE-LINE/By Pass 등) 후 S/T UT 공백 또는 Connected UT 불일치(UtMapping 그룹 동의어·VENT/FORE/VAC 계열 허용).",예외대상 UT/Name/Group이면 전체 스킵. UtMapping.csv 그룹맵 사용.,설계사(공백·불일치),UtilityMismatchRule
+10,HookupValidation,Hookup OK/MISSING/MISMATCH/TAG_ERROR/DATA_ERROR,Hookup,Exhaust·Vac POC,"Main/Sub 설비의 Exhaust/Vac UtilityGroup POC만 대상. Connector Tag·Module·PocNo로 Expected Hookup 산출 후 DynamicProperties HookupNumber와 비교. 누락·불일치·Tag오류·데이터오류 분류.",MAIN/SUB Subdivision1만. Hookup은 고정 1 Rule(파이프라인 외).,SCS/운영(훅업),HookupValidationService
+11,(선처리)기준정보이슈,기준정보이슈,기준정보,"EQP,NOZ,TOF",파이프라인 전: EQP/NOZ/TOF에서 Start POC Utility가 예외대상이름이면 'POC Utility 상이'.,TraceValidator 선처리(파이프라인 RuleId 아님).,SCS,TraceValidator
+12,(선처리)모델링미완료,모델링 미완료,모델링,ING,파이프라인 전: ING인데 예외대상 UT이거나 UtilityGroup에 elec 포함 시 모델링 미완료 표기.,TraceValidator 선처리.,설계사,TraceValidator

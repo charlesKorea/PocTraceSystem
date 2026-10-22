@@ -1,0 +1,239 @@
+/* =========================================
+   PocTrace Modern UI Theme (V3.2 - Final)
+   ========================================= */
+
+/* [Fix 1] Bold Font Definition */
+@font-face {
+    font-family: 'Pretendard';
+    src: url('../fonts/Pretendard-Regular.woff2') format('woff2');
+    font-weight: 400; font-style: normal;
+}a
+@font-face {
+    font-family: 'Pretendard'; /* 같은 이름, 다른 웨이트 */
+    src: url('../fonts/Pretendard-Bold.woff2') format('woff2');
+    font-weight: 700; font-style: normal;
+}
+
+@font-face {
+    font-family: 'MiSans';
+    src: url('../fonts/MiSans-Regular.woff2') format('woff2');
+    font-weight: 400; font-style: normal;
+}
+@font-face {
+    font-family: 'MiSans';
+    src: url('../fonts/MiSans-Bold.woff2') format('woff2');
+    font-weight: 700; font-style: normal;
+}
+
+/* [Fix 1] Apply Bold to Headers */
+h1, h2, h3, h4, h5, h6, .card-title, .dt-custom-title, th, .fw-bold {
+    font-family: 'Pretendard', 'MiSans', sans-serif;
+    font-weight: 700 !important;
+}
+
+:root {
+    --primary-color: #4361ee;
+    --success-color: #2a9d8f;
+    --info-color: #4895ef;
+    --danger-color: #e63946;
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-main: #2b2d42;
+    --text-muted: #8d99ae;
+    --border-radius: 12px;
+    --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+body {
+    background-color: var(--bg-color);
+    /* Priority: Pretendard(KR/EN) -> MiSans(CN) -> System */
+    font-family: 'Pretendard', 'MiSans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text-main);
+    overflow-x: hidden;
+}
+
+/* --- Navbar --- */
+.navbar {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    padding: 0.8rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.navbar-brand { font-weight: 800; font-size: 1.5rem; color: #fff !important; }
+.nav-link { color: rgba(255,255,255,0.8) !important; font-weight: 500; }
+.nav-link.active, .nav-link:hover { color: #fff !important; font-weight: 700; opacity: 1; }
+
+#lang-selector {
+    background-color: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-size: 0.85rem;
+}
+#lang-selector option { background-color: #2a5298; color: #fff; }
+
+/* --- KPI Cards --- */
+.kpi-card {
+    background: #fff;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    height: 100%;
+    border-left: 5px solid transparent;
+    box-shadow: var(--card-shadow);
+}
+.kpi-card.total { border-left-color: var(--info-color); }
+.kpi-card.pass { border-left-color: var(--primary-color); }
+.kpi-card.info { border-left-color: var(--success-color); }
+.kpi-card.fail { border-left-color: var(--danger-color); }
+.kpi-card.hookup { border-left-color: #6366f1; }  /* Indigo color for Hookup */
+
+.kpi-label { font-size: 1.2rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; }
+/* [Issue 4] Big Text */
+.kpi-value { font-size: 2.5rem; font-weight: 800; color: var(--text-main); line-height: 1.1; }
+.kpi-highlight { 
+    font-size: 3.5rem !important; 
+    font-weight: 900 !important;
+    background: linear-gradient(45deg, var(--primary-color), var(--success-color));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+/* [Issue 4] Sub Text Size Increased (~50% of Big Text) */
+.kpi-sub-text { 
+    font-size: 1.0rem; /* Increased from 0.85rem */
+    font-weight: 500;
+    color: var(--text-muted); 
+    margin-top: 8px;
+    display: block;
+}
+
+/* [New] Trend Ticker (Stock Style) */
+.trend-badge {
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.trend-up { background-color: #e6fffa; color: #2a9d8f; } /* 상승 (긍정) */
+.trend-down { background-color: #fff5f5; color: #e63946; } /* 하락 (부정) */
+.trend-neutral { background-color: #f8f9fa; color: #6c757d; } /* 변동 없음 */
+
+/* --- Charts --- */
+.chart-container-wrapper {
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    padding: 20px;
+    margin-bottom: 20px;
+    height: 100%;
+}
+.chart-body { width: 100%; height: 350px !important; min-height: 350px !important; }
+.chart-body-lg { width: 100%; height: 450px !important; min-height: 450px !important; }
+
+/* 차트 높이 조정 */
+.chart-trend-lg { 
+    width: 100%; height: 400px !important; 
+}
+/* 버튼 그룹 스타일 */
+.chart-controls {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    z-index: 10;
+}
+.btn-group-xs > .btn, .btn-xs {
+    padding: .25rem .4rem;
+    font-size: .875rem;
+    line-height: .5;
+    border-radius: .2rem;
+}
+
+/* --- DataTables & Pagination [Issue 6 Fix] --- */
+.dataTables_wrapper .dataTables_paginate {
+    padding-top: 10px;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0 !important;
+    margin: 0 2px !important;
+    border: none !important;
+    background: none !important;
+}
+/* Force Bootstrap Pagination Style Override */
+.page-item .page-link {
+    border: 1px solid #dee2e6 !important;
+    margin: 0 3px !important;
+    border-radius: 50% !important; /* Circle Shape */
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.page-item.active .page-link {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 10px rgba(67, 97, 238, 0.4);
+}
+.page-item:not(.active) .page-link:hover {
+    background-color: #e9ecef !important;
+    color: var(--primary-color) !important;
+    transform: translateY(-2px);
+}
+
+/* Table Header & Search */
+.dataTables_filter input { border-radius: 20px; padding: 5px 15px; border: 1px solid #ddd; margin-left: 8px; }
+table.dataTable thead th { background-color: #f8f9fa; font-weight: 700; padding: 12px 10px !important; border-bottom: 2px solid #e9ecef; }
+
+/* [Fix 3] DataTables Compact Layout */
+.dt-top-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* 수직 중앙 정렬 */
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 10px;
+    flex-wrap: wrap; /* 화면 작으면 줄바꿈 허용 */
+}
+
+/* 좌측 그룹 (제목 + Entries) */
+.dt-left-group {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* 제목과 콤보박스 사이 간격 */
+}
+
+/* 우측 그룹 (검색 + 버튼) */
+.dt-right-group {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* 검색창과 버튼 사이 간격 */
+}
+
+/* 검색창 미세 조정 */
+.dataTables_filter {
+    margin: 0 !important; /* 기본 마진 제거 */
+}
+.dataTables_filter input {
+    margin-left: 0 !important;
+    width: 200px; /* 검색창 너비 고정 (옵션) */
+}
+
+/* Length(Entries) 미세 조정 */
+.dataTables_length {
+    margin: 0 !important;
+}
+
+
+/* Buttons */
+.dt-buttons .btn { margin-left: 5px; border-radius: 6px; }
+.btn-detail-view {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; border: none; box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+}
+.btn-detail-view:hover { color: white; transform: translateY(-2px); }
+
+/* Modal */
+.modal-content { border-radius: var(--border-radius); border: none; }
+.modal-header { background-color: #f8f9fa; border-bottom: 1px solid #eee; }

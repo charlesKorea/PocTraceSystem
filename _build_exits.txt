@@ -1,0 +1,13 @@
+﻿MSBuild=C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe
+Viewer=C:\JCS\1. Codes\260718\PocTraceSystem\PocTrace.UI\PocTrace.Viewer.csproj
+
+=== Core EXIT=1 ===
+ERROR_COUNT=0
+=== Admin EXIT=1 ===
+ERROR_COUNT=0
+=== Viewer EXIT=1 ===
+ERROR_COUNT=0
+
+--- UNIQUE CS ERRORS (
+0
+) ---

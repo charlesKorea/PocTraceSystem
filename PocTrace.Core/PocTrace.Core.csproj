@@ -1,0 +1,208 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{738BFCD5-EEE6-4578-9A02-42D49398E61D}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PocTrace.Core</RootNamespace>
+    <AssemblyName>PocTrace.Core</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="App.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Engine\Cache\GraphCacheManager.cs" />
+    <Compile Include="Engine\Cache\IGraphCache.cs" />
+    <Compile Include="Composition\PocTraceAppServices.cs" />
+    <Compile Include="Engine\Interfaces\ITraceEngine.cs" />
+    <Compile Include="Engine\Logic\TraceExecutionReport.cs" />
+    <Compile Include="Engine\Reporting\EquipmentSummaryBuilder.cs" />
+    <Compile Include="Engine\Reporting\TraceExcelReportService.cs" />
+    <Compile Include="Engine\Reporting\TraceResultExcelExporter.cs" />
+    <Compile Include="Engine\Reporting\HookupExcelReportWriter.cs" />
+    <Compile Include="Engine\ReverseTrace\IReverseTraceOrigin.cs" />
+    <Compile Include="Engine\ReverseTrace\NozzleReverseTraceOrigin.cs" />
+    <Compile Include="Engine\ReverseTrace\NozzleStartResolver.cs" />
+    <Compile Include="Engine\ReverseTrace\NozzleTraceService.cs" />
+    <Compile Include="Engine\ReverseTrace\ReverseGraphIndex.cs" />
+    <Compile Include="Engine\ReverseTrace\ReverseTraceEngine.cs" />
+    <Compile Include="Engine\ReverseTrace\ReverseTraceTerminal.cs" />
+    <Compile Include="Engine\TraceAlgorithm.WaterTakeoff.cs" />
+    <Compile Include="Engine\TraceAlgorithm.MainLineTakeoff.cs" />
+    <Compile Include="Engine\TraceAlgorithm.Bfs.cs" />
+    <Compile Include="Engine\TraceAlgorithm.Helpers.cs" />
+    <Compile Include="Engine\Validation\EquipmentTagMatcher.cs" />
+    <Compile Include="Engine\Validation\MainLineTraceHelper.cs" />
+    <Compile Include="Engine\Validation\Rules\IValidationRule.cs" />
+    <Compile Include="Engine\Validation\Rules\ValidationContext.cs" />
+    <Compile Include="Engine\Validation\Rules\EquipmentInfoMismatchRule.cs" />
+    <Compile Include="Engine\Validation\Rules\BasicValidationRules.cs" />
+    <Compile Include="Engine\Validation\Rules\ConnectionInfoMismatchRule.cs" />
+    <Compile Include="Engine\Validation\Rules\GcsInConnectionTagExemption.cs" />
+    <Compile Include="Engine\Validation\Rules\FixResolveRule.cs" />
+    <Compile Include="Engine\Validation\Rules\UtilityMismatchRule.cs" />
+    <Compile Include="Engine\Validation\Rules\VocRule.Sample.cs" />
+    <Compile Include="Engine\Validation\Rules\ValidationPipeline.cs" />
+    <Compile Include="Engine\Validation\Rules\ValidationRuleRegistry.cs" />
+    <Compile Include="Engine\Validation\HookupValidationService.cs" />
+    <Compile Include="Infrastructure\Data\DbConnectionFactory.cs" />
+    <Compile Include="Infrastructure\Data\GraphDataDto.cs" />
+    <Compile Include="Infrastructure\Data\SqlQueries.cs" />
+    <Compile Include="Infrastructure\Data\GraphQueryProvider.cs" />
+    <Compile Include="Infrastructure\Data\S5dGraphQueryProvider.cs" />
+    <Compile Include="Infrastructure\Data\DdwSql.cs" />
+    <Compile Include="Infrastructure\Data\DdwGraphMapping.cs" />
+    <Compile Include="Infrastructure\Data\DdwGraphQueryProvider.cs" />
+    <Compile Include="Infrastructure\Data\SchemaReadinessReport.cs" />
+    <Compile Include="Infrastructure\Data\SchemaReadinessProbe.cs" />
+    <Compile Include="Infrastructure\Data\SchemaReadinessExcel.cs" />
+    <Compile Include="Enums\TraceEnums.cs" />
+    <Compile Include="Infrastructure\CacheConstants.cs" />
+    <Compile Include="Infrastructure\CacheGenerationStore.cs" />
+    <Compile Include="Infrastructure\PocTraceLocalPaths.cs" />
+    <Compile Include="Infrastructure\TextFileEncoding.cs" />
+    <Compile Include="Infrastructure\BimGroupCacheConstants.cs" />
+    <Compile Include="Infrastructure\BimGroupRecord.cs" />
+    <Compile Include="Infrastructure\BimGroupNameIndex.cs" />
+    <Compile Include="Infrastructure\TemplateEquipmentCacheConstants.cs" />
+    <Compile Include="Infrastructure\CacheFreshnessGuard.cs" />
+    <Compile Include="Infrastructure\Diagnostics\BimIdDiagnostics.cs" />
+    <Compile Include="Infrastructure\GlobalConfig.cs" />
+    <Compile Include="Infrastructure\SchemaKind.cs" />
+    <Compile Include="Infrastructure\SqlIdentifier.cs" />
+    <Compile Include="Infrastructure\PipeSectionFormat.cs" />
+    <Compile Include="Engine\TraceAlgorithm.cs" />
+    <Compile Include="Models\EquipmentTraceSummary.cs" />
+    <Compile Include="Models\HookupNumbersData.cs" />
+    <Compile Include="Models\ReportDto.cs" />
+    <Compile Include="Models\ReverseTrace\ReverseTraceModels.cs" />
+    <Compile Include="Models\HtmlReportData.cs" />
+    <Compile Include="Models\NodeInfo.cs" />
+    <Compile Include="Models\OldRawHUExcelData.cs" />
+    <Compile Include="Models\PipeData.cs" />
+    <Compile Include="Models\PipeEndpoint.cs" />
+    <Compile Include="Models\PocData.cs" />
+    <Compile Include="Models\TakeoffData.cs" />
+    <Compile Include="Models\TraceResult.cs" />
+    <Compile Include="Infrastructure\Repositories\BinaryCacheRepository.cs" />
+    <Compile Include="Infrastructure\Repositories\BimGroupCacheRepository.cs" />
+    <Compile Include="Infrastructure\Repositories\TemplateEquipmentCacheRepository.cs" />
+    <Compile Include="Infrastructure\Repositories\GraphLoaderRepository.cs" />
+    <Compile Include="Infrastructure\Repositories\IGraphLoader.cs" />
+    <Compile Include="Engine\TraceEngine.cs" />
+    <Compile Include="Engine\Validation\TraceValidator.cs" />
+    <Compile Include="Engine\Progress\DesignProgressModels.cs" />
+    <Compile Include="Engine\Progress\IFrmEquipmentMaster.cs" />
+    <Compile Include="Engine\Progress\FrmEquipmentMasterRepository.cs" />
+    <Compile Include="Engine\Progress\DesignFootprintBuilder.cs" />
+    <Compile Include="Engine\Progress\DesignCohortService.cs" />
+    <Compile Include="Engine\Progress\DesignProgressCalculator.cs" />
+    <Compile Include="Engine\Progress\DesignProgressEngine.cs" />
+    <Compile Include="Models\UTMapping.cs" />
+    <Compile Include="Utils\HtmlReportGenerator.cs" />
+    <Compile Include="Utils\DotNetGuidHash.cs" />
+    <Compile Include="Utils\Util.cs" />
+    <Compile Include="Licensing\PocTraceLicense.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JLic.Core\JLic.Core.csproj">
+      <Project>{3C8F1E2A-9B4D-4E67-A1C2-5D8E7F6A4B30}</Project>
+      <Name>JLic.Core</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper">
+      <Version>2.1.66</Version>
+    </PackageReference>
+    <PackageReference Include="EPPlus">
+      <Version>7.2.1</Version>
+    </PackageReference>
+    <PackageReference Include="LargeXlsx">
+      <Version>1.10.0</Version>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>13.0.4</Version>
+    </PackageReference>
+    <PackageReference Include="Serilog">
+      <Version>4.3.0</Version>
+    </PackageReference>
+    <PackageReference Include="Serilog.Sinks.File">
+      <Version>7.0.0</Version>
+    </PackageReference>
+    <PackageReference Include="System.Data.SqlClient">
+      <Version>4.8.6</Version>
+    </PackageReference>
+    <PackageReference Include="System.Data.SQLite">
+      <Version>2.0.2</Version>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Templates\layout.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Templates\assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- [Refactor] Core는 UI(WinForms)에 의존하지 않습니다. System.Windows.Forms 참조를 제거하고
+         기존에 WinForms를 통해 transitive로 제공되던 프레임워크 어셈블리를 명시적으로 참조합니다. -->
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Configuration" />
+    <!-- EPPlus 색상(ExcelColor.SetColor)용 System.Drawing.Color. (WinForms 아님 - 그래픽 프리미티브) -->
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

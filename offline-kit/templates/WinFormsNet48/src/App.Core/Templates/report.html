@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <title>{{TITLE}}</title>
+  <!-- CDN 금지. bootstrap 등은 Templates/assets 에 로컬 복사 후 아래 주석을 해제 -->
+  <!-- <link rel="stylesheet" href="./assets/css/bootstrap.min.css"/> -->
+  <style>
+    body { font-family: 'Malgun Gothic', 'Microsoft YaHei', sans-serif; margin: 24px; }
+    h1 { font-size: 18px; }
+    .meta { color: #555; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>{{TITLE}}</h1>
+  <div class="meta">생성: {{GENERATED}}</div>
+  <p>{{MESSAGE}}</p>
+  <ul>{{ITEMS}}</ul>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  SVDI Admin 설정 예시. 실서버 값으로 복사한 뒤 PocTrace.Admin.exe.config 에 반영하세요.
+  비밀번호를 ZIP/메일에 넣지 마세요.
+-->
+<configuration>
+  <startup>
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8" />
+  </startup>
+  <appSettings>
+    <add key="SharedCachePath" value="X:\jHOOK\PocTraceData" />
+    <add key="DailyReportPath" value="X:\jHOOK\DailyReport" />
+    <add key="AllowDatabaseFallback" value="true" />
+    <add key="EnableDetailedDebug" value="false" />
+    <add key="CacheStaleHours" value="24" />
+    <add key="CacheMaxAgeHours" value="48" />
+    <add key="MaxParallelTrace" value="4" />
+    <add key="TargetDatabases" value="x1,x2,x2_2" />
+  </appSettings>
+  <connectionStrings>
+    <add name="SourceDb"
+         connectionString="Server=SVDI_SQL_HOST;Database=YOUR_DB;User Id=YOUR_ID;Password=YOUR_PW;"
+         providerName="System.Data.SqlClient" />
+    <add name="PocTraceDB"
+         connectionString="Server=SVDI_SQL_HOST;Database=YOUR_DB;User Id=YOUR_ID;Password=YOUR_PW;"
+         providerName="System.Data.SqlClient" />
+  </connectionStrings>
+</configuration>

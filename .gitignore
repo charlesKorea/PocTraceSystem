@@ -402,6 +402,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# PocTrace projects check this schema in.
+!**/FodyWeavers.xsd
 
 # VS Code files for those working on multiple tools
 .vscode/*
@@ -426,3 +428,7 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# Copied from jcs-codes-260718. This folder is a note, not restored NuGet packages.
+!offline-kit/nuget-packages/
+!offline-kit/nuget-packages/**
