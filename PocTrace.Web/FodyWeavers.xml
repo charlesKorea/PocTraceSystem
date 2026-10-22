@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+  <Costura>
+    <!-- NuGet 의존성만 exe에 넣는다. 솔루션 프로젝트 산출물은 옆에 둔다. -->
+    <ExcludeAssemblies>
+      PocTrace.Core
+      JLic.Core
+      PocTrace.Demolition
+      PocTrace.NozzleTrace
+    </ExcludeAssemblies>
+  </Costura>
+</Weavers>

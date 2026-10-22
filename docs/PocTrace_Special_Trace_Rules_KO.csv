@@ -1,0 +1,12 @@
+﻿No,SpecialId,Category_KO,Name_KO,ApplyCondition_KO,EngineBehavior_KO,ResultSideEffect_KO,ValidationLink_KO,SourceFile
+1,SP-WATER-TOF,Trace엔진,Water Takeoff 추가추적,"시작 POC UtilityGroupName에 water 포함(대소문자 무시)","Takeoff Step(Damper[Tag]) 추가 후 continuation Outlet을 BFS 큐에 등록. 재방문 Takeoff는 역류 소멸(ING 미기록). continuation 없으면 ING. 형제 큐는 유지.","일반 TOF 종료 억제. 하류 NOZ/CAP/EQP 등 STATUS","TOF로 남을 때 연결정보상이 Feedback에 UtilityGroup Takeoff 문구 가능",TraceAlgorithm.WaterTakeoff.cs
+2,SP-MAINLINE-TOF,Trace엔진(VOC-1),MainLine Takeoff 추가추적,"Owner SubDivision1에 MAIN + UtilityName에 vent/vac/fore line/fore-line/foreline 포함","Water와 동일 continuation+BFS. 차이: TOF 도달 시 queue.Clear()로 형제 분기 폐기. PreferMainLineEqpResult로 EQP 있으면 Length→Hop 최단 EQP 1건만 남김.","연속 Takeoff ING 오탐 방지. 단일 최단 EQP 전제","MainLineTraceHelper: EQP+MAIN+vent/vac/fore*+Steps에 Takeoff → 연결정보상이 S.Tag≠T.Tag",TraceAlgorithm.MainLineTakeoff.cs; MainLineTraceHelper.cs
+3,SP-TOF-DEFAULT,Trace엔진,일반 Takeoff 종료,MainLine·Water 아님,"Takeoff에서 STATUS=TOF 종료. EquipmentTagMatcher.AreRelated로 Match/Mismatch",STATUS=TOF,연결정보상이 S.Tag vs T.Tag(Damper),TraceAlgorithm.cs
+4,SP-CONT-RESOLVE,공통해석,continuation Outlet 해석,Water·MainLine 공용,"(1) Takeoff.PipeId 유효 Pipe → 다음 Outlet (2) 부모 Pipe 다른 Outlet → Takeoff/Pipe/POC (미방문)",실패 시 ING,—,TryResolveTakeoffContinuationPoint (WaterTakeoff.cs)
+5,SP-TAG-MATCH,Tag비교,Scrubber·Damper Tag 매칭,검색·검수·TOF Match,"정확일치/포함/Damper[a,b] unwrap/콤마·세미콜론 토큰 교집합/레거시 substring",오탐 감소,설비정보상이·연결정보상이·TOF Match,EquipmentTagMatcher.cs
+6,SP-GCS-EQP-SKIP,검수예외,GCS 설비정보상이 제외,설비정보상이,"Start 또는 Target SubDivision1에 GCS 포함 시 Tag 상이 검사 스킵",GCS Stick 오탐 방지,EquipmentInfoMismatchRule,EquipmentInfoMismatchRule.cs
+7,SP-INOUT-SKIP,검수예외,IN/OUT 연결상이 제외,연결정보상이 EQP,"Start/Target Information이 IN/OUT이면 EQP 연결상이 제외",—,ConnectionInfoMismatchRule,ConnectionInfoMismatchRule.cs
+8,SP-UT-VOC,검수VOC,UT상이 VOC 예외,UT상이 NOZ/TOF/EQP,"NOZ: IWW1↔FWW IWW2↔NFW CMP exhaust↔폐수 GCS SN2↔GN2 GN2↔PN2 CMP Main Drain→Nozzle PASS. TOF: Diff Pump GN2 Exhaust PASS; IMP+GN2+T.UT≠Exhaust FAIL. EQP: FORE-LINE/By Pass Connected UT. VENT/FORE/VAC 동의어. UtMapping.csv",예외대상이름이면 전체 스킵,UtilityMismatchRule,UtilityMismatchRule.cs
+9,SP-POCUT,검수,POCUT상이 층별 O2,STATUS=NOZ,"PZ<5400: GO2→O2 상이. PZ>=5400: PO2→O2 상이",층별 O2 매핑,PocUtMismatchRule,PocUtMismatchRule.cs
+10,SP-FIXRESOLVE,검수,Fix Resolve,STATUS=EQP,"Division에 Equipment 없음 또는 분기1개+S.GUID=T.GUID",자기회귀/비설비,FixResolveRule,FixResolveRule.cs
+11,SP-HOOKUP,Hookup,Hookup 검증,Main/Sub+Exhaust/Vac,"Expected Hookup vs DynProps (파이프라인 외)",MISSING/MISMATCH 등,HookupValidationService,HookupValidationService

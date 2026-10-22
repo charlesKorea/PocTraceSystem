@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<JLicClientKeys version="1">
+  <AesKey>izQIawdPPVdr88brgBJiD2TLS9tQ2+CRAgvhXds8hIk=</AesKey>
+  <HmacPepper>DoArSQ3+9BG12ojJUboN++oltlquN7rk56hQ266z62o=</HmacPepper>
+  <RsaPublicXml><![CDATA[<RSAKeyValue><Modulus>iH2HIRusCxJJAcw+uOopdSJkpgx7sMw8whOxoBJ5L5CYAv66USdB3R960PNkEFW2QAjc+Vzt7TRtEPMNUK7gDjArx5aQQtx9nH+QTNQSzMx7jMwNCOYHcx4i35kk8YWeU9qF6iqUUjlOcLc2xNWabyX5sqwgI2M0Hmtsi5/P78Z6j3eiWYqA+wJcyx3MJfsVV8zehO4al3rJ+cHmJtS61jCneu+JRVt6YzAEtwHOnk36ySk1jRhU0w+5H8QXQMXufysuubxiDP2H/s6nAOBc9VxXKRgBaV9Tb0yGSKDPNoWbtXaGGT2iQQyXqHR5SfhSmyxm8Vi/8ib2BYzbaEqMaw==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>]]></RsaPublicXml>
+</JLicClientKeys>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  SVDI Viewer 설정 예시. SharedCachePath는 Admin과 동일해야 합니다.
+  캐시만 사용: AllowDatabaseFallback=false
+-->
+<configuration>
+  <startup>
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8" />
+  </startup>
+  <appSettings>
+    <add key="SharedCachePath" value="X:\jHOOK\PocTraceData" />
+    <add key="DailyReportPath" value="X:\jHOOK\DailyReport" />
+    <add key="AllowDatabaseFallback" value="false" />
+    <add key="CacheMaxAgeHours" value="48" />
+    <add key="TargetDatabases" value="x1,x2,x2_2" />
+  </appSettings>
+  <connectionStrings>
+    <add name="SourceDb"
+         connectionString="Server=localhost;Database=DummyDB;Trusted_Connection=True;"
+         providerName="System.Data.SqlClient" />
+  </connectionStrings>
+</configuration>

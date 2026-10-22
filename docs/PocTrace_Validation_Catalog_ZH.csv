@@ -1,0 +1,13 @@
+﻿No,RuleId_ZH,IssueTitle_ZH,Category_ZH,TargetStatus,CheckDetail_ZH,ExceptionOrNote_ZH,OwnerHint_ZH,Source
+1,拆除设备连接,拆除设备连接,连接/状态,ERR,Trace结束状态为ERR(拆除/Delete等)时登记问题。Feedback提示建设代码含Delete。,无,SCS,ErrStatusRule
+2,建模未完成,建模未完成,建模,ING,STATUS=ING且起始POC的UtilityGroup/ConnectorName非例外对象时判定建模未完成。Feedback含T.Name。,例外对象名称则跳过。,设计社,ModelingIncompleteRule
+3,设备信息不符,基准信息问题,基准信息,EQP,到达EQP时StartEquipmentTag与TargetNodeTag不相关则问题。Scrubber/逗号Tag/Damper[a,b]经EquipmentTagMatcher允许。,Start或Target SubDivision1含GCS则排除。,SCS,EquipmentInfoMismatchRule
+4,POCUT不符,基准信息问题,基准信息,NOZ,1层(PZ<5400):S.UT=GO2且T.Lateral UT=O2。2/3层(PZ>=5400):S.UT=PO2且T.Lateral UT=O2。,仅该层与UT组合。,SCS,PocUtMismatchRule
+5,无建模,无建模,建模,EMP,STATUS=EMP且Start POC UtilityName不含“未使用”则判定无建模。,UT含未使用则跳过。,设计社,ModelingAbsentRule
+6,连接信息缺失,连接信息缺失,连接信息,"TOF,NOZ,EQP","TOF:T.Tag空。NOZ:T.ConnectionTag空。EQP+GCS+STICK:S或T Connector Tag空。",仅GCS STICK做EQP缺失检查。,设计社,ConnectionMissingRule
+7,连接信息不符,连接信息不符,连接信息,"TOF,NOZ,EQP","MainLine VOC、TOF/NOZ Tag、Scrubber、GCS STICK、MAIN/SUB/PCS/GCS气体化学品、多分支无匹配等。","IN/OUT POC排除。T.Tag包含S.Tag(如Damper[a,b])视为正常。",设计社,ConnectionInfoMismatchRule
+8,需FixResolve,需Fix Resolve,建模/结构,EQP,EQP但T.Division非Equipment；或单分支且S.GUID==T.GUID。,仅单分支+同GUID触发第二条件。,设计社,FixResolveRule
+9,UT不符,UT不符/UT不符(空白),Utility,"NOZ,TOF,EQP",VOC例外后检查UT空白或Connected UT不一致(UtMapping同义、VENT/FORE/VAC族允许)。,例外UT/Name/Group则整规则跳过。,设计社,UtilityMismatchRule
+10,HookupValidation,Hookup状态分类,Hookup,Exhaust/Vac POC,仅Main/Sub的Exhaust/Vac POC；用Connector Tag等推算期望Hookup与动态属性比对。,固定单一Rule。,SCS/运营,HookupValidationService
+11,(预处理)基准信息,基准信息问题,基准信息,"EQP,NOZ,TOF",管线前：例外Utility名称则POC Utility不符。,非管道RuleId。,SCS,TraceValidator
+12,(预处理)建模未完成,建模未完成,建模,ING,管线前：ING且例外UT或elec组。,非管道RuleId。,设计社,TraceValidator

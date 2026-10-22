@@ -1,0 +1,12 @@
+﻿No,SpecialId,Category_ZH,Name_ZH,ApplyCondition_ZH,EngineBehavior_ZH,ResultSideEffect_ZH,ValidationLink_ZH,SourceFile
+1,SP-WATER-TOF,Trace引擎,Water Takeoff 续追,"起始 POC UtilityGroupName 含 water(忽略大小写)","追加 Takeoff Step(Damper[Tag]) 后将 continuation Outlet 入 BFS 队列。再访 Takeoff 回流消亡(不记 ING)。无 continuation→ING。保留兄弟队列。","抑制普通 TOF 结束。下游 NOZ/CAP/EQP 等 STATUS","若仍为 TOF，连接信息不符 Feedback 可能含 UtilityGroup Takeoff",TraceAlgorithm.WaterTakeoff.cs
+2,SP-MAINLINE-TOF,Trace引擎(VOC-1),MainLine Takeoff 续追,"Owner Sub1 含 MAIN 且 UtilityName 含 vent/vac/fore line/fore-line/foreline","与 Water 相同 continuation+BFS。差异: TOF 时 queue.Clear() 丢弃兄弟分支；PreferMainLineEqpResult 有 EQP 则按 Length→Hop 只留最短 1 条。","修复连续 Takeoff 误判 ING。单一最短 EQP 前提","MainLineTraceHelper: EQP+MAIN+vent/vac/fore*+Steps含Takeoff → 连接信息不符 S.Tag≠T.Tag",TraceAlgorithm.MainLineTakeoff.cs; MainLineTraceHelper.cs
+3,SP-TOF-DEFAULT,Trace引擎,普通 Takeoff 结束,非 MainLine/Water,"在 Takeoff 以 STATUS=TOF 结束。AreRelated 判定 Match/Mismatch",STATUS=TOF,连接信息不符 S.Tag vs T.Tag,TraceAlgorithm.cs
+4,SP-CONT-RESOLVE,共用解析,continuation Outlet 解析,Water·MainLine 共用,"(1) 有效 Takeoff.PipeId→下一 Outlet (2) 父 Pipe 其他 Outlet→Takeoff/Pipe/POC",失败→ING,—,TryResolveTakeoffContinuationPoint (WaterTakeoff.cs)
+5,SP-TAG-MATCH,Tag比较,Scrubber·Damper Tag 匹配,搜索/检核/TOF Match,"精确/包含/Damper[a,b]去括号/逗号分号令牌交集/遗留substring",减少误报,设备信息·连接信息·TOF Match,EquipmentTagMatcher.cs
+6,SP-GCS-EQP-SKIP,检核例外,GCS 跳过设备信息不符,设备信息不符,"Start或Target Sub1含GCS则跳过Tag不符",防GCS Stick误报,EquipmentInfoMismatchRule,EquipmentInfoMismatchRule.cs
+7,SP-INOUT-SKIP,检核例外,IN/OUT 跳过连接不符,连接信息不符 EQP,"Information为IN/OUT则跳过EQP连接不符",—,ConnectionInfoMismatchRule,ConnectionInfoMismatchRule.cs
+8,SP-UT-VOC,检核VOC,UT不符 VOC例外,UT不符 NOZ/TOF/EQP,"NOZ例外组合; TOF Diff Pump/IMP-GN2; EQP FORE-LINE/By Pass; VENT/FORE/VAC同义; UtMapping.csv",例外名称则整规则跳过,UtilityMismatchRule,UtilityMismatchRule.cs
+9,SP-POCUT,检核,POCUT不符分层O2,STATUS=NOZ,"PZ<5400:GO2→O2; PZ>=5400:PO2→O2",分层O2,PocUtMismatchRule,PocUtMismatchRule.cs
+10,SP-FIXRESOLVE,检核,Fix Resolve,STATUS=EQP,"Division非Equipment或单分支且S.GUID=T.GUID",自回归/非设备,FixResolveRule,FixResolveRule.cs
+11,SP-HOOKUP,Hookup,Hookup验证,Main/Sub+Exhaust/Vac,"Expected Hookup vs DynProps",MISSING/MISMATCH等,HookupValidationService,HookupValidationService

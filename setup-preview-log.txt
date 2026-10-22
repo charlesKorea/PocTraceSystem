@@ -1,0 +1,3 @@
+﻿Preview ready: C:\OfflineDev\html-preview
+Open: file:///C:/OfflineDev/html-preview/report_x1.html  (Ctrl+F5)
+SoT: C:\JCS\1. Codes\260718\PocTraceSystem\PocTrace.Core\Templates\assets

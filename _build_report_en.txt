@@ -1,0 +1,10 @@
+﻿
+=== Core EXIT=1 ===
+ERROR_COUNT=0
+
+=== Admin EXIT=1 ===
+ERROR_COUNT=0
+
+=== Viewer EXIT=1 ===
+ERROR_COUNT=0
+

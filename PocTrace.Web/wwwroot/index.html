@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PocTrace</title>
+  <style>
+    :root {
+      --primary: #4361ee;
+      --info: #4895ef;
+      --success: #2a9d8f;
+      --danger: #e63946;
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --text: #2b2d42;
+      --muted: #8d99ae;
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      --font-ko: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+      --font-zh: "MiSans", "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ko);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    body.lang-zh { font-family: var(--font-zh); }
+    body.lang-zh .brand, body.lang-zh th, body.lang-zh .kpi-value { font-weight: 700; }
+
+    .navbar {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: #fff;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    }
+    .brand { font-weight: 800; font-size: 22px; letter-spacing: -0.3px; }
+    .brand span { font-weight: 500; opacity: 0.85; font-size: 14px; margin-left: 10px; }
+    .lang {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      padding: 3px;
+    }
+    .lang button {
+      border: 0;
+      background: transparent;
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .lang button.active { background: #fff; color: #1e3c72; font-weight: 700; }
+
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 40px; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+    .kpi {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+      border-left: 5px solid var(--info);
+    }
+    .kpi.pass { border-left-color: var(--primary); }
+    .kpi.good { border-left-color: var(--success); }
+    .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+    .kpi-value { font-size: 28px; font-weight: 800; line-height: 1.15; margin-top: 4px; }
+    .kpi-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+      margin-bottom: 14px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    label { display: block; font-weight: 700; margin: 4px 0 6px; }
+    input, select, textarea {
+      width: 100%;
+      font: inherit;
+      color: var(--text);
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #fff;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid rgba(67, 97, 238, 0.25); border-color: var(--primary); }
+    .actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    button.primary, a.primary {
+      background: var(--primary);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    a.primary[hidden] { display: none; }
+
+    .status {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .status p { margin: 0; white-space: pre-wrap; }
+    .bar { height: 6px; background: #e7ebf3; border-radius: 99px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4361ee, #2a9d8f); transition: width 0.3s ease; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 8px; text-align: left; border-bottom: 1px solid #eef1f6; font-size: 13px; }
+    th { color: #5c6b8a; font-size: 12px; letter-spacing: 0.03em; background: #f7f8fc; }
+    tr:hover td { background: #fbfcff; }
+    .pill { display: inline-block; min-width: 52px; text-align: center; border-radius: 999px; padding: 2px 8px; font-weight: 800; font-size: 12px; }
+    .pill.ok { background: #e6fffa; color: #1b7f72; }
+    .pill.fail { background: #fff0f0; color: #c42332; }
+    .empty { color: var(--muted); text-align: center; padding: 28px 8px; }
+    .note { color: rgba(255,255,255,0.78); font-size: 12px; margin-top: 2px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tabs button {
+      border: 1px solid #d5dbe8;
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tabs button.active { background: #1e3c72; color: #fff; border-color: #1e3c72; }
+    .tabs button[hidden] { display: none; }
+    .panel[hidden] { display: none; }
+    .kpis[hidden] { display: none !important; }
+    button.ghost {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid #d5dbe8;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.ghost[hidden] { display: none; }
+    .table-wrap { max-height: 420px; overflow: auto; margin-top: 10px; border: 1px solid #eef1f6; border-radius: 8px; }
+    .table-wrap th { position: sticky; top: 0; z-index: 1; }
+    tr.bad td { background: #fff3cd; color: #784000; }
+    tr.bad:hover td { background: #ffe8a3; }
+    .tag-ok { color: #1b7f72; font-weight: 800; }
+    .tag-miss { color: #c42332; font-weight: 800; }
+    .tag-pending { color: var(--muted); }
+    .sheet-kpis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .sheet-kpis div { background: #f7f8fc; border-radius: 8px; padding: 8px 10px; min-width: 108px; }
+    .sheet-kpis b { display: block; font-size: 18px; }
+    input[type=file] { padding: 6px 0; border: 0; }
+    .hint { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+    .status-row { display: flex; align-items: flex-start; gap: 10px; }
+    .status-icon {
+      width: 22px; height: 22px; border-radius: 50%; flex: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 13px; background: #e7ebf3; color: #5c6b8a; margin-top: 1px;
+    }
+    .status.running .status-icon { background: #e8eeff; color: #4361ee; }
+    .status.done .status-icon { background: #e6fffa; color: #1b7f72; }
+    .status.error .status-icon { background: #fff0f0; color: #c42332; }
+    .status.cancelled .status-icon { background: #fff6e5; color: #9a6700; }
+    .bar.done > i { background: var(--success); }
+    .bar.error > i { background: var(--danger); }
+    .bar.cancelled > i { background: #e9c46a; }
+    tr.clickable { cursor: pointer; }
+    tr.issue td { background: #f7f8fc; color: #3d4a66; white-space: pre-wrap; }
+    .recent { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .recent button { padding: 6px 10px; font-size: 12px; }
+    #lineBar[hidden], #traceTable[hidden], #nozzleTable[hidden] { display: none; }
+    .choices { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 10px; }
+    .choices label { font-weight: 600; margin: 0; }
+    .choices input { width: auto; }
+    #preview { margin: 0; padding-left: 18px; }
+    #preview:empty { display: none; }
+
+    @media (max-width: 860px) {
+      .kpis, .grid-2 { grid-template-columns: 1fr; }
+      .navbar { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div>
+      <div class="brand">M-Link <span data-i18n="brandSub">Pipe Trace</span></div>
+      <div class="note" data-i18n="note">이 화면은 현재 PC에서만 열립니다. Viewer exe는 그대로 사용할 수 있습니다.</div>
+      <div class="note" id="licenseLine" data-i18n="licenseLoading">라이선스를 확인하는 중...</div>
+    </div>
+    <div class="lang" role="group" aria-label="language">
+      <button type="button" data-lang="ko">한국어</button>
+      <button type="button" data-lang="zh">中文</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <nav class="tabs" role="tablist" id="tablist">
+      <button type="button" class="active" id="tab-trace" role="tab" aria-selected="true" aria-controls="panel-trace" tabindex="0" data-tab="trace" data-i18n="tabTrace">배관 Trace</button>
+      <button type="button" id="tab-demolition" role="tab" aria-selected="false" aria-controls="panel-demolition" tabindex="-1" data-tab="demolition" data-i18n="tabDemo">철거검수</button>
+      <button type="button" id="tab-nozzle" role="tab" aria-selected="false" aria-controls="panel-nozzle" tabindex="-1" data-tab="nozzle" data-i18n="tabNozzle">노즐추적</button>
+    </nav>
+
+    <section class="kpis" id="traceKpis">
+      <article class="kpi">
+        <div class="kpi-label" data-i18n="kpiCache">사용 가능 캐시</div>
+        <div class="kpi-value" id="kpiCache">-</div>
+        <div class="kpi-sub" id="kpiCacheSub"></div>
+      </article>
+      <article class="kpi pass">
+        <div class="kpi-label" data-i18n="kpiLoaded">메모리 라인</div>
+        <div class="kpi-value" id="kpiLoaded">-</div>
+        <div class="kpi-sub" data-i18n="kpiLoadedSub">Trace 전에 선택한 라인을 올립니다.</div>
+      </article>
+      <article class="kpi good">
+        <div class="kpi-label" data-i18n="kpiRows">설비 요약</div>
+        <div class="kpi-value" id="kpiRows">0</div>
+        <div class="kpi-sub" id="kpiRowsSub" data-i18n="kpiRowsSub">이번 작업 결과</div>
+      </article>
+    </section>
+
+    <section class="card status">
+      <div class="status-row">
+        <span id="statusIcon" class="status-icon" aria-hidden="true">·</span>
+        <p id="status" aria-live="polite" data-i18n="statusLoading">캐시 상태를 읽는 중...</p>
+      </div>
+      <div class="bar" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="status"><i id="bar"></i></div>
+      <div class="actions">
+        <button id="jobCancel" class="ghost" type="button" data-i18n="demoCancel" hidden>취소</button>
+      </div>
+      <div id="recentJobs" class="recent"></div>
+    </section>
+
+    <section class="card" id="lineBar">
+      <label for="db" data-i18n="line">라인</label>
+      <select id="db"></select>
+      <p class="hint" id="lineHint"></p>
+    </section>
+
+    <section class="grid-2 panel" id="panel-trace" role="tabpanel" aria-labelledby="tab-trace" data-panel="trace">
+      <article class="card">
+        <label for="tag" data-i18n="tag">태그 하나</label>
+        <input id="tag" list="recentTags" data-i18n-placeholder="tagPh" placeholder="설비 태그" />
+        <datalist id="recentTags"></datalist>
+        <div class="actions">
+          <button id="traceBtn" class="primary" type="button" data-i18n="trace">Trace</button>
+        </div>
+      </article>
+      <article class="card">
+        <label for="batch" data-i18n="batch">태그 여러 개</label>
+        <p class="hint" id="batchLimit"></p>
+        <textarea id="batch" data-i18n-placeholder="batchPh" placeholder="줄바꿈, 쉼표, 공백으로 구분"></textarea>
+        <div class="actions">
+          <button id="batchBtn" class="primary" type="button" data-i18n="batchBtn">배치 Trace</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="card panel" id="panel-demolition" role="tabpanel" aria-labelledby="tab-demolition" data-panel="demolition" hidden>
+      <p class="hint" data-i18n="demoHint">Excel(Site, 공정, 건설코드, EQPID)을 올리거나 아래에 붙여 넣습니다. 검증 후 노란 행은 빼고 검수합니다. 공정과 건설코드는 생략할 수 있습니다.</p>
+      <p class="hint" id="demoLimit"></p>
+      <div class="grid-2">
+        <div>
+          <label for="demoFile" data-i18n="demoFile">Excel 파일</label>
+          <input id="demoFile" type="file" accept=".xlsx,.xlsm" />
+          <div class="actions">
+            <button id="demoClearFile" class="ghost" type="button" data-i18n="demoClear">파일 해제</button>
+          </div>
+        </div>
+        <div>
+          <label for="demoText" data-i18n="demoLabel">직접 입력</label>
+          <textarea id="demoText" data-i18n-placeholder="demoPh" placeholder="X1,공정,건설코드,EQP-001"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="demoCheck" class="primary" type="button" data-i18n="demoCheck">검증</button>
+        <button id="demoBtn" class="primary" type="button" data-i18n="demoBtn" disabled>검수 실행</button>
+      </div>
+      <p class="hint" id="demoCounts"></p>
+      <label for="demoFilter" data-i18n="demoFilter">EQPID 검색</label>
+      <input id="demoFilter" data-i18n-placeholder="demoFilterPh" placeholder="EQPID" />
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="hRow">행</th>
+              <th data-i18n="hSite">Site</th>
+              <th data-i18n="hLine">라인</th>
+              <th data-i18n="hProcess">공정</th>
+              <th data-i18n="hCode">건설코드</th>
+              <th data-i18n="hEqpId">EQPID</th>
+              <th data-i18n="hLoad">로드</th>
+              <th data-i18n="hTrace">추적</th>
+              <th data-i18n="hReason">사유</th>
+            </tr>
+          </thead>
+          <tbody id="demoBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="demoResult" hidden>
+      <div class="sheet-kpis" id="demoSheets"></div>
+      <p class="hint" id="demoResultLine"></p>
+      <div class="actions">
+        <a id="demoExcel" class="primary" href="#" hidden data-i18n="excel">Excel 받기</a>
+        <a id="demoHtml" class="primary" href="#" hidden data-i18n="html">HTML 요약</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="demoSumHead"></thead>
+          <tbody id="demoSumBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card panel" id="panel-nozzle" role="tabpanel" aria-labelledby="tab-nozzle" data-panel="nozzle" hidden>
+      <p class="hint" id="nozzleLimit"></p>
+      <div class="choices">
+        <label><input type="radio" name="keyKind" value="bim" checked /> BIM ID</label>
+        <label><input type="radio" name="keyKind" value="instance" /> Instance</label>
+        <label><input type="radio" name="keyKind" value="guid" /> GUID</label>
+      </div>
+      <label for="nozzleText" data-i18n="nozzleLabel">키 목록</label>
+      <textarea id="nozzleText" data-i18n-placeholder="nozzlePh" placeholder="한 줄에 키 하나"></textarea>
+      <div class="actions">
+        <button id="nozzleBtn" class="primary" type="button" data-i18n="nozzleBtn">노즐추적 실행</button>
+      </div>
+    </section>
+
+    <section class="card" id="resultCard">
+      <p class="hint" id="resultHint"></p>
+      <div class="actions">
+        <a id="excel" class="primary" href="#" hidden data-i18n="excel">Excel 받기</a>
+      </div>
+      <table id="traceTable">
+        <thead>
+          <tr>
+            <th data-i18n="hEq">설비</th>
+            <th data-i18n="hRes">결과</th>
+            <th>ERR</th>
+            <th>POC</th>
+            <th data-i18n="hBranch">분기</th>
+            <th>NOZ</th><th>TOF</th><th>EQP</th><th>CAP</th><th>EMP</th><th>ING</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <table id="nozzleTable" hidden>
+        <thead>
+          <tr>
+            <th data-i18n="hKeyKind">키 종류</th>
+            <th data-i18n="hKey">키</th>
+            <th data-i18n="hNozStatus">추적 상태</th>
+            <th data-i18n="hPaths">경로</th>
+          </tr>
+        </thead>
+        <tbody id="nozzleRows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    var I18N = {
+      ko: {
+        brandSub: "Pipe Trace",
+        note: "이 화면은 현재 PC에서만 열립니다. Viewer exe는 그대로 사용할 수 있습니다.",
+        licenseLoading: "라이선스를 확인하는 중...",
+        licenseFail: "라이선스가 없습니다.",
+        licenseOk: "{user} · {group} · {extra}",
+        licenseExtraYes: "철거/노즐 사용 가능",
+        licenseExtraNo: "배관 Trace만 사용 가능",
+        licenseLeft: "만료 {date} · {days}일 남음",
+        licensePast: "만료 {date} · {days}일 지남",
+        licenseDeniedExtra: "철거검수와 노즐추적은 2차 권한에서 사용할 수 없습니다.",
+        kpiCache: "사용 가능 캐시",
+        kpiLoaded: "메모리 라인",
+        kpiLoadedSub: "Trace 전에 선택한 라인을 올립니다.",
+        kpiRows: "설비 요약",
+        kpiRowsSub: "이번 작업 결과",
+        statusLoading: "캐시 상태를 읽는 중...",
+        line: "라인",
+        tag: "태그 하나",
+        tagPh: "설비 태그",
+        trace: "Trace",
+        batch: "태그 여러 개",
+        batchPh: "줄바꿈, 쉼표, 공백으로 구분",
+        batchBtn: "배치 Trace",
+        excel: "Excel 받기",
+        hEq: "설비",
+        hRes: "검수결과",
+        hBranch: "분기",
+        empty: "아직 결과가 없습니다.",
+        unavailable: "사용 불가",
+        none: "없음",
+        linesUnit: "라인",
+        requestSent: "요청을 보냈습니다. 캐시를 올리는 동안 시간이 걸릴 수 있습니다.",
+        statusFail: "상태 조회 실패",
+        requestFail: "요청 실패",
+        loadedPrefix: "메모리에 올라간 라인: ",
+        tabTrace: "배관 Trace",
+        tabDemo: "철거검수",
+        tabNozzle: "노즐추적",
+        demoHint: "Excel(Site, 공정, 건설코드, EQPID)을 올리거나 아래에 붙여 넣습니다. 검증 후 노란 행은 빼고 검수합니다. 공정과 건설코드는 생략할 수 있습니다.",
+        demoLabel: "직접 입력",
+        demoPh: "X1,공정,건설코드,EQP-001",
+        demoFile: "Excel 파일",
+        demoClear: "파일 해제",
+        demoCheck: "검증",
+        demoBtn: "검수 실행",
+        demoCancel: "취소",
+        demoFilter: "EQPID 검색",
+        demoFilterPh: "EQPID",
+        demoStale: "내용이 바뀌었습니다. 다시 검증하세요.",
+        demoCounts: "전체 {total}행 · 유효 {valid} · 오류 {invalid} · Trace EQPID {distinctEqp}",
+        demoConfirm: "유효 {valid}행을 검수합니다. 오류 {invalid}행은 제외합니다.\n라인별 EQPID: {lines}\n캐시: {cache}\n\n계속할까요?",
+        hRow: "행",
+        hSite: "Site",
+        hLine: "라인",
+        hProcess: "공정",
+        hCode: "건설코드",
+        hEqpId: "EQPID",
+        hLoad: "로드",
+        hTrace: "추적",
+        html: "HTML 요약",
+        demoEmpty: "검증하면 행이 여기에 표시됩니다.",
+        etaUnit: "초",
+        cacheMissing: "캐시 없음",
+        cacheOld: "48시간 초과",
+        nozzleLabel: "키 목록",
+        nozzlePh: "한 줄에 키 하나",
+        nozzleBtn: "노즐추적 실행",
+        needTag: "태그를 입력하세요.",
+        needBatch: "배치 태그를 입력하세요.",
+        needNozzle: "노즐 키를 입력하세요.",
+        overBatch: "배치는 한 번에 {max}개까지입니다. 지금은 {n}개입니다.",
+        overNozzle: "한 번에 {max}개까지입니다. 지금은 {n}개입니다.",
+        overDemo: "한 번에 {max}행까지입니다. 지금은 {n}행입니다.",
+        batchLimit: "한 번에 {n}개까지. 줄바꿈, 쉼표, 공백으로 구분합니다.",
+        nozzleLimit: "한 번에 {n}개까지.",
+        demoLimit: "한 번에 {n}행까지. 종합 표는 {summary}행까지 화면에 나옵니다.",
+        lineLoadSlow: "이 라인은 아직 메모리에 없습니다. 첫 실행은 캐시를 올리느라 수십 초 걸릴 수 있습니다.",
+        lineReady: "이 라인은 메모리에 있습니다.",
+        hKeyKind: "키 종류",
+        hKey: "키",
+        hNozStatus: "추적 상태",
+        hPaths: "경로",
+        hReason: "사유",
+        clickRow: "행을 누르면 실패 사유가 펼쳐집니다. 전체 내역은 Excel에 있습니다.",
+        noIssues: "이 설비의 실패 사유가 화면에 없습니다. Excel을 확인하세요.",
+        issuesTruncated: "실패 사유는 화면에서 {n}건까지입니다. 나머지는 Excel에 있습니다.",
+        recentJobs: "최근 작업",
+        jobGone: "작업을 찾을 수 없습니다. 서버를 다시 시작했거나 12시간이 지났을 수 있습니다."
+      },
+      zh: {
+        brandSub: "管道追踪",
+        note: "此页面只在当前电脑打开。Viewer 程序仍可继续使用。",
+        licenseLoading: "正在确认许可证...",
+        licenseFail: "没有许可证。",
+        licenseOk: "{user} · {group} · {extra}",
+        licenseExtraYes: "可使用拆除/喷嘴",
+        licenseExtraNo: "仅可使用管道追踪",
+        licenseLeft: "到期 {date} · 剩余 {days} 天",
+        licensePast: "到期 {date} · 已过 {days} 天",
+        licenseDeniedExtra: "拆除检验和喷嘴追踪不能在二次权限下使用。",
+        kpiCache: "可用缓存",
+        kpiLoaded: "已载入线路",
+        kpiLoadedSub: "追踪前会载入所选线路。",
+        kpiRows: "设备摘要",
+        kpiRowsSub: "本次作业结果",
+        statusLoading: "正在读取缓存状态...",
+        line: "线路",
+        tag: "单个标签",
+        tagPh: "设备标签",
+        trace: "追踪",
+        batch: "多个标签",
+        batchPh: "可用换行、逗号或空格分隔",
+        batchBtn: "批量追踪",
+        excel: "下载 Excel",
+        hEq: "设备",
+        hRes: "检验结果",
+        hBranch: "分支",
+        empty: "尚无结果。",
+        unavailable: "不可用",
+        none: "无",
+        linesUnit: "条线路",
+        requestSent: "请求已发送。载入缓存可能需要一些时间。",
+        statusFail: "状态查询失败",
+        requestFail: "请求失败",
+        loadedPrefix: "已载入内存的线路: ",
+        tabTrace: "管道追踪",
+        tabDemo: "拆除检验",
+        tabNozzle: "喷嘴追踪",
+        demoHint: "可上传 Excel（Site、工序、建设代码、EQPID），或在下方粘贴。验证后黄色行会被排除。工序和建设代码可省略。",
+        demoLabel: "直接输入",
+        demoPh: "X1,工序,建设代码,EQP-001",
+        demoFile: "Excel 文件",
+        demoClear: "清除文件",
+        demoCheck: "验证",
+        demoBtn: "执行检查",
+        demoCancel: "取消",
+        demoFilter: "搜索 EQPID",
+        demoFilterPh: "EQPID",
+        demoStale: "内容已更改，请重新验证。",
+        demoCounts: "全部 {total} 行 · 有效 {valid} · 错误 {invalid} · Trace EQPID {distinctEqp}",
+        demoConfirm: "将检查 {valid} 行。错误 {invalid} 行会排除。\n各线路 EQPID: {lines}\n缓存: {cache}\n\n是否继续？",
+        hRow: "行",
+        hSite: "Site",
+        hLine: "线路",
+        hProcess: "工序",
+        hCode: "建设代码",
+        hEqpId: "EQPID",
+        hLoad: "载入",
+        hTrace: "追踪状态",
+        html: "HTML 摘要",
+        demoEmpty: "验证后在此显示行。",
+        etaUnit: "秒",
+        cacheMissing: "无缓存",
+        cacheOld: "超过48小时",
+        nozzleLabel: "键列表",
+        nozzlePh: "每行一个键",
+        nozzleBtn: "执行喷嘴追踪",
+        needTag: "请输入标签。",
+        needBatch: "请输入批量标签。",
+        needNozzle: "请输入喷嘴键。",
+        overBatch: "批量一次最多 {max} 个。当前 {n} 个。",
+        overNozzle: "一次最多 {max} 个。当前 {n} 个。",
+        overDemo: "一次最多 {max} 行。当前 {n} 行。",
+        batchLimit: "一次最多 {n} 个。可用换行、逗号或空格分隔。",
+        nozzleLimit: "一次最多 {n} 个。",
+        demoLimit: "一次最多 {n} 行。综合表在画面上最多显示 {summary} 行。",
+        lineLoadSlow: "此线路尚未载入内存。首次执行可能需要几十秒来加载缓存。",
+        lineReady: "此线路已在内存中。",
+        hKeyKind: "键类型",
+        hKey: "键",
+        hNozStatus: "追踪状态",
+        hPaths: "路径",
+        hReason: "原因",
+        clickRow: "点击行可展开失败原因。完整内容在 Excel 中。",
+        noIssues: "画面上没有该设备的失败原因。请查看 Excel。",
+        issuesTruncated: "画面上最多显示 {n} 条失败原因。其余在 Excel 中。",
+        recentJobs: "最近作业",
+        jobGone: "找不到作业。可能已重启服务器，或已超过 12 小时。"
+      }
+    };
+
+    var jobId = null;
+    var jobKind = null;
+    var timer = null;
+    var lastLines = null;
+    var lastLicense = null;
+    var lastJob = null;
+    var lastJobList = [];
+    var demoDraft = null;
+    var demoRows = [];
+    var demoSeq = 0;
+    var demoTimer = null;
+    var activeTab = "trace";
+    var busy = false;
+    var JOB_KEY = "poc_last_job";
+    var JOBS_KEY = "poc_recent_jobs";
+    var TAGS_KEY = "poc_recent_tags";
+    var DB_KEY = "poc_db";
+
+    function $(id) { return document.getElementById(id); }
+    function lang() {
+      var saved = localStorage.getItem("poc_lang");
+      return saved === "zh" ? "zh" : "ko";
+    }
+    function t(key) {
+      var pack = I18N[lang()] || I18N.ko;
+      return pack[key] || I18N.ko[key] || key;
+    }
+    function applyLanguage() {
+      var code = lang();
+      document.body.className = code === "zh" ? "lang-zh" : "lang-ko";
+      document.documentElement.lang = code === "zh" ? "zh-CN" : "ko";
+      var nodes = document.querySelectorAll("[data-i18n]");
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].id === "status") continue;
+        nodes[i].textContent = t(nodes[i].getAttribute("data-i18n"));
+      }
+      var ph = document.querySelectorAll("[data-i18n-placeholder]");
+      for (var j = 0; j < ph.length; j++) ph[j].placeholder = t(ph[j].getAttribute("data-i18n-placeholder"));
+      var buttons = document.querySelectorAll(".lang button");
+      for (var k = 0; k < buttons.length; k++) {
+        buttons[k].className = buttons[k].getAttribute("data-lang") === code ? "active" : "";
+      }
+      if (lastLines) paintLines(lastLines);
+      paintLicense(lastLicense);
+      hintLine();
+      paintLimits();
+      paintRecent(lastJobList);
+      paintRecentTags();
+      if (lastJob) render(lastJob);
+    }
+
+    function setBusy(on) {
+      busy = !!on;
+      $("traceBtn").disabled = busy;
+      $("batchBtn").disabled = busy;
+      $("nozzleBtn").disabled = busy;
+      $("demoCheck").disabled = busy;
+      $("demoClearFile").disabled = busy;
+      $("demoFile").disabled = busy;
+      $("demoText").disabled = busy;
+      $("db").disabled = busy;
+      $("demoBtn").disabled = busy || !(demoDraft && demoDraft.valid > 0);
+      $("jobCancel").hidden = !busy;
+    }
+    function fill(template, map) {
+      return String(template || "").replace(/\{(\w+)\}/g, function (_, key) {
+        return map[key] == null ? "" : map[key];
+      });
+    }
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    function num(value) { return value == null ? "" : value; }
+
+    function limits() {
+      return (lastLines && lastLines.limits) || {};
+    }
+    function lineLabel(line) {
+      if (!line.found) return line.db + "  (" + t("cacheMissing") + ")";
+      if (!line.allowed) return line.db + "  (" + t("cacheOld") + " " + (line.ageHours == null ? "" : line.ageHours + "h") + ")";
+      return line.db + "  (" + (line.savedAt || "") + ")";
+    }
+    function selectedLine() {
+      var db = $("db").value;
+      var found = null;
+      ((lastLines && lastLines.lines) || []).forEach(function (line) {
+        if (line.db === db) found = line;
+      });
+      return found;
+    }
+    function hintLine() {
+      var hint = $("lineHint");
+      if (!hint) return;
+      var line = selectedLine();
+      if (!line) { hint.textContent = ""; return; }
+      if (!line.found) hint.textContent = line.db + " " + t("cacheMissing");
+      else if (!line.allowed) hint.textContent = line.db + " " + t("cacheOld") + " (" + line.ageHours + "h)";
+      else if (!lastLines || lastLines.loadedDb !== line.db) hint.textContent = t("lineLoadSlow");
+      else hint.textContent = t("lineReady");
+    }
+    function paintLimits() {
+      var lim = limits();
+      var batch = lim.maxBatchTags || 300;
+      var nozzle = lim.maxNozzleKeys || batch;
+      var demo = lim.maxDemolitionRows || 2000;
+      var summary = lim.maxSummaryRows || 500;
+      if ($("batchLimit")) $("batchLimit").textContent = fill(t("batchLimit"), { n: batch });
+      if ($("nozzleLimit")) $("nozzleLimit").textContent = fill(t("nozzleLimit"), { n: nozzle });
+      if ($("demoLimit")) $("demoLimit").textContent = fill(t("demoLimit"), { n: demo, summary: summary });
+    }
+    function paintLines(data) {
+      lastLines = data;
+      var select = $("db");
+      var previous = select.value || localStorage.getItem(DB_KEY) || "";
+      select.innerHTML = "";
+      var allowed = 0;
+      (data.lines || []).forEach(function (line) {
+        if (line.allowed) allowed++;
+        var opt = document.createElement("option");
+        opt.value = line.db;
+        opt.textContent = lineLabel(line);
+        opt.disabled = !line.allowed;
+        select.appendChild(opt);
+      });
+      if (previous) select.value = previous;
+      $("kpiCache").textContent = allowed;
+      $("kpiCacheSub").textContent = (data.lines || []).length + " " + t("linesUnit");
+      $("kpiLoaded").textContent = data.loadedDb || t("none");
+      paintLimits();
+      hintLine();
+      if (!busy && !lastJob) {
+        var text = (data.details || []).join("\n");
+        if (data.loadedDb) text += "\n" + t("loadedPrefix") + data.loadedDb;
+        $("status").textContent = text || data.message || "";
+        setStatusState("", 0);
+      }
+    }
+
+    async function loadLines() {
+      var res = await fetch("/api/lines");
+      var data = await res.json();
+      if (!res.ok) {
+        $("status").textContent = data.error || t("statusFail");
+        setStatusState("error", 0);
+        return;
+      }
+      paintLines(data);
+    }
+
+    function paintLicense(data) {
+      lastLicense = data || lastLicense;
+      var lic = lastLicense || { ok: false };
+      var demoTab = document.querySelector('.tabs button[data-tab="demolition"]');
+      var nozzleTab = document.querySelector('.tabs button[data-tab="nozzle"]');
+      if (demoTab) demoTab.hidden = !lic.canDemo;
+      if (nozzleTab) nozzleTab.hidden = !lic.canNozzle;
+      if (!lic.canDemo && activeTab === "demolition") switchTab("trace");
+      if (!lic.canNozzle && activeTab === "nozzle") switchTab("trace");
+      var line = $("licenseLine");
+      if (!line) return;
+      if (!lic.ok) {
+        line.textContent = lic.error || t("licenseFail");
+        return;
+      }
+      var text = fill(t("licenseOk"), {
+        user: lic.userName || "-",
+        group: lic.group || "-",
+        extra: lic.canDemo ? t("licenseExtraYes") : t("licenseExtraNo")
+      });
+      if (lic.expireDate) {
+        var end = new Date(lic.expireDate + "T00:00:00");
+        if (!isNaN(end.getTime())) {
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          var days = Math.round((end.getTime() - today.getTime()) / 86400000);
+          text += " · " + fill(days >= 0 ? t("licenseLeft") : t("licensePast"), {
+            date: lic.expireDate,
+            days: days >= 0 ? days : Math.abs(days)
+          });
+        }
+      }
+      line.textContent = text;
+    }
+
+    async function loadLicense() {
+      var res = await fetch("/api/license");
+      var data = await res.json();
+      paintLicense(data);
+      return data;
+    }
+
+    function canUseExtra(kind) {
+      if (!lastLicense || !lastLicense.ok) return false;
+      if (kind === "demolition") return !!lastLicense.canDemo;
+      if (kind === "nozzle") return !!lastLicense.canNozzle;
+      return true;
+    }
+
+    function traceClass(status) {
+      var text = status || "";
+      if (text === "Traced") return "tag-ok";
+      if (text.indexOf("Missing") === 0 || text.indexOf("Error") === 0 || text === "NoResult" || text === "CacheFail") return "tag-miss";
+      return "tag-pending";
+    }
+    function paintDemoRows(rows) {
+      demoRows = rows || [];
+      var query = ($("demoFilter").value || "").trim().toLowerCase();
+      var body = $("demoBody");
+      body.innerHTML = "";
+      var shown = 0;
+      demoRows.forEach(function (row) {
+        var eqp = String(row.eqp || "");
+        if (query && eqp.toLowerCase().indexOf(query) < 0 && String(row.site || "").toLowerCase().indexOf(query) < 0) return;
+        shown++;
+        var tr = document.createElement("tr");
+        if (!row.valid) tr.className = "bad";
+        tr.innerHTML =
+          "<td>" + esc(row.row) + "</td>" +
+          "<td>" + esc(row.site) + "</td>" +
+          "<td>" + esc(row.line) + "</td>" +
+          "<td>" + esc(row.process) + "</td>" +
+          "<td>" + esc(row.code) + "</td>" +
+          "<td>" + esc(row.eqp) + "</td>" +
+          "<td>" + esc(row.load) + "</td>" +
+          "<td class='" + traceClass(row.trace) + "'>" + esc(row.trace) + "</td>" +
+          "<td>" + esc(row.reason || "") + "</td>";
+        body.appendChild(tr);
+      });
+      if (!shown) {
+        var empty = document.createElement("tr");
+        empty.innerHTML = "<td class='empty' colspan='9'>" + esc(t("demoEmpty")) + "</td>";
+        body.appendChild(empty);
+      }
+    }
+    function cacheText(caches) {
+      if (!caches || !caches.length) return "-";
+      return caches.map(function (item) {
+        if (!item.found) return item.db + " " + t("cacheMissing");
+        return item.db + " " + (item.savedAt || "") + " (" + item.ageHours + "h)" + (item.allowed ? "" : " " + t("cacheOld"));
+      }).join(", ");
+    }
+    function syncDemoResult() {
+      $("demoResult").hidden = !(activeTab === "demolition" && $("demoSheets").childNodes.length);
+    }
+    function paintDemoResult(job) {
+      var box = $("demoSheets");
+      box.innerHTML = "";
+      var names = job.sheetNames || [];
+      var totals = job.sheetTotals || [];
+      for (var i = 0; i < names.length; i++) {
+        var card = document.createElement("div");
+        card.innerHTML = esc(names[i]) + "<b>" + esc(totals[i] == null ? 0 : totals[i]) + "</b>";
+        box.appendChild(card);
+      }
+      var line = "";
+      if (job.resultCount) {
+        line = "EQPID " + job.resultCount +
+          " · Traced " + (job.eqpTraced || 0) +
+          " · Missing " + (job.eqpMissing || 0) +
+          " · NoResult " + (job.eqpNoResult || 0) +
+          " · Error " + (job.eqpErrorCount || 0);
+        if (job.elapsedSeconds) line += " · " + job.elapsedSeconds + "s";
+      }
+      $("demoResultLine").textContent = line;
+      var head = $("demoSumHead");
+      var body = $("demoSumBody");
+      head.innerHTML = "";
+      body.innerHTML = "";
+      var table = job.summaryTable || [];
+      if (table.length) {
+        var hr = document.createElement("tr");
+        (table[0] || []).forEach(function (cell) {
+          var th = document.createElement("th");
+          th.textContent = cell;
+          hr.appendChild(th);
+        });
+        head.appendChild(hr);
+        for (var r = 1; r < table.length; r++) {
+          var tr = document.createElement("tr");
+          (table[r] || []).forEach(function (cell, index) {
+            var td = document.createElement("td");
+            td.textContent = cell;
+            if (index > 0) td.style.textAlign = "right";
+            tr.appendChild(td);
+          });
+          body.appendChild(tr);
+        }
+      }
+      var excel = $("demoExcel");
+      var html = $("demoHtml");
+      excel.hidden = !job.excelReady;
+      html.hidden = !job.htmlReady;
+      if (job.excelReady) excel.href = "/api/jobs/" + job.id + "/excel";
+      if (job.htmlReady) html.href = "/api/jobs/" + job.id + "/html";
+      syncDemoResult();
+    }
+    function setStatusState(state, percent) {
+      var box = document.querySelector("section.status");
+      if (box) {
+        box.classList.remove("running", "done", "error", "cancelled");
+        if (state) box.classList.add(state);
+      }
+      var icon = $("statusIcon");
+      if (state === "done") icon.textContent = "✓";
+      else if (state === "error") icon.textContent = "!";
+      else if (state === "cancelled") icon.textContent = "–";
+      else if (state === "running") icon.textContent = "…";
+      else icon.textContent = "·";
+      var value = Math.max(0, Math.min(100, percent || 0));
+      $("bar").style.width = value + "%";
+      var bar = $("progress");
+      bar.setAttribute("aria-valuenow", String(Math.round(value)));
+      bar.className = "bar" + (state && state !== "running" ? " " + state : "");
+    }
+    function readJson(key, fallback) {
+      try {
+        var raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        var data = JSON.parse(raw);
+        return data == null ? fallback : data;
+      } catch (err) {
+        return fallback;
+      }
+    }
+    function readLastJob() {
+      var saved = readJson(JOB_KEY, null);
+      return saved && saved.id ? saved : null;
+    }
+    function rememberJob(id, kind) {
+      if (!id) return;
+      localStorage.setItem(JOB_KEY, JSON.stringify({ id: id, kind: kind || "" }));
+      var list = readJson(JOBS_KEY, []);
+      if (!Array.isArray(list)) list = [];
+      list = [{ id: id, kind: kind || "" }].concat(list.filter(function (item) {
+        return item && item.id !== id;
+      })).slice(0, 8);
+      localStorage.setItem(JOBS_KEY, JSON.stringify(list));
+    }
+    function forgetJob(id) {
+      var saved = readLastJob();
+      if (saved && saved.id === id) localStorage.removeItem(JOB_KEY);
+      var list = readJson(JOBS_KEY, []);
+      if (!Array.isArray(list)) return;
+      localStorage.setItem(JOBS_KEY, JSON.stringify(list.filter(function (item) {
+        return item && item.id !== id;
+      })));
+    }
+    function paintRecentTags() {
+      var list = $("recentTags");
+      if (!list) return;
+      list.innerHTML = "";
+      var tags = readJson(TAGS_KEY, []);
+      if (!Array.isArray(tags)) return;
+      tags.forEach(function (tag) {
+        var opt = document.createElement("option");
+        opt.value = tag;
+        list.appendChild(opt);
+      });
+    }
+    function rememberTag(tag) {
+      var list = readJson(TAGS_KEY, []);
+      if (!Array.isArray(list)) list = [];
+      list = [tag].concat(list.filter(function (item) {
+        return String(item).toLowerCase() !== tag.toLowerCase();
+      })).slice(0, 10);
+      localStorage.setItem(TAGS_KEY, JSON.stringify(list));
+      paintRecentTags();
+    }
+    function paintRecent(jobs) {
+      lastJobList = jobs || [];
+      var box = $("recentJobs");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!lastJobList.length) return;
+      var label = document.createElement("span");
+      label.className = "hint";
+      label.textContent = t("recentJobs");
+      box.appendChild(label);
+      lastJobList.forEach(function (job) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ghost";
+        btn.textContent = (job.kind || "") + " " + (job.db || "") + " " + (job.title || job.id || "") + " · " + (job.state || "");
+        btn.onclick = function () { openJob(job.id, job.kind); };
+        box.appendChild(btn);
+      });
+    }
+    async function refreshJobList() {
+      try {
+        var res = await fetch("/api/jobs");
+        if (!res.ok) return;
+        var data = await res.json();
+        paintRecent(data.jobs || []);
+      } catch (err) { /* 목록은 보조 정보 */ }
+    }
+    function kindLabel(kind) {
+      if (kind === "InstanceNumericId") return "Instance";
+      if (kind === "NodeGuid") return "GUID";
+      if (kind === "BimId") return "BIM ID";
+      return kind || "";
+    }
+    function splitCount(text) {
+      var seen = {};
+      var count = 0;
+      String(text || "").split(/[,;\s]+/).forEach(function (part) {
+        var key = part.trim();
+        if (!key) return;
+        var id = key.toLowerCase();
+        if (seen[id]) return;
+        seen[id] = true;
+        count++;
+      });
+      return count;
+    }
+    function demoLineCount(text) {
+      return String(text || "").split(/\r?\n/).filter(function (line) {
+        var trimmed = line.trim();
+        return trimmed && trimmed.charAt(0) !== "#";
+      }).length;
+    }
+    function paintTraceTable(job) {
+      $("traceTable").hidden = false;
+      $("nozzleTable").hidden = true;
+      var issues = job.issues || [];
+      var hint = $("resultHint");
+      var note = t("clickRow");
+      if (job.issuesTruncated) note += " " + fill(t("issuesTruncated"), { n: (limits().maxIssueRows || 200) });
+      hint.textContent = note;
+      var body = $("rows");
+      body.innerHTML = "";
+      var list = job.summaries || [];
+      $("kpiRows").textContent = list.length;
+      if (!list.length) {
+        var empty = document.createElement("tr");
+        empty.innerHTML = "<td class='empty' colspan='11'>" + esc(t("empty")) + "</td>";
+        body.appendChild(empty);
+        return;
+      }
+      list.forEach(function (summary) {
+        var result = summary.CheckResult || "";
+        var row = document.createElement("tr");
+        row.className = "clickable";
+        row.tabIndex = 0;
+        row.setAttribute("aria-expanded", "false");
+        row.innerHTML =
+          "<td>" + esc(summary.EquipmentTag) + "</td>" +
+          "<td><span class='pill " + (result === "FAIL" ? "fail" : "ok") + "'>" + esc(result) + "</span></td>" +
+          "<td>" + num(summary.CountERR) + "</td>" +
+          "<td>" + num(summary.TotalPocCount) + "</td>" +
+          "<td>" + num(summary.DerivedBranchCount) + "</td>" +
+          "<td>" + num(summary.CountNOZ) + "</td>" +
+          "<td>" + num(summary.CountTOF) + "</td>" +
+          "<td>" + num(summary.CountEQP) + "</td>" +
+          "<td>" + num(summary.CountCAP) + "</td>" +
+          "<td>" + num(summary.CountEMP) + "</td>" +
+          "<td>" + num(summary.CountING) + "</td>";
+        function toggle() {
+          var open = row.getAttribute("aria-expanded") === "true";
+          var next = row.nextSibling;
+          if (next && next.className === "issue") next.parentNode.removeChild(next);
+          if (open) {
+            row.setAttribute("aria-expanded", "false");
+            return;
+          }
+          row.setAttribute("aria-expanded", "true");
+          var tag = String(summary.EquipmentTag || "").toLowerCase();
+          var mine = issues.filter(function (item) {
+            return String(item.tag || "").toLowerCase() === tag;
+          });
+          var detail = document.createElement("tr");
+          detail.className = "issue";
+          var cell = document.createElement("td");
+          cell.colSpan = 11;
+          if (!mine.length) cell.textContent = t("noIssues");
+          else cell.textContent = mine.map(function (item) {
+            return [item.status, item.poc, item.issues, item.feedback].filter(function (part) {
+              return part;
+            }).join(" · ");
+          }).join("\n");
+          detail.appendChild(cell);
+          row.parentNode.insertBefore(detail, row.nextSibling);
+        }
+        row.addEventListener("click", toggle);
+        row.addEventListener("keydown", function (event) {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          toggle();
+        });
+        body.appendChild(row);
+      });
+    }
+    function paintNozzleTable(job) {
+      $("traceTable").hidden = true;
+      $("nozzleTable").hidden = false;
+      $("resultHint").textContent = "";
+      var body = $("nozzleRows");
+      body.innerHTML = "";
+      var list = job.nozzleRows || [];
+      $("kpiRows").textContent = list.length;
+      if (!list.length) {
+        var empty = document.createElement("tr");
+        empty.innerHTML = "<td class='empty' colspan='4'>" + esc(t("empty")) + "</td>";
+        body.appendChild(empty);
+        return;
+      }
+      list.forEach(function (row) {
+        var tr = document.createElement("tr");
+        var status = row.status || "";
+        tr.innerHTML =
+          "<td>" + esc(kindLabel(row.kind)) + "</td>" +
+          "<td>" + esc(row.key) + "</td>" +
+          "<td class='" + traceClass(status) + "'>" + esc(status) + "</td>" +
+          "<td>" + num(row.paths) + "</td>";
+        body.appendChild(tr);
+      });
+    }
+    function render(job) {
+      lastJob = job;
+      var text = (job.message || "") + (job.percent != null ? "  (" + job.percent + "%)" : "");
+      if (job.kind === "demolition") {
+        if (job.linesTotal) text += "\nLine " + (job.linesDone || 0) + "/" + job.linesTotal;
+        if (job.eqpTotal) text += " · EQPID " + (job.eqpDone || 0) + "/" + job.eqpTotal;
+        if (job.etaSeconds != null) text += " · ETA " + job.etaSeconds + t("etaUnit");
+      }
+      if (job.warnings && job.warnings.length) text += "\n" + job.warnings.join("\n");
+      $("status").textContent = text;
+      setStatusState(job.state || "", job.percent || 0);
+      if (job.kind === "demolition" && job.inputRows) paintDemoRows(job.inputRows);
+      if (job.kind === "demolition") paintDemoResult(job);
+      if (job.kind === "nozzle") paintNozzleTable(job);
+      else if (job.kind !== "demolition") paintTraceTable(job);
+      var link = $("excel");
+      if (job.kind !== "demolition" && job.excelReady) {
+        link.hidden = false;
+        link.href = "/api/jobs/" + encodeURIComponent(job.id) + "/excel";
+      } else {
+        link.hidden = true;
+      }
+    }
+
+    async function poll() {
+      if (!jobId) return;
+      try {
+        var res = await fetch("/api/jobs/" + encodeURIComponent(jobId));
+        var job = await res.json();
+        if (!res.ok) {
+          forgetJob(jobId);
+          jobId = null;
+          jobKind = null;
+          lastJob = null;
+          $("status").textContent = job.error || t("statusFail");
+          setStatusState("error", 0);
+          setBusy(false);
+          refreshJobList();
+          return;
+        }
+        render(job);
+        if (job.state === "running") timer = setTimeout(poll, 1000);
+        else {
+          jobKind = null;
+          setBusy(false);
+          loadLines();
+          refreshJobList();
+        }
+      } catch (err) {
+        jobKind = null;
+        $("status").textContent = t("statusFail");
+        setStatusState("error", 0);
+        setBusy(false);
+        refreshJobList();
+      }
+    }
+
+    function kindFromUrl(url) {
+      if (url.indexOf("demolition") >= 0) return "demolition";
+      if (url.indexOf("nozzle") >= 0) return "nozzle";
+      if (url.indexOf("batches") >= 0) return "batch";
+      return "trace";
+    }
+
+    async function start(url, payload) {
+      if (timer) clearTimeout(timer);
+      jobKind = kindFromUrl(url);
+      if (!canUseExtra(jobKind)) {
+        jobKind = null;
+        $("status").textContent = t("licenseDeniedExtra");
+        setStatusState("error", 0);
+        return;
+      }
+      setBusy(true);
+      lastJob = null;
+      $("rows").innerHTML = "";
+      $("nozzleRows").innerHTML = "";
+      $("excel").hidden = true;
+      $("resultHint").textContent = "";
+      $("kpiRows").textContent = "0";
+      $("status").textContent = t("requestSent");
+      setStatusState("running", 8);
+      try {
+        var res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+        if (!res.ok) {
+          jobKind = null;
+          $("status").textContent = data.error || t("requestFail");
+          setStatusState("error", 0);
+          setBusy(false);
+          return;
+        }
+        jobId = data.jobId;
+        rememberJob(jobId, jobKind);
+        poll();
+      } catch (err) {
+        jobKind = null;
+        $("status").textContent = t("requestFail");
+        setStatusState("error", 0);
+        setBusy(false);
+      }
+    }
+
+    function rejectInput(key, map) {
+      $("status").textContent = map ? fill(t(key), map) : t(key);
+      setStatusState("error", 0);
+    }
+    function startTrace() {
+      var tag = ($("tag").value || "").trim();
+      if (!tag) { rejectInput("needTag"); return; }
+      if (!$("db").value) { rejectInput("needTag"); return; }
+      rememberTag(tag);
+      localStorage.setItem(DB_KEY, $("db").value);
+      start("/api/traces", { db: $("db").value, tag: tag });
+    }
+    function startBatch() {
+      var text = ($("batch").value || "").trim();
+      var count = splitCount(text);
+      var max = limits().maxBatchTags || 300;
+      if (!count) { rejectInput("needBatch"); return; }
+      if (count > max) { rejectInput("overBatch", { max: max, n: count }); return; }
+      localStorage.setItem(DB_KEY, $("db").value);
+      start("/api/batches", { db: $("db").value, text: text });
+    }
+    function startNozzle() {
+      var text = ($("nozzleText").value || "").trim();
+      var count = splitCount(text);
+      var max = limits().maxNozzleKeys || limits().maxBatchTags || 300;
+      if (!count) { rejectInput("needNozzle"); return; }
+      if (count > max) { rejectInput("overNozzle", { max: max, n: count }); return; }
+      var selected = document.querySelector("input[name=keyKind]:checked");
+      localStorage.setItem(DB_KEY, $("db").value);
+      start("/api/nozzle-traces", {
+        db: $("db").value,
+        keyKind: selected ? selected.value : "bim",
+        text: text
+      });
+    }
+    async function openJob(id, kind) {
+      if (!id || busy) return;
+      if (timer) clearTimeout(timer);
+      jobId = id;
+      jobKind = kind || null;
+      setBusy(true);
+      $("status").textContent = t("requestSent");
+      setStatusState("running", 8);
+      try {
+        var res = await fetch("/api/jobs/" + encodeURIComponent(id));
+        var job = await res.json();
+        if (!res.ok) {
+          forgetJob(id);
+          jobId = null;
+          jobKind = null;
+          lastJob = null;
+          setBusy(false);
+          $("status").textContent = (job && job.error) || t("jobGone");
+          setStatusState("error", 0);
+          refreshJobList();
+          return;
+        }
+        rememberJob(job.id, job.kind);
+        if (job.db) {
+          var options = $("db").options;
+          for (var i = 0; i < options.length; i++) {
+            if (options[i].value === job.db) {
+              $("db").value = job.db;
+              localStorage.setItem(DB_KEY, job.db);
+              break;
+            }
+          }
+        }
+        switchTab(job.kind === "nozzle" ? "nozzle" : (job.kind === "demolition" ? "demolition" : "trace"));
+        render(job);
+        if (job.state === "running") timer = setTimeout(poll, 1000);
+        else { jobKind = null; setBusy(false); }
+      } catch (err) {
+        jobKind = null;
+        setBusy(false);
+        $("status").textContent = t("statusFail");
+        setStatusState("error", 0);
+      }
+    }
+
+    document.querySelector(".lang").addEventListener("click", function (event) {
+      var button = event.target.closest("button");
+      if (!button) return;
+      localStorage.setItem("poc_lang", button.getAttribute("data-lang"));
+      applyLanguage();
+    });
+    $("traceBtn").onclick = startTrace;
+    $("tag").addEventListener("keydown", function (event) {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      startTrace();
+    });
+    $("batchBtn").onclick = startBatch;
+    $("db").addEventListener("change", function () {
+      localStorage.setItem(DB_KEY, $("db").value);
+      hintLine();
+      if (busy) return;
+      var line = selectedLine();
+      if (line && line.allowed && (!lastLines || lastLines.loadedDb !== line.db)) {
+        lastJob = null;
+        $("status").textContent = t("lineLoadSlow");
+        setStatusState("", 0);
+      }
+    });
+    function invalidateDraft() {
+      if (!demoDraft) return;
+      demoDraft = null;
+      $("demoBtn").disabled = true;
+      $("demoCounts").textContent = t("demoStale");
+    }
+    async function previewDemolition() {
+      if (!canUseExtra("demolition")) {
+        $("status").textContent = t("licenseDeniedExtra");
+        setStatusState("error", 0);
+        return;
+      }
+      var file = $("demoFile").files && $("demoFile").files[0];
+      if (!file) {
+        var count = demoLineCount($("demoText").value);
+        var max = limits().maxDemolitionRows || 2000;
+        if (!count) {
+          demoDraft = null;
+          $("demoBtn").disabled = true;
+          $("demoCounts").textContent = "";
+          return;
+        }
+        if (count > max) {
+          rejectInput("overDemo", { max: max, n: count });
+          return;
+        }
+      }
+      var seq = ++demoSeq;
+      $("demoCheck").disabled = true;
+      $("status").textContent = t("requestSent");
+      setStatusState("running", 8);
+      try {
+        var res;
+        if (file) {
+          var form = new FormData();
+          form.append("file", file, file.name);
+          res = await fetch("/api/demolition/preview", { method: "POST", body: form });
+        } else {
+          res = await fetch("/api/demolition/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: $("demoText").value })
+          });
+        }
+        var data = await res.json();
+        if (seq !== demoSeq) return;
+        if (!res.ok) {
+          demoDraft = null;
+          $("demoBtn").disabled = true;
+          $("demoCounts").textContent = data.error || t("requestFail");
+          $("status").textContent = data.error || t("requestFail");
+          setStatusState("error", 0);
+          return;
+        }
+        demoDraft = data;
+        $("demoCounts").textContent = fill(t("demoCounts"), data);
+        $("status").textContent = $("demoCounts").textContent + "\n" + cacheText(data.caches);
+        setStatusState("", 0);
+        paintDemoRows(data.rows || []);
+        $("demoBtn").disabled = busy || !(data.valid > 0);
+      } catch (err) {
+        if (seq !== demoSeq) return;
+        demoDraft = null;
+        $("demoBtn").disabled = true;
+        $("status").textContent = t("requestFail");
+        setStatusState("error", 0);
+      } finally {
+        if (seq === demoSeq) $("demoCheck").disabled = busy;
+      }
+    }
+    $("demoCheck").onclick = function () {
+      if (demoTimer) clearTimeout(demoTimer);
+      previewDemolition();
+    };
+    $("demoClearFile").onclick = function () {
+      $("demoFile").value = "";
+      invalidateDraft();
+    };
+    $("demoFile").addEventListener("change", function () {
+      if ($("demoFile").files && $("demoFile").files.length) previewDemolition();
+    });
+    $("demoText").addEventListener("input", function () {
+      if ($("demoFile").files && $("demoFile").files.length) return;
+      if (demoTimer) clearTimeout(demoTimer);
+      var text = ($("demoText").value || "").trim();
+      if (!text) {
+        demoSeq++;
+        demoDraft = null;
+        $("demoBtn").disabled = true;
+        $("demoCounts").textContent = "";
+        paintDemoRows([]);
+        return;
+      }
+      demoTimer = setTimeout(function () { previewDemolition(); }, 400);
+    });
+    $("demoFilter").addEventListener("input", function () { paintDemoRows(demoRows); });
+    $("demoBtn").onclick = function () {
+      if (!demoDraft || !(demoDraft.valid > 0)) return;
+      var lines = (demoDraft.byLine || []).map(function (item) { return item.line + "=" + item.count; }).join(", ") || "-";
+      var message = fill(t("demoConfirm"), {
+        valid: demoDraft.valid,
+        invalid: demoDraft.invalid,
+        lines: lines,
+        cache: cacheText(demoDraft.caches)
+      });
+      if (!window.confirm(message)) return;
+      start("/api/demolition", { draftId: demoDraft.draftId });
+    };
+    $("jobCancel").onclick = function () {
+      if (!jobId) return;
+      fetch("/api/jobs/" + encodeURIComponent(jobId) + "/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      })
+        .then(function (res) { return res.json().then(function (data) { return { res: res, data: data }; }); })
+        .then(function (result) {
+          if (!result.res.ok) $("status").textContent = (result.data && result.data.error) || t("requestFail");
+        })
+        .catch(function () { $("status").textContent = t("requestFail"); });
+    };
+    $("nozzleBtn").onclick = startNozzle;
+    function visibleTabs() {
+      return Array.prototype.filter.call(document.querySelectorAll(".tabs button"), function (button) {
+        return !button.hidden;
+      });
+    }
+    function switchTab(name) {
+      if ((name === "demolition" && !canUseExtra("demolition")) || (name === "nozzle" && !canUseExtra("nozzle")))
+        name = "trace";
+      activeTab = name || "trace";
+      var tabs = document.querySelectorAll(".tabs button");
+      for (var i = 0; i < tabs.length; i++) {
+        var on = tabs[i].getAttribute("data-tab") === activeTab;
+        tabs[i].className = on ? "active" : "";
+        tabs[i].setAttribute("aria-selected", on ? "true" : "false");
+        tabs[i].tabIndex = on ? 0 : -1;
+      }
+      var panels = document.querySelectorAll(".panel");
+      for (var j = 0; j < panels.length; j++) panels[j].hidden = panels[j].getAttribute("data-panel") !== activeTab;
+      $("traceKpis").hidden = activeTab !== "trace";
+      $("resultCard").hidden = activeTab === "demolition";
+      $("lineBar").hidden = activeTab === "demolition";
+      syncDemoResult();
+    }
+    document.querySelector(".tabs").addEventListener("click", function (event) {
+      var button = event.target.closest("button");
+      if (!button || button.hidden) return;
+      switchTab(button.getAttribute("data-tab"));
+    });
+    document.querySelector(".tabs").addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      var tabs = visibleTabs();
+      if (!tabs.length) return;
+      var current = event.target.closest("button");
+      var index = tabs.indexOf(current);
+      if (index < 0) index = 0;
+      var next = event.key === "ArrowRight" ? (index + 1) % tabs.length : (index - 1 + tabs.length) % tabs.length;
+      event.preventDefault();
+      tabs[next].focus();
+      switchTab(tabs[next].getAttribute("data-tab"));
+    });
+
+    async function boot() {
+      applyLanguage();
+      try {
+        await Promise.all([loadLicense(), loadLines()]);
+      } catch (err) {
+        $("status").textContent = String(err);
+        setStatusState("error", 0);
+      }
+      paintRecentTags();
+      await refreshJobList();
+      var saved = readLastJob();
+      if (saved && saved.id) await openJob(saved.id, saved.kind);
+    }
+    boot();
+  </script>
+</body>
+</html>

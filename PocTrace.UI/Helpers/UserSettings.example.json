@@ -1,0 +1,20 @@
+{
+  "SelectedDb": "x1",
+  "SearchText": "TAAM03",
+  "BatchInputText": "TAAM03\r\nSLBM01\r\nDKAM19",
+  "SelectedPropListIndex": 0,
+  "EnableLog": true,
+  "EnableDebug": false,
+  "RecentSearches": [
+    "TAAM03",
+    "SLBM01",
+    "DKAM19",
+    "WWIMU6",
+    "WENM03"
+  ],
+  "FormWidth": 1200,
+  "FormHeight": 800,
+  "FormLocationX": 100,
+  "FormLocationY": 100,
+  "FormMaximized": false
+}
