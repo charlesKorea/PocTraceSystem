@@ -12,6 +12,7 @@ namespace PocTrace.Core.Infrastructure
         public const string Viewer = "Viewer";
         public const string NozzleTrace = "NozzleTrace";
         public const string Demolition = "Demolition";
+        public const string DeletedPipeLength = "DeletedPipeLength";
         public const string Web = "Web";
         public const string Admin = "Admin";
 
