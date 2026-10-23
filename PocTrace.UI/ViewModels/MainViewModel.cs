@@ -7,10 +7,12 @@ using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Engine.Validation;
 using PocTrace.Core.Enums;
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Infrastructure.Repositories;
 using PocTrace.Core.Models;
 using Serilog;
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -205,16 +207,41 @@ namespace PocTrace.UI.ViewModels
                 // ---------------------------------------------------------
 
                 StatusMessage = "Initializing Graph...";
+                MemoryLoadLog.Stage(
+                    "UI.BeforeInitialize",
+                    "db=" + SelectedDb
+                    + " nodes=" + CollectionCount(nodes)
+                    + " pocs=" + CollectionCount(pocs)
+                    + " pipes=" + CollectionCount(pipes)
+                    + " takeoffs=" + CollectionCount(takeoffs)
+                    + " dyn=" + CollectionCount(dynamicProperties)
+                    + " allowDatabaseFallback=" + GlobalConfig.AllowDatabaseFallback);
 
-                await Task.Run(() => _cacheManager.Initialize(
-                    SelectedDb,
-                    nodes,
-                    pocs,
-                    pipes,
-                    takeoffs,
-                    dynamicProperties,
-                    utMaps
-                ));
+                await Task.Run(() =>
+                {
+                    // 역인덱스는 원본 리스트를 놓은 뒤에 만든다.
+                    // 리스트 + 사전 + 역인덱스가 한 프로세스에 동시에 있으면 주소 공간이 터진다.
+                    _cacheManager.Initialize(
+                        SelectedDb,
+                        nodes,
+                        pocs,
+                        pipes,
+                        takeoffs,
+                        dynamicProperties,
+                        utMaps,
+                        buildReverseGraphIndex: false,
+                        progress: progress);
+
+                    nodes = null;
+                    pocs = null;
+                    pipes = null;
+                    takeoffs = null;
+                    dynamicProperties = null;
+
+                    MemoryLoadLog.CompactForLargeAlloc("UI.BeforeReverseIndex");
+                    progress.Report("Initializing Graph: reverse index");
+                    _cacheManager.GetReverseGraphIndex();
+                });
 
                 string staleMsg = isStale ? "⚠️ [OLD DATA]" : "✅ [LATEST]";
                 CacheStatus = $"{staleMsg} Date: {savedAt:yyyy-MM-dd HH:mm}";
@@ -223,9 +250,28 @@ namespace PocTrace.UI.ViewModels
             }
             catch (Exception ex)
             {
-                StatusMessage = "Error Loading Data.";
-                Log.Error(ex, "LoadDataAsync Failed");
-                _dialog.ShowError($"Error: {ex.Message}", "Load Error");
+                MemoryLoadLog.Fail("UI.LoadData", ex);
+                StatusMessage = ex is OutOfMemoryException
+                    ? "Error: out of memory while initializing graph."
+                    : "Error Loading Data.";
+                try { Log.Error(ex, "LoadDataAsync Failed"); }
+                catch { }
+
+                try
+                {
+                    string path = MemoryLoadLog.FilePath ?? "(memory-load.log 없음)";
+                    string message = ex is OutOfMemoryException
+                        ? "그래프 초기화 중 프로세스 메모리가 부족합니다.\r\n"
+                          + "작업 관리자의 전체 메모리 %와 별개로, 32비트 한도(약 2~4GB)이거나\r\n"
+                          + "한 배열이 2GB를 넘으면 이 예외가 납니다.\r\n"
+                          + "AllowDatabaseFallback 은 이 단계에 영향이 없습니다.\r\n"
+                          + path
+                        : "Error: " + ex.Message + "\r\n" + path;
+                    _dialog.ShowError(message, "Load Error");
+                }
+                catch
+                {
+                }
             }
             finally
             {
@@ -282,6 +328,12 @@ namespace PocTrace.UI.ViewModels
         // =========================================================
         // [1] 공통 로직 추출 (Batch와 Single이 함께 쓸 함수)
         // =========================================================
+        private static int CollectionCount(IEnumerable source)
+        {
+            var collection = source as ICollection;
+            return collection == null ? -1 : collection.Count;
+        }
+
         private List<EquipmentTraceSummary> GetGroupedSummaries(List<TraceResult> results)
         {
             // [Refactor] 집계 로직은 Core의 EquipmentSummaryBuilder로 단일화됨.

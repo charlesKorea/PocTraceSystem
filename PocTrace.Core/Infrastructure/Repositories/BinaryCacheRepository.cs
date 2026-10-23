@@ -122,6 +122,16 @@ namespace PocTrace.Core.Infrastructure.Repositories
 
             Log.Information("[Cache] Loading split cache for {Db}: version={V}, savedAt={At}, dir={Dir}",
                 dbName, manifest.Version, manifest.SavedAt, liveDir);
+            MemoryLoadLog.Stage(
+                "Cache.Manifest",
+                "db=" + dbName
+                + " version=" + manifest.Version
+                + " nodes=" + ManifestCount(manifest, CacheSectionKind.Nodes)
+                + " pocs=" + ManifestCount(manifest, CacheSectionKind.Pocs)
+                + " pipes=" + ManifestCount(manifest, CacheSectionKind.Pipes)
+                + " takeoffs=" + ManifestCount(manifest, CacheSectionKind.Takeoffs)
+                + " dyn=" + ManifestCount(manifest, CacheSectionKind.DynProps)
+                + " dir=" + liveDir);
             if (manifest.HasStaleSectionLayout())
             {
                 Log.Warning(
@@ -469,6 +479,14 @@ namespace PocTrace.Core.Infrastructure.Repositories
             }
         }
 
+        private static int ManifestCount(ManifestInfo manifest, CacheSectionKind kind)
+        {
+            int count;
+            return manifest != null && manifest.Counts != null && manifest.Counts.TryGetValue(kind, out count)
+                ? count
+                : -1;
+        }
+
         private static List<T> ReadSectionFile<T>(
             string path,
             Func<BinaryReader, List<T>> read,
@@ -478,17 +496,30 @@ namespace PocTrace.Core.Infrastructure.Repositories
             if (!File.Exists(path))
                 throw new FileNotFoundException($"Missing cache section {kind}: {path}");
 
-            using (var fs = CacheGenerationStore.OpenRead(path, 64 * 1024))
-            using (var r = new BinaryReader(fs, Encoding.UTF8))
+            long fileBytes = new FileInfo(path).Length;
+            MemoryLoadLog.Stage("Cache.ReadSection", kind + " bytes=" + fileBytes + " path=" + path);
+
+            try
             {
-                var list = read(r);
-                if (manifest.Counts.TryGetValue(kind, out int expected) && expected != list.Count)
+                using (var fs = CacheGenerationStore.OpenRead(path, 64 * 1024))
+                using (var r = new BinaryReader(fs, Encoding.UTF8))
                 {
-                    Log.Warning(
-                        "[Cache] Section count mismatch {Kind}: manifest={Expected}, file={Actual}",
-                        kind, expected, list.Count);
+                    var list = read(r);
+                    if (manifest.Counts.TryGetValue(kind, out int expected) && expected != list.Count)
+                    {
+                        Log.Warning(
+                            "[Cache] Section count mismatch {Kind}: manifest={Expected}, file={Actual}",
+                            kind, expected, list.Count);
+                    }
+
+                    MemoryLoadLog.Stage("Cache.ReadSection.Done", kind + " count=" + list.Count);
+                    return list;
                 }
-                return list;
+            }
+            catch (Exception ex)
+            {
+                MemoryLoadLog.Fail("Cache.ReadSection." + kind, ex);
+                throw;
             }
         }
 
@@ -516,6 +547,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
         private List<NodeInfo> ReadNodes(BinaryReader r, int cacheVersion)
         {
             int count = r.ReadInt32();
+            MemoryLoadLog.EnsureRecordCount("Cache.Nodes", count, r.BaseStream.Length);
             var list = new List<NodeInfo>(count);
             for (int i = 0; i < count; i++)
             {
@@ -557,6 +589,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
         private List<PocData> ReadPocs(BinaryReader r)
         {
             int count = r.ReadInt32();
+            MemoryLoadLog.EnsureRecordCount("Cache.Pocs", count, r.BaseStream.Length);
             var list = new List<PocData>(count);
             for (int i = 0; i < count; i++)
             {
@@ -589,6 +622,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
         private List<TakeoffData> ReadTakeoffs(BinaryReader r)
         {
             int count = r.ReadInt32();
+            MemoryLoadLog.EnsureRecordCount("Cache.Takeoffs", count, r.BaseStream.Length);
             var list = new List<TakeoffData>(count);
             for (int i = 0; i < count; i++)
             {
@@ -605,6 +639,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
         private List<DynamicPropertiesData> ReadDynamicProperties(BinaryReader r, int cacheVersion)
         {
             int count = r.ReadInt32();
+            MemoryLoadLog.EnsureRecordCount("Cache.DynProps", count, r.BaseStream.Length);
             var list = new List<DynamicPropertiesData>(count);
             for (int i = 0; i < count; i++)
             {

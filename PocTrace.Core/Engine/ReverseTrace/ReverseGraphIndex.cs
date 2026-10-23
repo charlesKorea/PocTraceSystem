@@ -14,6 +14,8 @@ namespace PocTrace.Core.Engine.ReverseTrace
         private readonly Dictionary<Guid, List<IncomingEdge>> _incomingByTarget =
             new Dictionary<Guid, List<IncomingEdge>>();
 
+        public int TargetCount => _incomingByTarget.Count;
+
         public static ReverseGraphIndex Build(IGraphCache cache)
         {
             if (cache == null) throw new ArgumentNullException(nameof(cache));

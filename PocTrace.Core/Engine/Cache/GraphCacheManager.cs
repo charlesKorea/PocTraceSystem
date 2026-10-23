@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using PocTrace.Core.Engine.ReverseTrace;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Models;
 using PocTrace.Core.Enums;
 using Serilog;
@@ -26,6 +27,9 @@ namespace PocTrace.Core.Engine.Cache
         private Dictionary<Guid, Guid> _outletToPipeId;
         private Dictionary<Guid, DynamicPropertiesData> _dynamicProperties;
 
+        private static readonly Dictionary<string, Dictionary<string, Dictionary<string, string>>> EmptyUtilityMaps =
+            new Dictionary<string, Dictionary<string, Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+
         public bool IsInitialized { get; private set; }
 
         /// <summary>같은 끝점 대상에 먼저 등록된 배관만 남긴 뒤 무시한 횟수.</summary>
@@ -48,9 +52,13 @@ namespace PocTrace.Core.Engine.Cache
             IEnumerable<TakeoffData> takeoffs,
             IEnumerable<DynamicPropertiesData> dynamicProperties,
             Dictionary<string, Dictionary<string, Dictionary<string, string>>> utMaps,
-            bool buildReverseGraphIndex = true)
+            bool buildReverseGraphIndex = true,
+            IProgress<string> progress = null)
         {
             ReleaseMemory();
+            try
+            {
+            Mark(progress, "Initialize.Start", "Initializing Graph...");
             Log.Information("🔵 [Cache] Initialize Started.");
 
             var nodeList = Materialize(nodes);
@@ -65,11 +73,28 @@ namespace PocTrace.Core.Engine.Cache
             int takeoffCapacity = Math.Max(16, takeoffList.Count);
             int dynCapacity = Math.Max(16, dynList.Count);
 
+            Mark(progress, "Initialize.Materialized", "Initializing Graph: sizing indexes",
+                "db=" + (dbName ?? "")
+                + " nodes=" + nodeList.Count
+                + " pocs=" + pocList.Count
+                + " pipes=" + pipeList.Count
+                + " takeoffs=" + takeoffList.Count
+                + " dyn=" + dynList.Count
+                + " reverse=" + buildReverseGraphIndex);
+
+            // 연속된 큰 배열을 잡기 전에 LOH를 한 번 압축한다.
+            MemoryLoadLog.CompactForLargeAlloc("Initialize.BeforeDictionaries");
+
             // 1. Dictionaries 초기화 (capacity hint → Resize/OOM 완화)
+            Mark(progress, "Initialize.Dict.Nodes", "Initializing Graph: nodes", "cap=" + nodeCapacity);
             _nodes = new Dictionary<Guid, NodeInfo>(nodeCapacity);
+            Mark(progress, "Initialize.Dict.NodesByTag", "Initializing Graph: nodes", "cap=" + nodeCapacity);
             _nodesByTag = new Dictionary<string, NodeInfo>(nodeCapacity, StringComparer.OrdinalIgnoreCase);
+            Mark(progress, "Initialize.Dict.NodeIdsByTag", "Initializing Graph: nodes", "cap=" + nodeCapacity);
             _nodeInstanceIdsByTag = new Dictionary<string, List<Guid>>(nodeCapacity, StringComparer.OrdinalIgnoreCase);
+            Mark(progress, "Initialize.Dict.NodesByBimId", "Initializing Graph: nodes", "cap=" + nodeCapacity);
             _nodesByBimId = new Dictionary<string, NodeInfo>(nodeCapacity, StringComparer.OrdinalIgnoreCase);
+            Mark(progress, "Initialize.Dict.NodesByNumericId", "Initializing Graph: nodes", "cap=" + nodeCapacity);
             _nodesByInstanceNumericId = new Dictionary<long, NodeInfo>(nodeCapacity);
 
             this.DbName = dbName;
@@ -136,6 +161,7 @@ namespace PocTrace.Core.Engine.Cache
             // 3. POCs 초기화 — 단일 패스 (ToDictionary+GroupBy 이중 적재 방지)
             try
             {
+                Mark(progress, "Initialize.Dict.Pocs", "Initializing Graph: pocs", "cap=" + pocCapacity);
                 _pocs = new Dictionary<Guid, PocData>(pocCapacity);
                 _pocsByOwner = new Dictionary<Guid, List<PocData>>(Math.Max(16, pocCapacity / 4));
                 foreach (var poc in pocList)
@@ -154,16 +180,19 @@ namespace PocTrace.Core.Engine.Cache
             }
             catch (Exception ex)
             {
+                MemoryLoadLog.Fail("Initialize.Pocs", ex);
                 Log.Error(ex, "🔥 Error building POC Dictionary. Check for duplicate POC InstanceIDs!");
                 throw;
             }
 
             // 4. Pipes 초기화 — capacity hint + outlet 인덱스 단일 패스
+            Mark(progress, "Initialize.Dict.Pipes", "Initializing Graph: pipes", "cap=" + pipeCapacity);
             _pipes = new Dictionary<Guid, PipeData>(pipeCapacity);
             foreach (var pipe in pipeList)
                 _pipes[pipe.PipeId] = pipe;
 
             int outletCollisions;
+            Mark(progress, "Initialize.OutletIndex", "Initializing Graph: pipe outlets", "pipes=" + pipeList.Count);
             _outletToPipeId = BuildOutletToPipeIndex(pipeList, out outletCollisions);
             OutletIndexCollisions = outletCollisions;
             Log.Information(
@@ -171,12 +200,14 @@ namespace PocTrace.Core.Engine.Cache
                 _pipes.Count, _outletToPipeId.Count, outletCollisions);
 
             // 5. Takeoffs 초기화
+            Mark(progress, "Initialize.Dict.Takeoffs", "Initializing Graph: takeoffs", "cap=" + takeoffCapacity);
             _takeoffs = new Dictionary<Guid, TakeoffData>(takeoffCapacity);
             foreach (var takeoff in takeoffList)
                 _takeoffs[takeoff.TakeoffId] = takeoff;
             Log.Information("   -> Takeoffs Loaded: {Count:N0}", _takeoffs.Count);
 
             // 6. dynamicProperties 초기화 (중복 PointID 처리)
+            Mark(progress, "Initialize.Dict.DynProps", "Initializing Graph: dynamic properties", "cap=" + dynCapacity);
             _dynamicProperties = new Dictionary<Guid, DynamicPropertiesData>(dynCapacity);
             foreach (var dp in dynList)
             {
@@ -187,17 +218,43 @@ namespace PocTrace.Core.Engine.Cache
 
             if (buildReverseGraphIndex)
             {
+                Mark(progress, "Initialize.ReverseIndex", "Initializing Graph: reverse index");
                 _reverseGraphIndex = ReverseGraphIndex.Build(this);
-                Log.Information("   -> ReverseGraphIndex built");
+                Log.Information("   -> ReverseGraphIndex built targets={Targets}", _reverseGraphIndex.TargetCount);
+                MemoryLoadLog.Stage("Initialize.ReverseIndex.Done", "targets=" + _reverseGraphIndex.TargetCount);
             }
             else
             {
                 _reverseGraphIndex = null;
                 Log.Information("   -> ReverseGraphIndex skipped (buildReverseGraphIndex=false)");
+                MemoryLoadLog.Stage("Initialize.ReverseIndex.Skipped");
             }
 
             IsInitialized = true;
+            MemoryLoadLog.Stage("Initialize.Complete", "db=" + (dbName ?? ""));
             Log.Information("✅ [Cache] Initialization Complete.");
+            }
+            catch (Exception ex)
+            {
+                // 실패한 큰 배열을 먼저 놓고 압축한 뒤 예외를 남긴다.
+                // 그렇지 않으면 대화상자와 로그 한 줄조차 할당하지 못한다.
+                ReleaseMemory();
+                try { MemoryLoadLog.CompactForLargeAlloc("Initialize.Failed"); }
+                catch { }
+                MemoryLoadLog.Fail("Initialize", ex);
+                try { Log.Error(ex, "[Cache] Initialize failed."); }
+                catch { /* Serilog 할당이 OOM이면 디스크 단계 로그만 남긴다. */ }
+                throw;
+            }
+        }
+
+        private static void Mark(IProgress<string> progress, string stage, string label, string detail = null)
+        {
+            MemoryLoadLog.Stage(stage, detail);
+            try { Log.Information("[Cache] {Stage} {Detail}", stage, detail ?? string.Empty); }
+            catch { }
+            try { progress?.Report(label); }
+            catch { }
         }
 
         /// <summary>DB 라인 처리 후 Admin이 호출 — x2 로드 전 x1 메모리 해제.</summary>
@@ -215,7 +272,7 @@ namespace PocTrace.Core.Engine.Cache
             _outletToPipeId = null;
             _dynamicProperties = null;
             _reverseGraphIndex = null;
-            UtilityMaps = new Dictionary<string, Dictionary<string, Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+            UtilityMaps = EmptyUtilityMaps;
             IsInitialized = false;
             DbName = string.Empty;
         }
@@ -440,8 +497,22 @@ namespace PocTrace.Core.Engine.Cache
         {
             if (_reverseGraphIndex == null && IsInitialized)
             {
-                _reverseGraphIndex = ReverseGraphIndex.Build(this);
-                Log.Information("[Cache] ReverseGraphIndex built (lazy)");
+                MemoryLoadLog.Stage("ReverseGraphIndex.Build");
+                try
+                {
+                    _reverseGraphIndex = ReverseGraphIndex.Build(this);
+                }
+                catch (Exception ex)
+                {
+                    try { MemoryLoadLog.CompactForLargeAlloc("ReverseGraphIndex.Failed"); }
+                    catch { }
+                    MemoryLoadLog.Fail("ReverseGraphIndex.Build", ex);
+                    throw;
+                }
+
+                MemoryLoadLog.Stage("ReverseGraphIndex.Done", "targets=" + _reverseGraphIndex.TargetCount);
+                try { Log.Information("[Cache] ReverseGraphIndex built (lazy) targets={Targets}", _reverseGraphIndex.TargetCount); }
+                catch { }
             }
             return _reverseGraphIndex;
         }

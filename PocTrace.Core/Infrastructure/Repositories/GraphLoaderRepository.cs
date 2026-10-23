@@ -12,6 +12,7 @@ using System.Linq; // FirstOrDefault 사용을 위해
 
 using System.IO;
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Diagnostics;
 
 namespace PocTrace.Core.Infrastructure.Repositories
 {
@@ -38,17 +39,37 @@ namespace PocTrace.Core.Infrastructure.Repositories
             {
                 progress?.Report($"📂 Loading Local Cache for {dbName}...");
                 Log.Information("🚀 Attempting to load cache for DB: {Db}", dbName);
+                MemoryLoadLog.Stage(
+                    "LoadGraphData.Start",
+                    "db=" + dbName + " allowDatabaseFallback=" + GlobalConfig.AllowDatabaseFallback);
                 
                 var cacheResult = await _binaryRepo.LoadFromCacheAsync(dbName, progress);
                 
                 Log.Information("✅ Cache Loaded Successfully. Date: {Date}, Stale: {Stale}", cacheResult.SavedAt, cacheResult.IsStale);
+                MemoryLoadLog.Stage(
+                    "LoadGraphData.CacheReady",
+                    "db=" + dbName + " stale=" + cacheResult.IsStale + " version=" + cacheResult.Version);
                 return (cacheResult.IsStale, cacheResult.SavedAt, 
                     cacheResult.Nodes, cacheResult.Pocs, cacheResult.Pipes, 
                     cacheResult.Takeoffs, cacheResult.HookupNumbers);
             }
             catch (Exception ex)
             {
-                Log.Warning("⚠️ Cache load failed for {Db}. Error: {Msg}", dbName, ex.Message);
+                // OOM은 캐시 부재가 아니다. Fallback을 타면 SQL로 같은 그래프를 다시 올려 더 부족해진다.
+                // 손상된 개수(InvalidDataException)도 SQL로 넘기지 않고 그대로 보여 준다.
+                if (ex is OutOfMemoryException || ex is InvalidDataException)
+                {
+                    MemoryLoadLog.Fail("LoadGraphData", ex);
+                    throw;
+                }
+
+                MemoryLoadLog.Stage(
+                    "LoadGraphData.CacheFailed",
+                    "db=" + dbName
+                    + " type=" + ex.GetType().Name
+                    + " allowDatabaseFallback=" + GlobalConfig.AllowDatabaseFallback
+                    + " message=" + ex.Message);
+                Log.Warning(ex, "⚠️ Cache load failed for {Db}. AllowDatabaseFallback={Fallback}", dbName, GlobalConfig.AllowDatabaseFallback);
 
                 if (!GlobalConfig.AllowDatabaseFallback)
                 {

@@ -1,5 +1,6 @@
 ﻿using PocTrace.Core.Composition;
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
 using PocTrace.UI;
 using PocTrace.UI.Services;
@@ -7,6 +8,7 @@ using PocTrace.UI.ViewModels;
 using Serilog;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace PocTrace
@@ -21,6 +23,12 @@ namespace PocTrace
 
       string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Viewer);
       CleanUpOldLogs(logDirectory);
+      MemoryLoadLog.Initialize(logDirectory);
+
+      Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+      Application.ThreadException += OnUiThreadException;
+      AppDomain.CurrentDomain.UnhandledException += OnDomainException;
+      TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
       Log.Logger = new LoggerConfiguration()
         .MinimumLevel.Debug()
@@ -41,6 +49,15 @@ namespace PocTrace
           return 2;
         }
         Log.Information("License ok user={User} group={Group}", lic.UserName, lic.Group);
+        Log.Information(
+          "Memory load log: {Path} procBits={Bits} AllowDatabaseFallback={Fallback}",
+          MemoryLoadLog.FilePath,
+          Environment.Is64BitProcess ? 64 : 32,
+          GlobalConfig.AllowDatabaseFallback);
+        MemoryLoadLog.Stage(
+          "Startup",
+          "allowDatabaseFallback=" + GlobalConfig.AllowDatabaseFallback
+          + " log=" + MemoryLoadLog.FilePath);
 
         var cacheGate = CacheFreshnessGuard.EvaluateViewerStartup();
         foreach (var line in cacheGate.Details)
@@ -74,14 +91,53 @@ namespace PocTrace
       }
       catch (Exception ex)
       {
-        Log.Error(ex, "Viewer startup failed");
-        MessageBox.Show($"실행 오류: {ex.Message}\n{ex.StackTrace}");
+        MemoryLoadLog.Fail("Viewer.Startup", ex);
+        try { Log.Error(ex, "Viewer startup failed"); }
+        catch { }
+        try { MessageBox.Show($"실행 오류: {ex.Message}\n{ex.StackTrace}"); }
+        catch { }
         return 1;
       }
       finally
       {
         Log.CloseAndFlush();
       }
+    }
+
+    static void OnUiThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+    {
+      MemoryLoadLog.Fail("WinForms.ThreadException", e.Exception);
+      try { Log.Fatal(e.Exception, "Unhandled UI exception"); }
+      catch { }
+      try
+      {
+        MessageBox.Show(
+          e.Exception.GetType().Name + ": " + e.Exception.Message + "\r\n" + MemoryLoadLog.FilePath,
+          "PocTrace",
+          MessageBoxButtons.OK,
+          MessageBoxIcon.Error);
+      }
+      catch { }
+    }
+
+    static void OnDomainException(object sender, UnhandledExceptionEventArgs e)
+    {
+      var ex = e.ExceptionObject as Exception;
+      MemoryLoadLog.Fail("AppDomain.Unhandled", ex);
+      try
+      {
+        Log.Fatal(ex, "Unhandled domain exception");
+        Log.CloseAndFlush();
+      }
+      catch { }
+    }
+
+    static void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+    {
+      MemoryLoadLog.Fail("Task.Unobserved", e.Exception);
+      try { Log.Fatal(e.Exception, "Unobserved task exception"); }
+      catch { }
+      e.SetObserved();
     }
 
     static void CleanUpOldLogs(string logPath)
