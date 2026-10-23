@@ -238,9 +238,7 @@ namespace PocTrace.UI.ViewModels
                     takeoffs = null;
                     dynamicProperties = null;
 
-                    MemoryLoadLog.CompactForLargeAlloc("UI.BeforeReverseIndex");
-                    progress.Report("Initializing Graph: reverse index");
-                    _cacheManager.GetReverseGraphIndex();
+                    _cacheManager.BuildReverseIndexAfterInputsReleased(progress);
                 });
 
                 string staleMsg = isStale ? "⚠️ [OLD DATA]" : "✅ [LATEST]";

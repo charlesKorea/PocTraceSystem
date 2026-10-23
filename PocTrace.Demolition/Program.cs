@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Windows.Forms;
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
 using Serilog;
 
@@ -16,6 +17,7 @@ namespace PocTrace.Demolition
       Application.SetCompatibleTextRenderingDefault(false);
 
       string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Demolition);
+      MemoryLoadLog.Initialize(logDirectory);
 
       Log.Logger = new LoggerConfiguration()
         .MinimumLevel.Debug()

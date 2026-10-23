@@ -517,6 +517,21 @@ namespace PocTrace.Core.Engine.Cache
             return _reverseGraphIndex;
         }
 
+        /// <summary>
+        /// 읽기 클라이언트용. Initialize(..., buildReverseGraphIndex: false) 이후,
+        /// 호출자가 원본 리스트 참조를 놓은 다음 호출한다. 캐시 파일 형식은 바꾸지 않는다.
+        /// </summary>
+        public void BuildReverseIndexAfterInputsReleased(IProgress<string> progress = null)
+        {
+            if (!IsInitialized)
+                return;
+
+            MemoryLoadLog.CompactForLargeAlloc("Graph.BeforeReverseIndex");
+            try { progress?.Report("Initializing Graph: reverse index"); }
+            catch { }
+            GetReverseGraphIndex();
+        }
+
         // [New] 구현
         public NodeInfo GetNode(Guid nodeId)
         {

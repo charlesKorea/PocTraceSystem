@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using PocTrace.Core.Composition;
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
 using Serilog;
 
@@ -18,6 +19,7 @@ namespace PocTrace.Web
             bool openBrowser = !args.Any(a => string.Equals(a, "--no-browser", StringComparison.OrdinalIgnoreCase));
             string logDirectory = Path.Combine(PortalService.WorkRoot, "logs");
             Directory.CreateDirectory(logDirectory);
+            MemoryLoadLog.Initialize(logDirectory);
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
