@@ -120,6 +120,7 @@
     <Compile Include="Infrastructure\TemplateEquipmentCacheConstants.cs" />
     <Compile Include="Infrastructure\CacheFreshnessGuard.cs" />
     <Compile Include="Infrastructure\Diagnostics\BimIdDiagnostics.cs" />
+    <Compile Include="Infrastructure\Diagnostics\MemoryLoadLog.cs" />
     <Compile Include="Infrastructure\GlobalConfig.cs" />
     <Compile Include="Infrastructure\SchemaKind.cs" />
     <Compile Include="Infrastructure\SqlIdentifier.cs" />

@@ -330,14 +330,20 @@ namespace PocTrace.Web
                     "未能读取 " + db + " 缓存。请确认 Admin 是否已更新缓存。"));
 
             var utMaps = _services.GraphLoader.LoadUtMapping();
+            var nodes = loaded.Nodes;
+            var pocs = loaded.Pocs;
+            var pipes = loaded.Pipes;
+            var takeoffs = loaded.Takeoffs;
+            var dyn = loaded.HookupNumbers;
+            loaded = default;
             _services.CacheManager.Initialize(
-                db,
-                loaded.Nodes,
-                loaded.Pocs,
-                loaded.Pipes,
-                loaded.Takeoffs,
-                loaded.HookupNumbers,
-                utMaps);
+                db, nodes, pocs, pipes, takeoffs, dyn, utMaps, buildReverseGraphIndex: false, progress: progress);
+            nodes = null;
+            pocs = null;
+            pipes = null;
+            takeoffs = null;
+            dyn = null;
+            _services.CacheManager.BuildReverseIndexAfterInputsReleased(progress);
 
             _loadedDb = db;
             _loadedSavedAt = savedAt;

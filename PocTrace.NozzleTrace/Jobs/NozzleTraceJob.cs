@@ -139,7 +139,11 @@ namespace PocTrace.NozzleTrace.Jobs
 
 
 
+        BimIdDiagnosticsResult bimStats = null;
+
         await Task.Run(() =>
+
+        {
 
             services.CacheManager.Initialize(
 
@@ -155,15 +159,29 @@ namespace PocTrace.NozzleTrace.Jobs
 
               hookupNumbers,
 
-              new Dictionary<string, Dictionary<string, Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase)),
+              new Dictionary<string, Dictionary<string, Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase),
 
-            cancellationToken).ConfigureAwait(false);
+              buildReverseGraphIndex: false);
 
+            var nodeList = nodes as IList<NodeInfo> ?? nodes.ToList();
 
+            bimStats = BimIdDiagnostics.AnalyzeAndLog("NozzleTraceLoad", line, cacheVersion, nodeList);
 
-        var nodeList = nodes as IList<NodeInfo> ?? nodes.ToList();
+            nodeList = null;
 
-        var bimStats = BimIdDiagnostics.AnalyzeAndLog("NozzleTraceLoad", line, cacheVersion, nodeList);
+            nodes = null;
+
+            pocs = null;
+
+            pipes = null;
+
+            takeoffs = null;
+
+            hookupNumbers = null;
+
+            services.CacheManager.BuildReverseIndexAfterInputsReleased();
+
+        }, cancellationToken).ConfigureAwait(false);
 
 
 

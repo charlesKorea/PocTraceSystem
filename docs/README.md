@@ -11,7 +11,7 @@
 | `PocTrace_User_Manual_KO.md` | 한국어 | 사용자 매뉴얼 |
 | `PocTrace_User_Manual_ZH.md` | 中文 | 用户手册 |
 | `PocTrace_Validation_and_Manual.xlsx` | 한·중 | 검수 + 특수규칙 시트 통합 |
-| `UPDATE-2026-10.md` | 한국어 | **2026-10 변경 요약** (Web 포털, JLic 검증, 배포) |
+| `UPDATE-2026-10.md` | 한국어 | **2026-10 변경 요약** (캐시 로드 메모리, Web 포털, JLic 검증, 배포) |
 | `SVDI_XDrive_Manual_Deploy_KO.md` | 한국어 | **SVDI X: 수동 배포·Admin 영향** |
 | `WebPortal_API_Concept_KO.md` | 한국어 | **웹 포털 API 구상** (WinForms → HTML, Core 재사용, GET/POST) |
 | `PocTrace.Web/README.md` | 한국어 | **PocTrace.Web 실행** (Viewer와 병행, X: 배포) |

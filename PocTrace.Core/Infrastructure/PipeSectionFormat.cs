@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Models;
 
 namespace PocTrace.Core.Infrastructure
@@ -15,6 +16,7 @@ namespace PocTrace.Core.Infrastructure
         public static List<PipeData> Read(BinaryReader r, int cacheVersion)
         {
             int count = r.ReadInt32();
+            MemoryLoadLog.EnsureRecordCount("Cache.Pipes", count, r.BaseStream.Length);
             var list = new List<PipeData>(count);
             for (int i = 0; i < count; i++)
                 list.Add(ReadPipe(r, cacheVersion));
@@ -43,6 +45,15 @@ namespace PocTrace.Core.Infrastructure
                 int endpointCount = r.ReadInt32();
                 if (endpointCount < 0)
                     throw new InvalidDataException("Pipe endpoint count is negative.");
+                // 파일보다 큰 개수는 어긋난 v10 헤더다. List 용량으로 잡으면 OOM만 나고 로그가 없다.
+                if ((long)endpointCount > r.BaseStream.Length)
+                {
+                    MemoryLoadLog.Stage(
+                        "Cache.Pipe.EndpointCount",
+                        "pipe=" + pipe.PipeId + " count=" + endpointCount + " fileBytes=" + r.BaseStream.Length);
+                    throw new InvalidDataException(
+                        "Pipe endpoint count " + endpointCount + " is larger than the file.");
+                }
                 var endpoints = new List<PipeEndpoint>(endpointCount);
                 for (int i = 0; i < endpointCount; i++)
                 {

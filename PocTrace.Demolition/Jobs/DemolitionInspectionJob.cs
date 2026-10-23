@@ -130,8 +130,16 @@ namespace PocTrace.Demolition.Jobs
           }
 
           await Task.Run(() =>
-            services.CacheManager.Initialize(line, nodes, pocs, pipes, takeoffs, dyn, utMaps),
-            cancellationToken).ConfigureAwait(false);
+          {
+            services.CacheManager.Initialize(
+              line, nodes, pocs, pipes, takeoffs, dyn, utMaps, buildReverseGraphIndex: false);
+            nodes = null;
+            pocs = null;
+            pipes = null;
+            takeoffs = null;
+            dyn = null;
+            services.CacheManager.BuildReverseIndexAfterInputsReleased();
+          }, cancellationToken).ConfigureAwait(false);
 
           Log.Information(
             "[Demolition] Cache ready for {Line}: Eqp={Eqp}, SavedAt={At}, Stale={Stale}",

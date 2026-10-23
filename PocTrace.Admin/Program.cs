@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows.Forms;
 
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
 using Serilog;
 using Serilog.Events;
@@ -18,7 +19,9 @@ namespace PocTrace.Admin
         static int Main()
         {
             // 1. 로그 설정 (사용자별 LocalAppData — 공유 폴더에 쓰지 않음)
-            string logPath = Path.Combine(PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Admin), "admin_log-.txt");
+            string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Admin);
+            MemoryLoadLog.Initialize(logDirectory);
+            string logPath = Path.Combine(logDirectory, "admin_log-.txt");
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
