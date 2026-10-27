@@ -62,6 +62,7 @@
     <Compile Include="PortalServer.cs" />
     <Compile Include="PortalService.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="..\shared\ExeBootFile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Configuration;
 using System.IO;
 using System.Linq;
 
@@ -83,7 +82,7 @@ namespace PocTrace.Core.Infrastructure
     {
       get
       {
-        var raw = ConfigurationManager.AppSettings["SchemaKind"];
+        var raw = GetAppSetting("SchemaKind", "");
         if (string.IsNullOrWhiteSpace(raw))
           return SchemaKind.S5d;
         return SchemaKindParser.Parse(raw);
@@ -179,27 +178,27 @@ namespace PocTrace.Core.Infrastructure
     }
     private static string GetAppSetting(string key, string defaultValue)
     {
-      var value = ConfigurationManager.AppSettings[key];
+      var value = SecretConfigStore.AppSetting(key);
       return string.IsNullOrWhiteSpace(value) ? defaultValue : value.Trim();
     }
 
     private static bool GetBoolAppSetting(string key, bool defaultValue)
     {
-      var value = ConfigurationManager.AppSettings[key];
+      var value = SecretConfigStore.AppSetting(key);
       if (string.IsNullOrWhiteSpace(value)) return defaultValue;
       return bool.TryParse(value, out var parsed) ? parsed : defaultValue;
     }
 
     private static int GetIntAppSetting(string key, int defaultValue)
     {
-      var value = ConfigurationManager.AppSettings[key];
+      var value = SecretConfigStore.AppSetting(key);
       if (string.IsNullOrWhiteSpace(value)) return defaultValue;
       return int.TryParse(value, out var parsed) ? parsed : defaultValue;
     }
 
     private static double GetDoubleAppSetting(string key, double defaultValue)
     {
-      var value = ConfigurationManager.AppSettings[key];
+      var value = SecretConfigStore.AppSetting(key);
       if (string.IsNullOrWhiteSpace(value)) return defaultValue;
       return double.TryParse(value, out var parsed) ? parsed : defaultValue;
     }

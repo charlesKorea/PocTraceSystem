@@ -59,9 +59,9 @@ namespace PocTrace.Admin.Jobs
             try
             {
                 // 1. 설정 로드
-                string connString = ConfigurationManager.ConnectionStrings["PocTraceDB"]?.ConnectionString;
+                string connString = SecretConfigStore.ConnectionString("PocTraceDB");
                 if (string.IsNullOrEmpty(connString))
-                    throw new Exception("App.config ConnectionString Missing.");
+                    throw new Exception("PocTraceDB connection string is missing. " + SecretConfigStore.FilePath);
 
                 // [New] 상세 디버그 로그 옵션 로드
                 bool enableDetailedDebug = GlobalConfig.EnableDetailedDebug;

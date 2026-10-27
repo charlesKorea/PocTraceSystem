@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
+using PocTrace.Startup;
 using Serilog;
 using Serilog.Events;
 
@@ -18,6 +19,34 @@ namespace PocTrace.Admin
         [STAThread]
         static int Main()
         {
+            string boot = null;
+            try
+            {
+                boot = ExeBootFile.Start(PocTraceLocalPaths.Admin);
+                return RunCore();
+            }
+            catch (Exception ex)
+            {
+                ExeBootFile.Fail(boot, ex);
+                try
+                {
+                    MessageBox.Show(
+                        "시작에 실패했습니다. 같은 빌드 출력의 DLL을 exe와 같이 두세요.\r\nPocTrace.Core.dll, JLic.Core.dll, Serilog.dll, Serilog.Sinks.File.dll\r\n" + boot + "\r\n\r\n" + ex,
+                        "PocTrace Admin",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                catch { }
+                return 1;
+            }
+        }
+
+        static int RunCore()
+        {
+            ExeUseSession use = null;
+            try { use = ExeUseLog.Open(PocTraceLocalPaths.Admin); }
+            catch { }
+
             // 1. 로그 설정 (사용자별 LocalAppData — 공유 폴더에 쓰지 않음)
             string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Admin);
             MemoryLoadLog.Initialize(logDirectory);
@@ -51,6 +80,8 @@ namespace PocTrace.Admin
                     return 2;
                 }
                 Log.Information("License ok user={User} group={Group}", lic.UserName, lic.Group);
+                if (use != null)
+                    use.SetLicenseUser(lic.UserName);
 
                 // Admin regenerates cache — do not hard-block on age; log freshness only.
                 var freshness = PocTrace.Core.Infrastructure.CacheFreshnessGuard.EvaluateViewerStartup();
@@ -73,6 +104,8 @@ namespace PocTrace.Admin
             }
             finally
             {
+                try { if (use != null) use.Dispose(); }
+                catch { }
                 Log.Information(">>> PocTrace.Admin Scheduler Stopped");
                 Log.CloseAndFlush();
             }

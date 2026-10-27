@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Configuration;
 using System.Data;
+using PocTrace.Core.Infrastructure;
 using System.Data.SqlClient;
 using System.Data.SQLite;
 
@@ -24,11 +24,12 @@ namespace PocTrace.Core.Infrastructure.Data
         {
             // [수정] 생성자에서는 예외를 던지지 않고 null 처리만 합니다.
             // 로컬 환경에서는 SourceDb가 없을 수 있음을 허용합니다.
-            var sourceSetting = ConfigurationManager.ConnectionStrings["SourceDb"];
-            _sourceConnectionString = sourceSetting?.ConnectionString;
+            _sourceConnectionString = SecretConfigStore.ConnectionString("SourceDb");
 
-            var localSetting = ConfigurationManager.ConnectionStrings["LocalDb"];
-            _localConnectionString = localSetting?.ConnectionString ?? "Data Source=LocalCache.db;Version=3;";
+            string local = SecretConfigStore.ConnectionString("LocalDb");
+            _localConnectionString = string.IsNullOrWhiteSpace(local)
+                ? "Data Source=LocalCache.db;Version=3;"
+                : local;
         }
 
         public IDbConnection CreateSourceConnection()
@@ -37,8 +38,7 @@ namespace PocTrace.Core.Infrastructure.Data
             if (string.IsNullOrEmpty(_sourceConnectionString))
             {
                 throw new InvalidOperationException(
-                    "SourceDb connection string is missing. " +
-                    "Cannot connect to MSSQL. If you are in Local Mode, use Mock Data instead.");
+                    "SourceDb connection string is missing. Put it in " + SecretConfigStore.FilePath);
             }
             return new SqlConnection(_sourceConnectionString);
         }

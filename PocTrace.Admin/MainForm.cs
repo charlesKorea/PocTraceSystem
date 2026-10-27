@@ -242,9 +242,7 @@ namespace PocTrace.Admin
 
             {
 
-                ConnectionStringSettings settings = ConfigurationManager.ConnectionStrings["PocTraceDB"];
-
-                connString = settings == null ? null : settings.ConnectionString;
+                connString = SecretConfigStore.ConnectionString("PocTraceDB");
 
             }
 

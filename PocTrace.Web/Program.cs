@@ -7,6 +7,7 @@ using PocTrace.Core.Composition;
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
+using PocTrace.Startup;
 using Serilog;
 
 namespace PocTrace.Web
@@ -16,6 +17,28 @@ namespace PocTrace.Web
         [STAThread]
         private static int Main(string[] args)
         {
+            string boot = null;
+            try
+            {
+                boot = ExeBootFile.Start(PocTraceLocalPaths.Web);
+                return RunCore(args);
+            }
+            catch (Exception ex)
+            {
+                ExeBootFile.Fail(boot, ex);
+                Console.Error.WriteLine("시작에 실패했습니다. 같은 빌드 출력의 DLL을 exe와 같이 두세요.");
+                Console.Error.WriteLine(boot);
+                Console.Error.WriteLine(ex);
+                return 1;
+            }
+        }
+
+        private static int RunCore(string[] args)
+        {
+            ExeUseSession use = null;
+            try { use = ExeUseLog.Open(PocTraceLocalPaths.Web); }
+            catch { }
+
             bool openBrowser = !args.Any(a => string.Equals(a, "--no-browser", StringComparison.OrdinalIgnoreCase));
             string logDirectory = Path.Combine(PortalService.WorkRoot, "logs");
             Directory.CreateDirectory(logDirectory);
@@ -41,6 +64,8 @@ namespace PocTrace.Web
                 }
                 Log.Information("License ok user={User} group={Group} extra={Extra}",
                     lic.UserName, lic.Group, PocTraceLicense.CanUseExtraTools(lic));
+                if (use != null)
+                    use.SetLicenseUser(lic.UserName);
 
                 if (GlobalConfig.AllowDatabaseFallback)
                     Log.Warning("AllowDatabaseFallback=true 입니다. 웹 포털은 공유 캐시만 읽는 구성이 맞습니다.");
@@ -75,6 +100,8 @@ namespace PocTrace.Web
             }
             finally
             {
+                try { if (use != null) use.Dispose(); }
+                catch { }
                 Log.CloseAndFlush();
             }
         }

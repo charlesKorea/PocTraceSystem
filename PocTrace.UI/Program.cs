@@ -2,6 +2,7 @@
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
+using PocTrace.Startup;
 using PocTrace.UI;
 using PocTrace.UI.Services;
 using PocTrace.UI.ViewModels;
@@ -18,6 +19,34 @@ namespace PocTrace
     [STAThread]
     static int Main()
     {
+      string boot = null;
+      try
+      {
+        boot = ExeBootFile.Start(PocTraceLocalPaths.Viewer);
+        return RunCore();
+      }
+      catch (Exception ex)
+      {
+        ExeBootFile.Fail(boot, ex);
+        try
+        {
+          MessageBox.Show(
+            "시작에 실패했습니다. 같은 빌드 출력의 DLL을 exe와 같이 두세요.\r\nPocTrace.Core.dll, JLic.Core.dll, Serilog.dll, Serilog.Sinks.File.dll\r\n" + boot + "\r\n\r\n" + ex,
+            "PocTrace Viewer",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
+        }
+        catch { }
+        return 1;
+      }
+    }
+
+    static int RunCore()
+    {
+      ExeUseSession use = null;
+      try { use = ExeUseLog.Open(PocTraceLocalPaths.Viewer); }
+      catch { }
+
       Application.EnableVisualStyles();
       Application.SetCompatibleTextRenderingDefault(false);
 
@@ -49,6 +78,8 @@ namespace PocTrace
           return 2;
         }
         Log.Information("License ok user={User} group={Group}", lic.UserName, lic.Group);
+        if (use != null)
+          use.SetLicenseUser(lic.UserName);
         Log.Information(
           "Memory load log: {Path} procBits={Bits} AllowDatabaseFallback={Fallback}",
           MemoryLoadLog.FilePath,
@@ -100,6 +131,8 @@ namespace PocTrace
       }
       finally
       {
+        try { if (use != null) use.Dispose(); }
+        catch { }
         Log.CloseAndFlush();
       }
     }

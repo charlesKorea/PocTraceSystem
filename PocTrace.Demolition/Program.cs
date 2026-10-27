@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
+using PocTrace.Startup;
 using Serilog;
 
 namespace PocTrace.Demolition
@@ -13,6 +14,34 @@ namespace PocTrace.Demolition
     [STAThread]
     static int Main()
     {
+      string boot = null;
+      try
+      {
+        boot = ExeBootFile.Start(PocTraceLocalPaths.Demolition);
+        return RunCore();
+      }
+      catch (Exception ex)
+      {
+        ExeBootFile.Fail(boot, ex);
+        try
+        {
+          MessageBox.Show(
+            "시작에 실패했습니다. 같은 빌드 출력의 DLL을 exe와 같이 두세요.\r\nPocTrace.Core.dll, JLic.Core.dll, Serilog.dll, Serilog.Sinks.File.dll\r\n" + boot + "\r\n\r\n" + ex,
+            "PocTrace Demolition",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
+        }
+        catch { }
+        return 1;
+      }
+    }
+
+    static int RunCore()
+    {
+      ExeUseSession use = null;
+      try { use = ExeUseLog.Open(PocTraceLocalPaths.Demolition); }
+      catch { }
+
       Application.EnableVisualStyles();
       Application.SetCompatibleTextRenderingDefault(false);
 
@@ -54,6 +83,8 @@ namespace PocTrace.Demolition
           return 3;
         }
 
+        if (use != null)
+          use.SetLicenseUser(lic.UserName);
         Log.Information("PocTrace.Demolition starting. Base={Base} user={User}",
           AppDomain.CurrentDomain.BaseDirectory, lic.UserName);
         Application.Run(new MainForm());
@@ -71,6 +102,8 @@ namespace PocTrace.Demolition
       }
       finally
       {
+        try { if (use != null) use.Dispose(); }
+        catch { }
         Log.CloseAndFlush();
       }
     }

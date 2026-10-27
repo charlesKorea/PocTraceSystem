@@ -8,6 +8,7 @@ using PocTrace.Core.Engine.Logic;
 using PocTrace.Core.Enums;
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Data;
+using PocTrace.Startup;
 using PocTrace.Core.Infrastructure.Repositories;
 using PocTrace.Core.Models;
 
@@ -19,8 +20,12 @@ namespace PocTrace.DdwAcceptance
 
         private static int Main()
         {
+            string boot = null;
+            ExeUseSession use = null;
             try
             {
+                boot = ExeBootFile.Start("DdwAcceptance");
+                use = ExeUseLog.Open("DdwAcceptance");
                 SchemaAndSql();
                 S5dSlots();
                 DdwEdges();
@@ -34,8 +39,14 @@ namespace PocTrace.DdwAcceptance
             }
             catch (Exception ex)
             {
+                ExeBootFile.Fail(boot, ex);
                 Console.Error.WriteLine("FAIL exception " + ex);
                 return 1;
+            }
+            finally
+            {
+                if (use != null)
+                    use.Dispose();
             }
 
             if (_failed > 0)

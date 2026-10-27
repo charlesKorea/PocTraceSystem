@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -125,12 +124,11 @@ namespace PocTrace.DeletedPipeLength
                 return;
             }
 
-            var source = ConfigurationManager.ConnectionStrings["SourceDb"];
-            string connectionString = source == null ? null : source.ConnectionString;
+            string connectionString = SecretConfigStore.ConnectionString("SourceDb");
             if (string.IsNullOrWhiteSpace(connectionString) ||
                 connectionString.IndexOf("YOUR_SERVER", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                MessageBox.Show(this, "App.config의 SourceDb 연결 문자열을 채우세요.");
+                MessageBox.Show(this, "SourceDb 연결 문자열이 없습니다.\n" + SecretConfigStore.FilePath + "\n숨김 폴더의 secrets.config에 넣으세요.");
                 return;
             }
 

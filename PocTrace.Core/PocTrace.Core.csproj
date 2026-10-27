@@ -157,6 +157,8 @@
     <Compile Include="Utils\DotNetGuidHash.cs" />
     <Compile Include="Utils\Util.cs" />
     <Compile Include="Licensing\PocTraceLicense.cs" />
+    <Compile Include="Infrastructure\ExeUseLog.cs" />
+    <Compile Include="Infrastructure\SecretConfigStore.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\JLic.Core\JLic.Core.csproj">

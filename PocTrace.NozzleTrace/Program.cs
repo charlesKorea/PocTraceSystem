@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
+using PocTrace.Startup;
 using Serilog;
 
 namespace PocTrace.NozzleTrace
@@ -13,6 +14,34 @@ namespace PocTrace.NozzleTrace
     [STAThread]
     static int Main()
     {
+      string boot = null;
+      try
+      {
+        boot = ExeBootFile.Start(PocTraceLocalPaths.NozzleTrace);
+        return RunCore();
+      }
+      catch (Exception ex)
+      {
+        ExeBootFile.Fail(boot, ex);
+        try
+        {
+          MessageBox.Show(
+            "시작에 실패했습니다. 같은 빌드 출력의 DLL을 exe와 같이 두세요.\r\nPocTrace.Core.dll, JLic.Core.dll, Serilog.dll, Serilog.Sinks.File.dll\r\n" + boot + "\r\n\r\n" + ex,
+            "PocTrace NozzleTrace",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
+        }
+        catch { }
+        return 1;
+      }
+    }
+
+    static int RunCore()
+    {
+      ExeUseSession use = null;
+      try { use = ExeUseLog.Open(PocTraceLocalPaths.NozzleTrace); }
+      catch { }
+
       Application.EnableVisualStyles();
       Application.SetCompatibleTextRenderingDefault(false);
 
@@ -54,6 +83,8 @@ namespace PocTrace.NozzleTrace
           return 3;
         }
 
+        if (use != null)
+          use.SetLicenseUser(lic.UserName);
         Log.Information("PocTrace.NozzleTrace starting. user={User}", lic.UserName);
         Application.Run(new MainForm());
         return 0;
@@ -66,6 +97,8 @@ namespace PocTrace.NozzleTrace
       }
       finally
       {
+        try { if (use != null) use.Dispose(); }
+        catch { }
         Log.CloseAndFlush();
       }
     }
