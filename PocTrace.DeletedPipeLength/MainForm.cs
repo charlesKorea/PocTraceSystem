@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -95,6 +96,9 @@ namespace PocTrace.DeletedPipeLength
             _log.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             _log.Font = new System.Drawing.Font("Consolas", 9f);
             Controls.Add(_log);
+            WriteLog("로그 파일: " + Path.Combine(
+                PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.DeletedPipeLength),
+                "deleted-pipe-" + DateTime.Now.ToString("yyyyMMdd") + ".txt"));
         }
 
         private static Label LabelAt(string text, int left, int top)
@@ -150,6 +154,9 @@ namespace PocTrace.DeletedPipeLength
             _run.Enabled = false;
             _cancel.Enabled = true;
             _runCts = new CancellationTokenSource();
+            WriteLog("실행 DB=" + fallback
+                + " 기준일=" + _cutover.Value.ToString("yyyy-MM-dd")
+                + " 엑셀=" + _excel.Text);
             var progress = new Progress<string>(WriteLog);
             try
             {
@@ -233,13 +240,22 @@ namespace PocTrace.DeletedPipeLength
 
         private void WriteLog(string message)
         {
-            if (IsDisposed)
-                return;
-            if (InvokeRequired)
+            if (!IsDisposed && InvokeRequired)
             {
                 BeginInvoke(new Action<string>(WriteLog), message);
                 return;
             }
+
+            try
+            {
+                Log.Information("{Line}", message ?? string.Empty);
+            }
+            catch
+            {
+            }
+
+            if (IsDisposed)
+                return;
             _log.AppendText(DateTime.Now.ToString("HH:mm:ss") + "  " + message + Environment.NewLine);
         }
     }

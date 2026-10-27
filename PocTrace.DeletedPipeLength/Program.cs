@@ -16,13 +16,25 @@ namespace PocTrace.DeletedPipeLength
             Application.SetCompatibleTextRenderingDefault(false);
 
             string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.DeletedPipeLength);
+            string logFile = Path.Combine(logDirectory, "deleted-pipe-" + DateTime.Now.ToString("yyyyMMdd") + ".txt");
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .WriteTo.File(
                     Path.Combine(logDirectory, "deleted-pipe-.txt"),
                     outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}",
-                    rollingInterval: RollingInterval.Day)
+                    rollingInterval: RollingInterval.Day,
+                    flushToDiskInterval: TimeSpan.FromSeconds(1),
+                    shared: true)
                 .CreateLogger();
+            try
+            {
+                File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "deleted-pipe-log.path.txt"), logFile);
+            }
+            catch (Exception pointerEx)
+            {
+                Log.Warning(pointerEx, "Could not write deleted-pipe-log.path.txt");
+            }
+            Log.Information("Log file {Path}", logFile);
 
             try
             {
