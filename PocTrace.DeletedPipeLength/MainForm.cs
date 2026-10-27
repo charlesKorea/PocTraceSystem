@@ -26,7 +26,7 @@ namespace PocTrace.DeletedPipeLength
 
         public MainForm()
         {
-            Text = "삭제 배관 길이";
+            Text = "삭제 배관 길이 / BOM";
             StartPosition = FormStartPosition.CenterScreen;
             Width = 920;
             Height = 680;
@@ -66,16 +66,20 @@ namespace PocTrace.DeletedPipeLength
             _cutover.Value = new DateTime(2026, 1, 1);
             Controls.Add(_cutover);
 
+            var note = LabelAt("EQPID 기준. Op2(기준일 이후)와 Op1+건설코드 Delete를 삭제 설비로 봅니다. BOM은 피팅 이름·QCode 수량입니다.", 16, 112);
+            note.MaximumSize = new System.Drawing.Size(860, 0);
+            Controls.Add(note);
+
             _run.Text = "실행";
             _run.Left = 120;
-            _run.Top = 112;
+            _run.Top = 148;
             _run.Width = 100;
             _run.Click += OnRun;
             Controls.Add(_run);
 
             _cancel.Text = "취소";
             _cancel.Left = 230;
-            _cancel.Top = 112;
+            _cancel.Top = 148;
             _cancel.Width = 100;
             _cancel.Enabled = false;
             _cancel.Click += delegate { _runCts?.Cancel(); };
@@ -85,9 +89,9 @@ namespace PocTrace.DeletedPipeLength
             _log.ReadOnly = true;
             _log.ScrollBars = ScrollBars.Both;
             _log.Left = 12;
-            _log.Top = 152;
+            _log.Top = 188;
             _log.Width = 880;
-            _log.Height = 470;
+            _log.Height = 434;
             _log.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             _log.Font = new System.Drawing.Font("Consolas", 9f);
             Controls.Add(_log);

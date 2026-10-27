@@ -10,7 +10,8 @@ namespace PocTrace.Core.Engine.DeletedPipe
 {
     /// <summary>
     /// S5D 로그에서 Instance/Pipe/POC 별 최신 행만 읽는다.
-    /// 최신 행의 OperationType이 2이고 OPTIME이 기준일 이상일 때만 삭제 대상으로 쓴다.
+    /// 최신 행의 OperationType이 2이고 OPTIME이 기준일 이상이면 완전 삭제다.
+    /// OperationType이 1이고 건설코드에 Delete가 있으면 5D에 남아 있는 철거 설비다.
     /// 결과는 BinaryCache에 넣지 않는다.
     /// </summary>
     public sealed class DeletedPipeRepository
@@ -35,7 +36,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
         {
             string sql = $@"
 SELECT
-    InstanceId, Tag, Name, OpTime, OperationType, Division, Sub1Name, Sub2Name
+    InstanceId, Tag, Name, OpTime, OperationType, Division, Sub1Name, Sub2Name, ConstructionCode, QCode
 FROM (
     SELECT
         A.InstanceID AS InstanceId,
@@ -46,6 +47,8 @@ FROM (
         B.Division AS Division,
         S1.Name AS Sub1Name,
         S2.Name AS Sub2Name,
+        A.CONSTRUCTIONCODE AS ConstructionCode,
+        B.QCode AS QCode,
         ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
     FROM {_db}.dbo.ObjectInstanceLog A WITH (NOLOCK)
     JOIN {_db}.dbo.ObjectLog B WITH (NOLOCK)
@@ -67,6 +70,47 @@ WHERE rn = 1
   AND OpTime >= @Cutover";
 
             return Query<DeletedEquipmentRow>(sql, new { Cutover = _cutover });
+        }
+
+        public List<DeletedEquipmentRow> LoadPendingDeleteEquipment()
+        {
+            string sql = $@"
+SELECT
+    InstanceId, Tag, Name, OpTime, OperationType, Division, Sub1Name, Sub2Name, ConstructionCode, QCode
+FROM (
+    SELECT
+        A.InstanceID AS InstanceId,
+        A.Tag AS Tag,
+        A.Name AS Name,
+        A.OPTIME AS OpTime,
+        A.OperationType AS OperationType,
+        B.Division AS Division,
+        S1.Name AS Sub1Name,
+        S2.Name AS Sub2Name,
+        A.CONSTRUCTIONCODE AS ConstructionCode,
+        B.QCode AS QCode,
+        ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
+    FROM {_db}.dbo.ObjectInstanceLog A WITH (NOLOCK)
+    JOIN {_db}.dbo.ObjectLog B WITH (NOLOCK)
+        ON A.ObjectID = B.ObjectID AND B.OperationType < 2
+    LEFT JOIN {_db}.dbo.SubdivisionLog S1 WITH (NOLOCK)
+        ON B.Subdivision1 = S1.SubdivID AND S1.OperationType < 2
+    LEFT JOIN {_db}.dbo.SubdivisionLog S2 WITH (NOLOCK)
+        ON B.Subdivision2 = S2.SubdivID AND S2.OperationType < 2
+    WHERE B.Division = 0
+      AND A.InstanceID IN (
+            SELECT D.InstanceID
+            FROM {_db}.dbo.ObjectInstanceLog D WITH (NOLOCK)
+            WHERE D.CONSTRUCTIONCODE IS NOT NULL
+              AND LOWER(D.CONSTRUCTIONCODE) LIKE '%delete%'
+      )
+) x
+WHERE rn = 1
+  AND OperationType = 1
+  AND ConstructionCode IS NOT NULL
+  AND LOWER(ConstructionCode) LIKE '%delete%'";
+
+            return Query<DeletedEquipmentRow>(sql, null);
         }
 
         public List<DeletedPocRow> LoadPocsTouching(IList<Guid> ids)
@@ -191,7 +235,7 @@ WHERE rn = 1";
 
             string sql = $@"
 SELECT
-    InstanceId, Tag, Name, OpTime, OperationType, Division, Sub1Name, Sub2Name
+    InstanceId, Tag, Name, OpTime, OperationType, Division, Sub1Name, Sub2Name, ConstructionCode, QCode
 FROM (
     SELECT
         A.InstanceID AS InstanceId,
@@ -202,6 +246,8 @@ FROM (
         B.Division AS Division,
         S1.Name AS Sub1Name,
         S2.Name AS Sub2Name,
+        A.CONSTRUCTIONCODE AS ConstructionCode,
+        B.QCode AS QCode,
         ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
     FROM {_db}.dbo.ObjectInstanceLog A WITH (NOLOCK)
     JOIN {_db}.dbo.ObjectLog B WITH (NOLOCK)

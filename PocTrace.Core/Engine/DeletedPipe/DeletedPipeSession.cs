@@ -7,14 +7,18 @@ namespace PocTrace.Core.Engine.DeletedPipe
 {
     internal sealed class WalkState
     {
-        public WalkState(string eqpId, DeletedEquipmentRow equipment)
+        public WalkState(string eqpId, DeletedEquipmentRow equipment, DeletedWalkMode mode)
         {
             EqpId = eqpId;
             Equipment = equipment;
+            Mode = mode;
         }
 
         public string EqpId { get; private set; }
         public DeletedEquipmentRow Equipment { get; private set; }
+        public DeletedWalkMode Mode { get; private set; }
+        public List<DeletedNodeRow> Fittings { get; private set; } = new List<DeletedNodeRow>();
+        private readonly HashSet<Guid> _fittingIds = new HashSet<Guid>();
         public HashSet<Guid> Visited { get; private set; } = new HashSet<Guid>();
         public HashSet<Guid> Pipes { get; private set; } = new HashSet<Guid>();
         public Queue<Guid> Queue { get; private set; } = new Queue<Guid>();
@@ -22,6 +26,15 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public int Hops { get; set; }
         public bool HopLimited { get; set; }
         public DeletedPocRow StartPoc { get; set; }
+
+        public void RememberFitting(DeletedNodeRow node)
+        {
+            if (Mode != DeletedWalkMode.StillPresent || !DeletedPipeClassifier.IsFitting(node))
+                return;
+            if (node.InstanceId == Guid.Empty || !_fittingIds.Add(node.InstanceId))
+                return;
+            Fittings.Add(node);
+        }
     }
 
     /// <summary>
@@ -62,7 +75,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
             }
         }
 
-        public List<DeletedPocRow> QualifyingPocs(Guid ownerId, DateTime cutover)
+        public List<DeletedPocRow> QualifyingPocs(Guid ownerId, DateTime cutover, DeletedWalkMode mode)
         {
             EnsureOwners(new[] { ownerId });
             List<DeletedPocRow> owned;
@@ -72,7 +85,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
             var list = new List<DeletedPocRow>();
             for (int i = 0; i < owned.Count; i++)
             {
-                if (DeletedPipeClassifier.IsDeletedInWindow(owned[i].OperationType, owned[i].OpTime, cutover))
+                if (DeletedPipeClassifier.Accepts(mode, owned[i].OperationType, owned[i].OpTime, cutover))
                     list.Add(owned[i]);
             }
             return list;
@@ -171,8 +184,17 @@ namespace PocTrace.Core.Engine.DeletedPipe
             DateTime cutover,
             CancellationToken cancellation)
         {
-            if (takeoff == null || takeoff.OperationType != 2)
+            if (takeoff == null)
                 return;
+            if (state.Mode == DeletedWalkMode.StillPresent)
+            {
+                if (takeoff.OperationType >= 2)
+                    return;
+            }
+            else if (takeoff.OperationType != 2)
+            {
+                return;
+            }
 
             var ids = new List<Guid>();
             if (takeoff.PipeId.HasValue && takeoff.PipeId.Value != Guid.Empty)
@@ -189,7 +211,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
         {
             if (poc == null)
                 return;
-            if (!DeletedPipeClassifier.IsDeletedInWindow(poc.OperationType, poc.OpTime, cutover))
+            if (!DeletedPipeClassifier.Accepts(state.Mode, poc.OperationType, poc.OpTime, cutover))
                 return;
             if (poc.OwnerId == state.Equipment.InstanceId)
                 return;
@@ -200,8 +222,9 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 return;
             if (DeletedPipeClassifier.IsEquipment(owner))
                 return;
-            if (!DeletedPipeClassifier.IsDeletedInWindow(owner.OperationType, owner.OpTime, cutover))
+            if (!DeletedPipeClassifier.Accepts(state.Mode, owner.OperationType, owner.OpTime, cutover))
                 return;
+            state.RememberFitting(owner);
 
             EnsureOwners(new[] { owner.InstanceId });
             List<DeletedPocRow> siblings;
@@ -213,7 +236,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 var sibling = siblings[i];
                 if (sibling.InstanceId == poc.InstanceId)
                     continue;
-                if (!DeletedPipeClassifier.IsDeletedInWindow(sibling.OperationType, sibling.OpTime, cutover))
+                if (!DeletedPipeClassifier.Accepts(state.Mode, sibling.OperationType, sibling.OpTime, cutover))
                     continue;
 
                 var seeds = SeedIds(sibling);
@@ -232,8 +255,9 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 return;
             if (DeletedPipeClassifier.IsEquipment(node))
                 return;
-            if (!DeletedPipeClassifier.IsDeletedInWindow(node.OperationType, node.OpTime, cutover))
+            if (!DeletedPipeClassifier.Accepts(state.Mode, node.OperationType, node.OpTime, cutover))
                 return;
+            state.RememberFitting(node);
 
             EnsureOwners(new[] { node.InstanceId });
             List<DeletedPocRow> pocs;
@@ -242,7 +266,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
 
             for (int i = 0; i < pocs.Count; i++)
             {
-                if (!DeletedPipeClassifier.IsDeletedInWindow(pocs[i].OperationType, pocs[i].OpTime, cutover))
+                if (!DeletedPipeClassifier.Accepts(state.Mode, pocs[i].OperationType, pocs[i].OpTime, cutover))
                     continue;
                 var seeds = SeedIds(pocs[i]);
                 Prefetch(seeds, cancellation);
@@ -258,7 +282,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
         {
             if (pipe == null)
                 return;
-            if (!DeletedPipeClassifier.IsDeletedInWindow(pipe.OperationType, pipe.OpTime, cutover))
+            if (!DeletedPipeClassifier.Accepts(state.Mode, pipe.OperationType, pipe.OpTime, cutover))
                 return;
             if (!state.Pipes.Add(pipe.PipeId))
                 return;

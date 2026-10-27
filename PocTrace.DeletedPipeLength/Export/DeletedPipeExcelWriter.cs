@@ -18,6 +18,7 @@ namespace PocTrace.DeletedPipeLength.Export
             using (var package = new ExcelPackage(file))
             {
                 WriteSummary(package.Workbook.Worksheets.Add("요약"), reports);
+                WriteBom(package.Workbook.Worksheets.Add("BOM"), reports);
                 WriteDetails(package.Workbook.Worksheets.Add("배관"), reports);
                 WriteUnmatched(package.Workbook.Worksheets.Add("미매칭"), reports);
                 package.Save();
@@ -28,7 +29,7 @@ namespace PocTrace.DeletedPipeLength.Export
         {
             string[] headers =
             {
-                "DB", "EQPID", "삭제설비수", "삭제POC수", "배관수", "길이합_m", "길이합_mm", "비고"
+                "DB", "EQPID", "삭제설비수", "삭제POC수", "배관수", "길이합_m", "길이합_mm", "피팅수", "구분", "비고"
             };
             WriteHeaders(ws, headers);
             int row = 2;
@@ -45,11 +46,36 @@ namespace PocTrace.DeletedPipeLength.Export
                     ws.Cells[row, 5].Value = item.PipeCount;
                     ws.Cells[row, 6].Value = item.LengthMeters;
                     ws.Cells[row, 7].Value = item.LengthMillimeters;
-                    ws.Cells[row, 8].Value = item.Note;
+                    ws.Cells[row, 8].Value = item.FittingCount;
+                    ws.Cells[row, 9].Value = item.Kind;
+                    ws.Cells[row, 10].Value = item.Note;
                     row++;
                 }
             }
             ws.Cells[ws.Dimension.Address].AutoFitColumns();
+        }
+
+        private static void WriteBom(ExcelWorksheet ws, IList<DeletedPipeReport> reports)
+        {
+            string[] headers = { "DB", "EQPID", "Fitting Name", "QCode", "수량" };
+            WriteHeaders(ws, headers);
+            int row = 2;
+            for (int i = 0; i < reports.Count; i++)
+            {
+                var items = reports[i].Bom;
+                for (int b = 0; b < items.Count; b++)
+                {
+                    var item = items[b];
+                    ws.Cells[row, 1].Value = item.DbName;
+                    ws.Cells[row, 2].Value = item.EqpId;
+                    ws.Cells[row, 3].Value = item.FittingName;
+                    ws.Cells[row, 4].Value = item.QCode;
+                    ws.Cells[row, 5].Value = item.Count;
+                    row++;
+                }
+            }
+            if (ws.Dimension != null)
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
         }
 
         private static void WriteDetails(ExcelWorksheet ws, IList<DeletedPipeReport> reports)

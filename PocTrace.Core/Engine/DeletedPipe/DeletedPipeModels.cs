@@ -11,6 +11,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public string DbName { get; set; }
         public DateTime Cutover { get; set; }
         public List<DeletedPipeSummaryRow> Summaries { get; set; } = new List<DeletedPipeSummaryRow>();
+        public List<DeletedFittingBomRow> Bom { get; set; } = new List<DeletedFittingBomRow>();
         public List<DeletedPipeDetailRow> Details { get; set; } = new List<DeletedPipeDetailRow>();
         public List<DeletedPipeUnmatchedRow> Unmatched { get; set; } = new List<DeletedPipeUnmatchedRow>();
         public List<string> Warnings { get; set; } = new List<string>();
@@ -23,9 +24,21 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public int EquipmentCount { get; set; }
         public int PocCount { get; set; }
         public int PipeCount { get; set; }
+        public int FittingCount { get; set; }
         public double LengthMeters { get; set; }
         public double LengthMillimeters { get; set; }
+        public string Kind { get; set; }
         public string Note { get; set; }
+    }
+
+    /// <summary>피팅 이름·QCode별 수량. 인스턴스 목록은 쓰지 않는다.</summary>
+    public sealed class DeletedFittingBomRow
+    {
+        public string DbName { get; set; }
+        public string EqpId { get; set; }
+        public string FittingName { get; set; }
+        public string QCode { get; set; }
+        public int Count { get; set; }
     }
 
     public sealed class DeletedPipeDetailRow
@@ -64,6 +77,8 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public int Division { get; set; }
         public string Sub1Name { get; set; }
         public string Sub2Name { get; set; }
+        public string ConstructionCode { get; set; }
+        public string QCode { get; set; }
     }
 
     public sealed class DeletedPocRow
@@ -102,6 +117,14 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public int Division { get; set; }
         public string Sub1Name { get; set; }
         public string Sub2Name { get; set; }
+        public string ConstructionCode { get; set; }
+        public string QCode { get; set; }
+    }
+
+    public enum DeletedWalkMode
+    {
+        DeletedSinceCutover = 0,
+        StillPresent = 1
     }
 
     public sealed class DeletedTakeoffRow

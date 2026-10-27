@@ -27,6 +27,71 @@ namespace PocTrace.Core.Engine.DeletedPipe
             return operationType == 2 && opTime.HasValue && opTime.Value >= cutover;
         }
 
+        /// <summary>
+        /// OperationType 1은 수정이라 5D에 남아 있다. 건설코드에 Delete가 있으면 철거 대상으로 본다.
+        /// </summary>
+        public static bool ConstructionCodeMarksDelete(string constructionCode)
+        {
+            return !string.IsNullOrEmpty(constructionCode)
+                && constructionCode.IndexOf("delete", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        public static bool IsPendingDelete(int operationType, string constructionCode)
+        {
+            return operationType == 1 && ConstructionCodeMarksDelete(constructionCode);
+        }
+
+        public static bool Accepts(DeletedWalkMode mode, int operationType, DateTime? opTime, DateTime cutover)
+        {
+            if (mode == DeletedWalkMode.StillPresent)
+                return operationType < 2;
+            return IsDeletedInWindow(operationType, opTime, cutover);
+        }
+
+        /// <summary>
+        /// 캐시 Fitting(Type=3)과 같다. Division 0·3이고 설비가 아니며,
+        /// Damper와 노즐(TAKE-OFF + Sub2 Nozzle/ValveBox, 이름에 Nozzle)은 제외한다.
+        /// </summary>
+        public static bool IsFitting(DeletedNodeRow node)
+        {
+            if (node == null || IsEquipment(node))
+                return false;
+            if (node.Division != 0 && node.Division != 3)
+                return false;
+            if ((node.Name ?? string.Empty).IndexOf("Nozzle", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+            if (FittingLabel(node) == "(이름 없음)")
+                return false;
+
+            string sub1 = (node.Sub1Name ?? string.Empty).Trim();
+            if (sub1.Equals("Damper", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (IsNozzleTakeoff(node))
+                return false;
+            return true;
+        }
+
+        private static bool IsNozzleTakeoff(DeletedNodeRow node)
+        {
+            string sub1 = (node.Sub1Name ?? string.Empty).Trim();
+            if (!sub1.Equals("TAKE-OFF", StringComparison.OrdinalIgnoreCase))
+                return false;
+            string sub2 = node.Sub2Name ?? string.Empty;
+            return sub2.IndexOf("Nozzle", StringComparison.OrdinalIgnoreCase) >= 0
+                || sub2.IndexOf("valvebox", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        public static string FittingLabel(DeletedNodeRow node)
+        {
+            if (node == null)
+                return string.Empty;
+            if (!string.IsNullOrWhiteSpace(node.Name))
+                return node.Name.Trim();
+            if (!string.IsNullOrWhiteSpace(node.Sub1Name))
+                return node.Sub1Name.Trim();
+            return "(이름 없음)";
+        }
+
         public static double Millimeters(double lengthMeters)
         {
             if (lengthMeters <= 0)
@@ -98,7 +163,9 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 OperationType = equipment.OperationType,
                 Division = equipment.Division,
                 Sub1Name = equipment.Sub1Name,
-                Sub2Name = equipment.Sub2Name
+                Sub2Name = equipment.Sub2Name,
+                ConstructionCode = equipment.ConstructionCode,
+                QCode = equipment.QCode
             };
         }
 
