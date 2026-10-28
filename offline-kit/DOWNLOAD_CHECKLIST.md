@@ -120,6 +120,17 @@ WebView2, ScottPlot, MiniExcel, AngleSharp, net48 ReferenceAssemblies, Encoding.
 
 Twemoji SVG는 `C:\OfflineDev\web-assets\emoji\svg\` 에 풀어 두고 `twemoji-init.js`는 `assets/emoji/` 로컬 base를 사용합니다.
 
+## Jcs.UiAssets (웹 유리 UI)
+
+PocTrace 웹과 다른 프로그램이 같이 쓰는 아이콘·마크·`jcs-glass.css`입니다. 런타임 CDN은 없습니다.
+
+- 원본: `shared/Jcs.UiAssets`
+- 아이콘: Lucide 0.544.0 (ISC), 저장소에 포함
+- 마크 png/ico: 원본 드로잉
+- 패키지: `nuget pack shared\Jcs.UiAssets\Jcs.UiAssets.nuspec -OutputDirectory offline-kit\nuget-packages`
+
+웹은 `PocTrace.Web\wwwroot\assets\jcs-ui` 복사본을 제공합니다.
+
 ---
 
 ## 제약

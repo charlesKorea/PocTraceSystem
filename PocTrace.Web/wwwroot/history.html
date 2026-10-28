@@ -4,53 +4,27 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PocTrace 검수 기록</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f3f5f7; --card: #fff; --text: #1b2430; --muted: #5d6b7b; --line: #e4e9ef;
-      --primary: #0c6b66; --primary-ink: #fff; --header: #10212b; --chip: #f3f6f8;
-      --font: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
-    }
-    [data-theme="dark"] {
-      color-scheme: dark;
-      --bg: #10141a; --card: #1a2029; --text: #e8eef3; --muted: #a7b4c2; --line: #2c3542;
-      --primary: #5ee0d4; --primary-ink: #062421; --header: #0c1015; --chip: #242b36;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5; }
-    header { background: var(--header); color: #f4f7f8; padding: 16px 28px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
-    a { color: #fff; font-weight: 700; text-decoration: none; }
-    .tools { display: flex; gap: 8px; align-items: center; }
-    button, .back {
-      border: 1px solid rgba(255,255,255,.2); background: transparent; color: #fff;
-      border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; cursor: pointer;
-    }
-    main { max-width: 1120px; margin: 0 auto; padding: 22px 20px 48px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
-    h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.03em; }
-    p { margin: 0 0 12px; color: var(--muted); }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
-    th { color: var(--muted); font-size: 12px; background: var(--chip); position: sticky; top: 0; }
-    .wrap { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
-    .empty { text-align: center; color: var(--muted); padding: 28px; }
-    @media (max-width: 860px) { header { flex-direction: column; align-items: flex-start; } }
-  </style>
+  <link rel="icon" href="/assets/jcs-ui/brand/mark.ico" />
+  <link rel="stylesheet" href="/assets/jcs-ui/jcs-glass.css" />
 </head>
 <body>
-  <header>
+  <header class="topbar">
     <a class="back" id="back" href="/">검수 화면</a>
     <div class="tools">
-      <button type="button" id="themeBtn">다크</button>
-      <button type="button" id="langKo">한국어</button>
-      <button type="button" id="langZh">中文</button>
+      <div class="theme" role="group" aria-label="theme">
+        <button type="button" id="themeBtn" aria-pressed="false">다크</button>
+      </div>
+      <div class="lang" role="group" aria-label="language">
+        <button type="button" id="langKo">한국어</button>
+        <button type="button" id="langZh">中文</button>
+      </div>
     </div>
   </header>
-  <main>
+  <main class="wrap">
     <section class="card">
       <h1 id="title">최근 한달 검수 기록</h1>
       <p id="lead">이 PC에 남은 기록입니다. 사용자, 날짜, 검수 방식, 검수대상을 한 줄씩 보여 줍니다.</p>
-      <div class="wrap">
+      <div class="table-wrap history-table">
         <table>
           <thead>
             <tr>
@@ -114,6 +88,9 @@
       document.getElementById("hLine").textContent = t.line;
       document.getElementById("hTarget").textContent = t.target;
       document.getElementById("themeBtn").textContent = mode === "dark" ? t.themeLight : t.themeDark;
+      document.getElementById("themeBtn").setAttribute("aria-pressed", mode === "dark" ? "true" : "false");
+      document.getElementById("langKo").className = lang() === "ko" ? "active" : "";
+      document.getElementById("langZh").className = lang() === "zh" ? "active" : "";
     }
     function savePrefs() {
       fetch("/api/prefs", {

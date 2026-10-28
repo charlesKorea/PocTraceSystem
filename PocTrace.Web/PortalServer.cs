@@ -116,6 +116,12 @@ namespace PocTrace.Web
                     return;
                 }
 
+                if (method == "GET" && TryUiAsset(path, out string assetPath, out string assetType))
+                {
+                    WriteFile(context, assetPath, assetType);
+                    return;
+                }
+
                 if (method == "GET" && path == "/api/license")
                 {
                     WriteJson(context, 200, _portal.GetLicenseView());
@@ -467,6 +473,30 @@ namespace PocTrace.Web
             context.Response.ContentLength64 = bytes.Length;
             context.Response.OutputStream.Write(bytes, 0, bytes.Length);
             context.Response.OutputStream.Close();
+        }
+
+        private bool TryUiAsset(string path, out string fullPath, out string contentType)
+        {
+            fullPath = null;
+            contentType = null;
+            const string prefix = "/assets/jcs-ui/";
+            if (path == null || !path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return false;
+            string relative = path.Substring(prefix.Length).Replace('/', Path.DirectorySeparatorChar);
+            if (relative.Length == 0 || relative.IndexOf("..", StringComparison.Ordinal) >= 0)
+                return false;
+            string ext = Path.GetExtension(relative).ToLowerInvariant();
+            if (ext == ".svg") contentType = "image/svg+xml";
+            else if (ext == ".png") contentType = "image/png";
+            else if (ext == ".ico") contentType = "image/x-icon";
+            else if (ext == ".css") contentType = "text/css; charset=utf-8";
+            else return false;
+
+            string root = Path.GetFullPath(Path.Combine(_wwwroot, "assets", "jcs-ui"));
+            fullPath = Path.GetFullPath(Path.Combine(root, relative));
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return File.Exists(fullPath);
         }
 
         private static void WriteFile(HttpListenerContext context, string path, string contentType, string downloadName = null)

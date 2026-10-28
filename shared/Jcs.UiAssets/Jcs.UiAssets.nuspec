@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Jcs.UiAssets</id>
+    <version>1.0.0</version>
+    <authors>JCS</authors>
+    <owners>JCS</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Offline glass UI icons, brand mark, and jcs-glass.css for desktop web screens. Lucide icons are ISC. The M-Link mark is original.</description>
+    <releaseNotes>First shared drop for M-Link web screens.</releaseNotes>
+    <tags>ui icons glass offline</tags>
+    <contentFiles>
+      <files include="any/any/jcs-ui/**" buildAction="Content" copyToOutput="true" />
+    </contentFiles>
+  </metadata>
+  <files>
+    <file src="content\jcs-ui\**\*" target="contentFiles\any\any\jcs-ui" />
+    <file src="content\jcs-ui\**\*" target="content\jcs-ui" />
+    <file src="README.md" target="" />
+    <file src="LICENSE-LUCIDE.txt" target="" />
+  </files>
+</package>
