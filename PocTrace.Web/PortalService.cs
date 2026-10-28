@@ -111,6 +111,35 @@ namespace PocTrace.Web
             };
         }
 
+        public string StartCacheLoad(string db)
+        {
+            db = RequireDb(db);
+            DateTime savedAt;
+            int version;
+            string source;
+            bool fresh = CacheFreshnessGuard.TryGetSavedAt(db, out savedAt, out version, out source);
+            bool ready = fresh
+                && string.Equals(_loadedDb, db, StringComparison.OrdinalIgnoreCase)
+                && _loadedSavedAt == savedAt
+                && _services.CacheManager.IsInitialized;
+            JobRecord job = BeginJob("load", db, db);
+            if (ready)
+            {
+                lock (_gate)
+                {
+                    job.State = "done";
+                    job.Percent = 100;
+                    job.Message = Msg(
+                        db + " 캐시가 이미 메모리에 있습니다. 태그를 입력하세요.",
+                        db + " 缓存已在内存中。请输入标签。");
+                }
+                return job.Id;
+            }
+
+            Task.Run(() => RunCacheLoad(job));
+            return job.Id;
+        }
+
         public string StartTrace(string db, string tag)
         {
             db = RequireDb(db);
@@ -348,6 +377,32 @@ namespace PocTrace.Web
             _loadedDb = db;
             _loadedSavedAt = savedAt;
             Log.Information("[Web] cache loaded {Db} savedAt={SavedAt:yyyy-MM-dd HH:mm} v{Version}", db, savedAt, version);
+        }
+
+        private void RunCacheLoad(JobRecord job)
+        {
+            try
+            {
+                EnsureLoaded(job.Db, job);
+                TokenOf(job).ThrowIfCancellationRequested();
+                lock (_gate)
+                {
+                    job.State = "done";
+                    job.Percent = 100;
+                    job.ResultCount = 0;
+                    job.Message = Msg(
+                        job.Db + " 캐시를 메모리에 올렸습니다. 이제 태그를 입력하세요.",
+                        "已将 " + job.Db + " 缓存载入内存。现在可以输入标签。");
+                }
+            }
+            catch (Exception ex) when (IsCancelled(ex))
+            {
+                MarkCancelled(job);
+            }
+            catch (Exception ex)
+            {
+                Fail(job, ex);
+            }
         }
 
         public object PreviewDemolitionText(string text)

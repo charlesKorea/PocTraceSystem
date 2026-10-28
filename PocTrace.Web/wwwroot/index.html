@@ -6,269 +6,356 @@
   <title>PocTrace</title>
   <style>
     :root {
-      --primary: #4361ee;
-      --info: #4895ef;
-      --success: #2a9d8f;
-      --danger: #e63946;
-      --bg: #f0f2f5;
+      color-scheme: light;
+      --bg: #f3f5f7;
       --card: #ffffff;
-      --text: #2b2d42;
-      --muted: #8d99ae;
-      --radius: 12px;
-      --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      --text: #1b2430;
+      --muted: #5d6b7b;
+      --line: #e4e9ef;
+      --primary: #0c6b66;
+      --primary-ink: #ffffff;
+      --info: #1e4d86;
+      --danger: #b42318;
+      --ok: #067647;
+      --warn: #9a6700;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 28px rgba(16, 24, 40, 0.05);
+      --input: #ffffff;
+      --chip: #f3f6f8;
+      --bar: #e6ebf0;
+      --focus: #0c6b66;
+      --ok-bg: #e7f6ef;
+      --fail-bg: #fdecec;
+      --warn-bg: #fff6e0;
+      --info-bg: #e8f1fb;
+      --header: #10212b;
+      --header-text: #f4f7f8;
+      --radius: 14px;
       --font-ko: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
       --font-zh: "MiSans", "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #10141a;
+      --card: #1a2029;
+      --text: #e8eef3;
+      --muted: #a7b4c2;
+      --line: #2c3542;
+      --primary: #5ee0d4;
+      --primary-ink: #062421;
+      --info: #b7d4ff;
+      --danger: #ffb4ab;
+      --ok: #8ee4b6;
+      --warn: #ffd48a;
+      --shadow: none;
+      --input: #12171e;
+      --chip: #242b36;
+      --bar: #2c3542;
+      --focus: #5ee0d4;
+      --ok-bg: #14352a;
+      --fail-bg: #3d2224;
+      --warn-bg: #3a311c;
+      --info-bg: #1b2c42;
+      --header: #0c1015;
+      --header-text: #f4f7f8;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body {
-      background: var(--bg);
+      background:
+        radial-gradient(1200px 420px at 100% -10%, rgba(12, 107, 102, 0.08), transparent 55%),
+        var(--bg);
       color: var(--text);
       font-family: var(--font-ko);
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.55;
     }
+    [data-theme="dark"] body {
+      background:
+        radial-gradient(1000px 380px at 100% -10%, rgba(94, 224, 212, 0.08), transparent 50%),
+        var(--bg);
+    }
     body.lang-zh { font-family: var(--font-zh); }
-    body.lang-zh .brand, body.lang-zh th, body.lang-zh .kpi-value { font-weight: 700; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-    .navbar {
-      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-      color: #fff;
-      padding: 14px 28px;
+    .topbar {
+      background: var(--header);
+      color: var(--header-text);
+      padding: 16px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+      gap: 18px;
     }
-    .brand { font-weight: 800; font-size: 22px; letter-spacing: -0.3px; }
-    .brand span { font-weight: 500; opacity: 0.85; font-size: 14px; margin-left: 10px; }
-    .lang {
+    .brand { font-weight: 750; font-size: 20px; letter-spacing: -0.03em; }
+    .brand span { font-weight: 560; opacity: 0.78; font-size: 14px; margin-left: 8px; }
+    .note { color: rgba(244, 247, 248, 0.72); font-size: 12.5px; margin: 3px 0 0; }
+    .tools { display: flex; align-items: center; gap: 10px; flex: none; }
+    .theme, .lang {
       display: inline-flex;
-      background: rgba(255, 255, 255, 0.16);
-      border: 1px solid rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 999px;
       padding: 3px;
     }
-    .lang button {
+    .theme button, .lang button {
       border: 0;
       background: transparent;
       color: #fff;
       font: inherit;
       font-size: 13px;
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 999px;
       cursor: pointer;
     }
-    .lang button.active { background: #fff; color: #1e3c72; font-weight: 700; }
-
-    .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 40px; }
-    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
-    .kpi {
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px 18px;
-      border-left: 5px solid var(--info);
+    .lang button.active, .theme button[aria-pressed="true"] {
+      background: #fff;
+      color: #10212b;
+      font-weight: 700;
     }
-    .kpi.pass { border-left-color: var(--primary); }
-    .kpi.good { border-left-color: var(--success); }
-    .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-    .kpi-value { font-size: 28px; font-weight: 800; line-height: 1.15; margin-top: 4px; }
-    .kpi-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 22px 20px 48px; }
+    .stage { padding: 20px 20px 16px; }
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+    }
+    .stage h1 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      line-height: 1.35;
+      letter-spacing: -0.03em;
+      font-weight: 720;
+    }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 4px; }
+    .kpi {
+      background: var(--chip);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+    }
+    .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .kpi-value { font-size: 26px; font-weight: 760; letter-spacing: -0.03em; line-height: 1.15; margin-top: 2px; }
+    .kpi-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
 
     .card {
       background: var(--card);
+      border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 18px 18px 16px;
+      padding: 18px;
       margin-bottom: 14px;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    label { display: block; font-weight: 700; margin: 4px 0 6px; }
+    label { display: block; font-weight: 700; margin: 4px 0 6px; font-size: 13px; }
     input, select, textarea {
       width: 100%;
       font: inherit;
       color: var(--text);
-      border: 1px solid #d9dee7;
-      border-radius: 8px;
-      padding: 9px 10px;
-      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--input);
     }
-    textarea { min-height: 96px; resize: vertical; }
-    input:focus, select:focus, textarea:focus { outline: 2px solid rgba(67, 97, 238, 0.25); border-color: var(--primary); }
+    textarea { min-height: 108px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--focus); border-color: var(--focus); }
+    input:disabled, select:disabled, textarea:disabled { opacity: 0.62; }
     .actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
     button.primary, a.primary {
       background: var(--primary);
-      color: #fff;
+      color: var(--primary-ink);
       border: 0;
-      border-radius: 8px;
-      padding: 9px 16px;
+      border-radius: 10px;
+      padding: 10px 16px;
       font: inherit;
       font-weight: 700;
       cursor: pointer;
       text-decoration: none;
     }
-    button.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
     a.primary[hidden] { display: none; }
-
-    .status {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .status p { margin: 0; white-space: pre-wrap; }
-    .bar { height: 6px; background: #e7ebf3; border-radius: 99px; overflow: hidden; }
-    .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4361ee, #2a9d8f); transition: width 0.3s ease; }
-
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 9px 8px; text-align: left; border-bottom: 1px solid #eef1f6; font-size: 13px; }
-    th { color: #5c6b8a; font-size: 12px; letter-spacing: 0.03em; background: #f7f8fc; }
-    tr:hover td { background: #fbfcff; }
-    .pill { display: inline-block; min-width: 52px; text-align: center; border-radius: 999px; padding: 2px 8px; font-weight: 800; font-size: 12px; }
-    .pill.ok { background: #e6fffa; color: #1b7f72; }
-    .pill.fail { background: #fff0f0; color: #c42332; }
-    .empty { color: var(--muted); text-align: center; padding: 28px 8px; }
-    .note { color: rgba(255,255,255,0.78); font-size: 12px; margin-top: 2px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-    .tabs button {
-      border: 1px solid #d5dbe8;
-      background: #fff;
-      color: var(--text);
-      border-radius: 999px;
-      padding: 8px 16px;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .tabs button.active { background: #1e3c72; color: #fff; border-color: #1e3c72; }
-    .tabs button[hidden] { display: none; }
-    .panel[hidden] { display: none; }
-    .kpis[hidden] { display: none !important; }
     button.ghost {
-      background: #fff;
+      background: transparent;
       color: var(--text);
-      border: 1px solid #d5dbe8;
-      border-radius: 8px;
-      padding: 9px 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 16px;
       font: inherit;
       font-weight: 700;
       cursor: pointer;
     }
     button.ghost[hidden] { display: none; }
-    .table-wrap { max-height: 420px; overflow: auto; margin-top: 10px; border: 1px solid #eef1f6; border-radius: 8px; }
-    .table-wrap th { position: sticky; top: 0; z-index: 1; }
-    tr.bad td { background: #fff3cd; color: #784000; }
-    tr.bad:hover td { background: #ffe8a3; }
-    .tag-ok { color: #1b7f72; font-weight: 800; }
-    .tag-miss { color: #c42332; font-weight: 800; }
-    .tag-pending { color: var(--muted); }
-    .sheet-kpis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-    .sheet-kpis div { background: #f7f8fc; border-radius: 8px; padding: 8px 10px; min-width: 108px; }
-    .sheet-kpis b { display: block; font-size: 18px; }
-    input[type=file] { padding: 6px 0; border: 0; }
-    .hint { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+
+    .status { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .status p { margin: 0; white-space: pre-wrap; }
+    .bar { height: 8px; background: var(--bar); border-radius: 99px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; width: 0; background: var(--primary); transition: width 0.3s ease; }
+    .bar.done > i { background: var(--ok); }
+    .bar.error > i { background: var(--danger); }
+    .bar.cancelled > i { background: var(--warn); }
     .status-row { display: flex; align-items: flex-start; gap: 10px; }
     .status-icon {
       width: 22px; height: 22px; border-radius: 50%; flex: none;
       display: inline-flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 13px; background: #e7ebf3; color: #5c6b8a; margin-top: 1px;
+      font-weight: 800; font-size: 13px; background: var(--chip); color: var(--muted); margin-top: 1px;
     }
-    .status.running .status-icon { background: #e8eeff; color: #4361ee; }
-    .status.done .status-icon { background: #e6fffa; color: #1b7f72; }
-    .status.error .status-icon { background: #fff0f0; color: #c42332; }
-    .status.cancelled .status-icon { background: #fff6e5; color: #9a6700; }
-    .bar.done > i { background: var(--success); }
-    .bar.error > i { background: var(--danger); }
-    .bar.cancelled > i { background: #e9c46a; }
+    .status.running .status-icon { background: var(--info-bg); color: var(--info); }
+    .status.done .status-icon { background: var(--ok-bg); color: var(--ok); }
+    .status.error .status-icon { background: var(--fail-bg); color: var(--danger); }
+    .status.cancelled .status-icon { background: var(--warn-bg); color: var(--warn); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+    th { color: var(--muted); font-size: 12px; font-weight: 700; background: var(--chip); }
+    tr:hover td { background: var(--chip); }
+    .pill { display: inline-block; min-width: 52px; text-align: center; border-radius: 999px; padding: 2px 8px; font-weight: 800; font-size: 12px; }
+    .pill.ok { background: var(--ok-bg); color: var(--ok); }
+    .pill.fail { background: var(--fail-bg); color: var(--danger); }
+    .empty { color: var(--muted); text-align: center; padding: 28px 8px; }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 14px;
+      padding: 4px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      width: fit-content;
+      max-width: 100%;
+      flex-wrap: wrap;
+    }
+    .tabs button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 9px;
+      padding: 8px 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tabs button.active { background: var(--primary); color: var(--primary-ink); }
+    .tabs button[hidden] { display: none; }
+    .panel[hidden] { display: none; }
+    .kpis[hidden] { display: none !important; }
+    .table-wrap { max-height: 440px; overflow: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; }
+    .table-wrap th { position: sticky; top: 0; z-index: 1; }
+    tr.bad td { background: var(--warn-bg); color: var(--warn); }
+    .tag-ok { color: var(--ok); font-weight: 800; }
+    .tag-miss { color: var(--danger); font-weight: 800; }
+    .tag-pending { color: var(--muted); }
+    .sheet-kpis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .sheet-kpis div { background: var(--chip); border-radius: 10px; padding: 8px 10px; min-width: 108px; border: 1px solid var(--line); }
+    .sheet-kpis b { display: block; font-size: 18px; }
+    input[type=file] { padding: 6px 0; border: 0; background: transparent; }
+    .hint { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
     tr.clickable { cursor: pointer; }
-    tr.issue td { background: #f7f8fc; color: #3d4a66; white-space: pre-wrap; }
+    tr.issue td { background: var(--chip); color: var(--text); white-space: pre-wrap; }
     .recent { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
     .recent button { padding: 6px 10px; font-size: 12px; }
     #lineBar[hidden], #traceTable[hidden], #nozzleTable[hidden] { display: none; }
-    .choices { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 10px; }
-    .choices label { font-weight: 600; margin: 0; }
-    .choices input { width: auto; }
+    .choices { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+    .choices label {
+      font-weight: 650;
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 12px;
+      background: var(--input);
+    }
+    .choices input { width: auto; margin-right: 6px; }
     #preview { margin: 0; padding-left: 18px; }
     #preview:empty { display: none; }
+    #traceTable, #nozzleTable { display: block; overflow: auto; }
 
     @media (max-width: 860px) {
       .kpis, .grid-2 { grid-template-columns: 1fr; }
-      .navbar { align-items: flex-start; flex-direction: column; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .tabs { width: 100%; }
+      .stage h1 { font-size: 19px; }
     }
   </style>
 </head>
 <body>
-  <header class="navbar">
+  <header class="topbar">
     <div>
       <div class="brand">M-Link <span data-i18n="brandSub">Pipe Trace</span></div>
-      <div class="note" data-i18n="note">이 화면은 현재 PC에서만 열립니다. Viewer exe는 그대로 사용할 수 있습니다.</div>
-      <div class="note" id="licenseLine" data-i18n="licenseLoading">라이선스를 확인하는 중...</div>
+      <p class="note" data-i18n="note">이 화면은 현재 PC에서만 열립니다. Viewer exe는 그대로 사용할 수 있습니다.</p>
+      <p class="note" id="licenseLine" data-i18n="licenseLoading">라이선스를 확인하는 중...</p>
     </div>
-    <div class="lang" role="group" aria-label="language">
-      <button type="button" data-lang="ko">한국어</button>
-      <button type="button" data-lang="zh">中文</button>
+    <div class="tools">
+      <div class="theme" role="group" aria-label="theme">
+        <button type="button" id="themeBtn" aria-pressed="false">다크</button>
+      </div>
+      <div class="lang" role="group" aria-label="language">
+        <button type="button" data-lang="ko">한국어</button>
+        <button type="button" data-lang="zh">中文</button>
+      </div>
     </div>
   </header>
 
   <main class="wrap">
+    <section class="card stage" id="lineBar">
+      <p class="eyebrow" data-i18n="stepCache">1 · 라인과 캐시</p>
+      <h1 data-i18n="lineTitle">라인을 고르면 캐시를 먼저 메모리에 올립니다</h1>
+      <label for="db" data-i18n="line">라인</label>
+      <select id="db"></select>
+      <p class="hint" id="lineHint"></p>
+      <div class="status">
+        <div class="status-row">
+          <span id="statusIcon" class="status-icon" aria-hidden="true">·</span>
+          <p id="status" aria-live="polite" data-i18n="statusLoading">캐시 상태를 읽는 중...</p>
+        </div>
+        <div class="bar" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="status"><i id="bar"></i></div>
+        <div class="actions">
+          <button id="jobCancel" class="ghost" type="button" data-i18n="demoCancel" hidden>취소</button>
+        </div>
+        <div id="recentJobs" class="recent"></div>
+      </div>
+      <section class="kpis" id="traceKpis">
+        <article class="kpi">
+          <div class="kpi-label" data-i18n="kpiCache">사용 가능 캐시</div>
+          <div class="kpi-value" id="kpiCache">-</div>
+          <div class="kpi-sub" id="kpiCacheSub"></div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label" data-i18n="kpiLoaded">메모리 라인</div>
+          <div class="kpi-value" id="kpiLoaded">-</div>
+          <div class="kpi-sub" data-i18n="kpiLoadedSub">캐시가 올라온 뒤에 태그를 입력합니다.</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-label" data-i18n="kpiRows">설비 요약</div>
+          <div class="kpi-value" id="kpiRows">0</div>
+          <div class="kpi-sub" id="kpiRowsSub" data-i18n="kpiRowsSub">이번 작업 결과</div>
+        </article>
+      </section>
+    </section>
+
     <nav class="tabs" role="tablist" id="tablist">
       <button type="button" class="active" id="tab-trace" role="tab" aria-selected="true" aria-controls="panel-trace" tabindex="0" data-tab="trace" data-i18n="tabTrace">배관 Trace</button>
       <button type="button" id="tab-demolition" role="tab" aria-selected="false" aria-controls="panel-demolition" tabindex="-1" data-tab="demolition" data-i18n="tabDemo">철거검수</button>
       <button type="button" id="tab-nozzle" role="tab" aria-selected="false" aria-controls="panel-nozzle" tabindex="-1" data-tab="nozzle" data-i18n="tabNozzle">노즐추적</button>
     </nav>
 
-    <section class="kpis" id="traceKpis">
-      <article class="kpi">
-        <div class="kpi-label" data-i18n="kpiCache">사용 가능 캐시</div>
-        <div class="kpi-value" id="kpiCache">-</div>
-        <div class="kpi-sub" id="kpiCacheSub"></div>
-      </article>
-      <article class="kpi pass">
-        <div class="kpi-label" data-i18n="kpiLoaded">메모리 라인</div>
-        <div class="kpi-value" id="kpiLoaded">-</div>
-        <div class="kpi-sub" data-i18n="kpiLoadedSub">Trace 전에 선택한 라인을 올립니다.</div>
-      </article>
-      <article class="kpi good">
-        <div class="kpi-label" data-i18n="kpiRows">설비 요약</div>
-        <div class="kpi-value" id="kpiRows">0</div>
-        <div class="kpi-sub" id="kpiRowsSub" data-i18n="kpiRowsSub">이번 작업 결과</div>
-      </article>
-    </section>
-
-    <section class="card status">
-      <div class="status-row">
-        <span id="statusIcon" class="status-icon" aria-hidden="true">·</span>
-        <p id="status" aria-live="polite" data-i18n="statusLoading">캐시 상태를 읽는 중...</p>
-      </div>
-      <div class="bar" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="status"><i id="bar"></i></div>
-      <div class="actions">
-        <button id="jobCancel" class="ghost" type="button" data-i18n="demoCancel" hidden>취소</button>
-      </div>
-      <div id="recentJobs" class="recent"></div>
-    </section>
-
-    <section class="card" id="lineBar">
-      <label for="db" data-i18n="line">라인</label>
-      <select id="db"></select>
-      <p class="hint" id="lineHint"></p>
-    </section>
-
     <section class="grid-2 panel" id="panel-trace" role="tabpanel" aria-labelledby="tab-trace" data-panel="trace">
       <article class="card">
+        <p class="eyebrow" data-i18n="stepTag">2 · 태그</p>
+        <p class="hint" id="traceGate" data-i18n="traceGate">캐시가 메모리에 올라온 뒤에 태그를 입력합니다.</p>
         <label for="tag" data-i18n="tag">태그 하나</label>
-        <input id="tag" list="recentTags" data-i18n-placeholder="tagPh" placeholder="설비 태그" />
+        <input id="tag" list="recentTags" data-i18n-placeholder="tagPh" placeholder="설비 태그" disabled />
         <datalist id="recentTags"></datalist>
         <div class="actions">
-          <button id="traceBtn" class="primary" type="button" data-i18n="trace">Trace</button>
+          <button id="traceBtn" class="primary" type="button" data-i18n="trace" disabled>Trace</button>
         </div>
       </article>
       <article class="card">
         <label for="batch" data-i18n="batch">태그 여러 개</label>
         <p class="hint" id="batchLimit"></p>
-        <textarea id="batch" data-i18n-placeholder="batchPh" placeholder="줄바꿈, 쉼표, 공백으로 구분"></textarea>
+        <textarea id="batch" data-i18n-placeholder="batchPh" placeholder="줄바꿈, 쉼표, 공백으로 구분" disabled></textarea>
         <div class="actions">
-          <button id="batchBtn" class="primary" type="button" data-i18n="batchBtn">배치 Trace</button>
+          <button id="batchBtn" class="primary" type="button" data-i18n="batchBtn" disabled>배치 Trace</button>
         </div>
       </article>
     </section>
@@ -339,9 +426,9 @@
         <label><input type="radio" name="keyKind" value="guid" /> GUID</label>
       </div>
       <label for="nozzleText" data-i18n="nozzleLabel">키 목록</label>
-      <textarea id="nozzleText" data-i18n-placeholder="nozzlePh" placeholder="한 줄에 키 하나"></textarea>
+      <textarea id="nozzleText" data-i18n-placeholder="nozzlePh" placeholder="한 줄에 키 하나" disabled></textarea>
       <div class="actions">
-        <button id="nozzleBtn" class="primary" type="button" data-i18n="nozzleBtn">노즐추적 실행</button>
+        <button id="nozzleBtn" class="primary" type="button" data-i18n="nozzleBtn" disabled>노즐추적 실행</button>
       </div>
     </section>
 
@@ -392,7 +479,17 @@
         licenseDeniedExtra: "철거검수와 노즐추적은 2차 권한에서 사용할 수 없습니다.",
         kpiCache: "사용 가능 캐시",
         kpiLoaded: "메모리 라인",
-        kpiLoadedSub: "Trace 전에 선택한 라인을 올립니다.",
+        kpiLoadedSub: "캐시가 올라온 뒤에 태그를 입력합니다.",
+        stepCache: "1 · 라인과 캐시",
+        lineTitle: "라인을 고르면 캐시를 먼저 메모리에 올립니다",
+        stepTag: "2 · 태그",
+        traceGate: "캐시가 메모리에 올라온 뒤에 태그를 입력합니다.",
+        traceGateReady: "이 라인의 캐시가 메모리에 있습니다. 설비 태그를 입력하세요.",
+        needCache: "아직 캐시를 메모리에 올리는 중입니다.",
+        needFreshLine: "48시간 안의 캐시가 있는 라인이 없습니다. Admin에서 캐시를 갱신하세요.",
+        themeDark: "다크",
+        themeLight: "라이트",
+        kindLoad: "캐시",
         kpiRows: "설비 요약",
         kpiRowsSub: "이번 작업 결과",
         statusLoading: "캐시 상태를 읽는 중...",
@@ -482,7 +579,17 @@
         licenseDeniedExtra: "拆除检验和喷嘴追踪不能在二次权限下使用。",
         kpiCache: "可用缓存",
         kpiLoaded: "已载入线路",
-        kpiLoadedSub: "追踪前会载入所选线路。",
+        kpiLoadedSub: "缓存载入内存后才能输入标签。",
+        stepCache: "1 · 线路与缓存",
+        lineTitle: "选择线路后会先把缓存载入内存",
+        stepTag: "2 · 标签",
+        traceGate: "缓存载入内存后才能输入标签。",
+        traceGateReady: "此线路的缓存已在内存中。请输入设备标签。",
+        needCache: "正在把缓存载入内存。",
+        needFreshLine: "没有 48 小时内的缓存。请让 Admin 更新缓存。",
+        themeDark: "深色",
+        themeLight: "浅色",
+        kindLoad: "缓存",
         kpiRows: "设备摘要",
         kpiRowsSub: "本次作业结果",
         statusLoading: "正在读取缓存状态...",
@@ -574,6 +681,7 @@
     var demoTimer = null;
     var activeTab = "trace";
     var busy = false;
+    var cacheReady = false;
     var JOB_KEY = "poc_last_job";
     var JOBS_KEY = "poc_recent_jobs";
     var TAGS_KEY = "poc_recent_tags";
@@ -584,14 +692,31 @@
       var saved = localStorage.getItem("poc_lang");
       return saved === "zh" ? "zh" : "ko";
     }
+    function theme() {
+      var saved = localStorage.getItem("poc_theme");
+      if (saved === "dark" || saved === "light") return saved;
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+      return "light";
+    }
+    function applyTheme() {
+      var mode = theme();
+      document.documentElement.setAttribute("data-theme", mode);
+      var btn = $("themeBtn");
+      if (!btn) return;
+      var dark = mode === "dark";
+      btn.textContent = dark ? t("themeLight") : t("themeDark");
+      btn.setAttribute("aria-pressed", dark ? "true" : "false");
+    }
     function t(key) {
       var pack = I18N[lang()] || I18N.ko;
       return pack[key] || I18N.ko[key] || key;
     }
     function applyLanguage() {
       var code = lang();
-      document.body.className = code === "zh" ? "lang-zh" : "lang-ko";
+      document.body.classList.toggle("lang-zh", code === "zh");
+      document.body.classList.toggle("lang-ko", code !== "zh");
       document.documentElement.lang = code === "zh" ? "zh-CN" : "ko";
+      applyTheme();
       var nodes = document.querySelectorAll("[data-i18n]");
       for (var i = 0; i < nodes.length; i++) {
         if (nodes[i].id === "status") continue;
@@ -609,21 +734,39 @@
       paintLimits();
       paintRecent(lastJobList);
       paintRecentTags();
+      paintTraceGate();
       if (lastJob) render(lastJob);
     }
 
-    function setBusy(on) {
-      busy = !!on;
-      $("traceBtn").disabled = busy;
-      $("batchBtn").disabled = busy;
-      $("nozzleBtn").disabled = busy;
+    function cacheMatchesSelection() {
+      var line = selectedLine();
+      return !!(line && line.allowed && lastLines && lastLines.loadedDb === line.db);
+    }
+    function paintTraceGate() {
+      var gate = $("traceGate");
+      if (!gate) return;
+      gate.textContent = cacheReady ? t("traceGateReady") : t("traceGate");
+    }
+    function syncInputs() {
+      var lock = busy || !cacheReady;
+      $("tag").disabled = lock;
+      $("batch").disabled = lock;
+      $("traceBtn").disabled = lock;
+      $("batchBtn").disabled = lock;
+      $("nozzleText").disabled = lock;
+      $("nozzleBtn").disabled = lock;
+      $("db").disabled = busy;
       $("demoCheck").disabled = busy;
       $("demoClearFile").disabled = busy;
       $("demoFile").disabled = busy;
       $("demoText").disabled = busy;
-      $("db").disabled = busy;
       $("demoBtn").disabled = busy || !(demoDraft && demoDraft.valid > 0);
-      $("jobCancel").hidden = !busy;
+      $("jobCancel").hidden = !busy || jobKind === "load";
+      paintTraceGate();
+    }
+    function setBusy(on) {
+      busy = !!on;
+      syncInputs();
     }
     function fill(template, map) {
       return String(template || "").replace(/\{(\w+)\}/g, function (_, key) {
@@ -692,6 +835,13 @@
       $("kpiLoaded").textContent = data.loadedDb || t("none");
       paintLimits();
       hintLine();
+      if (select.selectedIndex >= 0 && select.options[select.selectedIndex] && select.options[select.selectedIndex].disabled) {
+        for (var n = 0; n < select.options.length; n++) {
+          if (!select.options[n].disabled) { select.selectedIndex = n; break; }
+        }
+      }
+      if (!busy) cacheReady = cacheMatchesSelection();
+      syncInputs();
       if (!busy && !lastJob) {
         var text = (data.details || []).join("\n");
         if (data.loadedDb) text += "\n" + t("loadedPrefix") + data.loadedDb;
@@ -859,7 +1009,7 @@
       syncDemoResult();
     }
     function setStatusState(state, percent) {
-      var box = document.querySelector("section.status");
+      var box = document.querySelector(".status");
       if (box) {
         box.classList.remove("running", "done", "error", "cancelled");
         if (state) box.classList.add(state);
@@ -944,7 +1094,8 @@
         var btn = document.createElement("button");
         btn.type = "button";
         btn.className = "ghost";
-        btn.textContent = (job.kind || "") + " " + (job.db || "") + " " + (job.title || job.id || "") + " · " + (job.state || "");
+        var kindName = job.kind === "load" ? t("kindLoad") : (job.kind || "");
+        btn.textContent = kindName + " " + (job.db || "") + " " + (job.title || job.id || "") + " · " + (job.state || "");
         btn.onclick = function () { openJob(job.id, job.kind); };
         box.appendChild(btn);
       });
@@ -1092,9 +1243,9 @@
       if (job.kind === "demolition" && job.inputRows) paintDemoRows(job.inputRows);
       if (job.kind === "demolition") paintDemoResult(job);
       if (job.kind === "nozzle") paintNozzleTable(job);
-      else if (job.kind !== "demolition") paintTraceTable(job);
+      else if (job.kind !== "demolition" && job.kind !== "load") paintTraceTable(job);
       var link = $("excel");
-      if (job.kind !== "demolition" && job.excelReady) {
+      if (job.kind !== "demolition" && job.kind !== "load" && job.excelReady) {
         link.hidden = false;
         link.href = "/api/jobs/" + encodeURIComponent(job.id) + "/excel";
       } else {
@@ -1121,10 +1272,17 @@
         render(job);
         if (job.state === "running") timer = setTimeout(poll, 1000);
         else {
+          var finishedKind = job.kind;
+          var finishedState = job.state;
           jobKind = null;
+          if (finishedKind === "load") cacheReady = finishedState === "done" && job.db === $("db").value;
           setBusy(false);
           loadLines();
           refreshJobList();
+          if (finishedKind === "load" && cacheReady) {
+            var tag = $("tag");
+            if (tag && !tag.disabled) tag.focus();
+          }
         }
       } catch (err) {
         jobKind = null;
@@ -1139,6 +1297,7 @@
       if (url.indexOf("demolition") >= 0) return "demolition";
       if (url.indexOf("nozzle") >= 0) return "nozzle";
       if (url.indexOf("batches") >= 0) return "batch";
+      if (url.indexOf("/api/cache") >= 0) return "load";
       return "trace";
     }
 
@@ -1190,6 +1349,7 @@
       setStatusState("error", 0);
     }
     function startTrace() {
+      if (!cacheReady) { rejectInput("needCache"); return; }
       var tag = ($("tag").value || "").trim();
       if (!tag) { rejectInput("needTag"); return; }
       if (!$("db").value) { rejectInput("needTag"); return; }
@@ -1198,6 +1358,7 @@
       start("/api/traces", { db: $("db").value, tag: tag });
     }
     function startBatch() {
+      if (!cacheReady) { rejectInput("needCache"); return; }
       var text = ($("batch").value || "").trim();
       var count = splitCount(text);
       var max = limits().maxBatchTags || 300;
@@ -1207,6 +1368,7 @@
       start("/api/batches", { db: $("db").value, text: text });
     }
     function startNozzle() {
+      if (!cacheReady) { rejectInput("needCache"); return; }
       var text = ($("nozzleText").value || "").trim();
       var count = splitCount(text);
       var max = limits().maxNozzleKeys || limits().maxBatchTags || 300;
@@ -1265,6 +1427,10 @@
       }
     }
 
+    $("themeBtn").onclick = function () {
+      localStorage.setItem("poc_theme", theme() === "dark" ? "light" : "dark");
+      applyTheme();
+    };
     document.querySelector(".lang").addEventListener("click", function (event) {
       var button = event.target.closest("button");
       if (!button) return;
@@ -1278,16 +1444,33 @@
       startTrace();
     });
     $("batchBtn").onclick = startBatch;
+    function preloadSelectedLine() {
+      if (!lastLicense || !lastLicense.ok) return;
+      var line = selectedLine();
+      if (!line || !line.allowed) {
+        cacheReady = false;
+        syncInputs();
+        $("status").textContent = t("needFreshLine");
+        setStatusState("error", 0);
+        return;
+      }
+      if (cacheMatchesSelection()) {
+        cacheReady = true;
+        syncInputs();
+        $("status").textContent = t("lineReady");
+        setStatusState("done", 100);
+        return;
+      }
+      cacheReady = false;
+      lastJob = null;
+      syncInputs();
+      start("/api/cache", { db: line.db });
+    }
     $("db").addEventListener("change", function () {
       localStorage.setItem(DB_KEY, $("db").value);
       hintLine();
       if (busy) return;
-      var line = selectedLine();
-      if (line && line.allowed && (!lastLines || lastLines.loadedDb !== line.db)) {
-        lastJob = null;
-        $("status").textContent = t("lineLoadSlow");
-        setStatusState("", 0);
-      }
+      preloadSelectedLine();
     });
     function invalidateDraft() {
       if (!demoDraft) return;
@@ -1463,7 +1646,17 @@
       paintRecentTags();
       await refreshJobList();
       var saved = readLastJob();
-      if (saved && saved.id) await openJob(saved.id, saved.kind);
+      if (saved && saved.id) {
+        try {
+          var res = await fetch("/api/jobs/" + encodeURIComponent(saved.id));
+          var job = await res.json();
+          if (res.ok && job.state === "running") {
+            await openJob(saved.id, saved.kind);
+            return;
+          }
+        } catch (err) { /* 이어 열지 못하면 캐시부터 올린다 */ }
+      }
+      preloadSelectedLine();
     }
     boot();
   </script>

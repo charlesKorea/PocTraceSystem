@@ -141,6 +141,14 @@ namespace PocTrace.Web
                     return;
                 }
 
+                if (method == "POST" && path == "/api/cache")
+                {
+                    var body = ReadJson(context.Request);
+                    string id = _portal.StartCacheLoad(Value(body, "db"));
+                    WriteJson(context, 202, new { jobId = id });
+                    return;
+                }
+
                 if (method == "POST" && path == "/api/traces")
                 {
                     var body = ReadJson(context.Request);
