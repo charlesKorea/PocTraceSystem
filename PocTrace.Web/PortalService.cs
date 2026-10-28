@@ -64,6 +64,35 @@ namespace PocTrace.Web
             return PocTraceLicense.ClientView(_license);
         }
 
+        public object GetPrefs()
+        {
+            return WebLocalStore.ReadPrefs();
+        }
+
+        public void SavePrefs(string lang, string theme)
+        {
+            WebLocalStore.WritePrefs(lang, theme);
+        }
+
+        public object GetHistory()
+        {
+            string user = _license == null ? "" : (_license.UserName ?? "");
+            return WebLocalStore.Recent(user);
+        }
+
+        private void RememberInspection(string method, string line, IEnumerable<string> targets)
+        {
+            try
+            {
+                string user = _license == null ? "" : (_license.UserName ?? "");
+                WebLocalStore.Append(user, method, line, targets);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[Web] inspection history");
+            }
+        }
+
         public static string WorkRoot =>
             PocTraceLocalPaths.AppDirectory(PocTraceLocalPaths.Web);
 
@@ -220,6 +249,7 @@ namespace PocTrace.Web
                         "완료. 설비 " + summaries.Count + "건, 결과 " + results.Count + "행",
                         "完成。设备 " + summaries.Count + " 台，结果 " + results.Count + " 行");
                 }
+                RememberInspection("trace", job.Db, new[] { tag });
             }
             catch (Exception ex) when (IsCancelled(ex))
             {
@@ -310,6 +340,7 @@ namespace PocTrace.Web
                         "배치 완료. 요약 " + summaries.Count + "건",
                         "批量完成。摘要 " + summaries.Count + " 项");
                 }
+                RememberInspection("batch", job.Db, tags);
             }
             catch (Exception ex) when (IsCancelled(ex))
             {
@@ -667,6 +698,10 @@ namespace PocTrace.Web
                         "철거 검수 완료. 설비 " + result.EqpAttempted + "건",
                         "拆除检查完成。设备 " + result.EqpAttempted + " 台");
                 }
+                RememberInspection(
+                    "demolition",
+                    job.Db,
+                    rows.Where(r => r != null && r.IsValid).Select(r => r.EqpId));
             }
             catch (Exception ex) when (IsCancelled(ex))
             {
@@ -748,6 +783,13 @@ namespace PocTrace.Web
                             "喷嘴追踪完成。路径 " + result.TracePathCount + " 条")
                         : (result.ErrorMessage ?? Msg("노즐 추적 실패", "喷嘴追踪失败"));
                     job.Error = result.Success ? null : job.Message;
+                }
+                if (result.Success)
+                {
+                    RememberInspection(
+                        "nozzle",
+                        job.Db,
+                        rows.Where(r => r != null).Select(r => r.KeyValue));
                 }
             }
             catch (Exception ex) when (IsCancelled(ex))

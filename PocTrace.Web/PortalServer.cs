@@ -110,6 +110,12 @@ namespace PocTrace.Web
                     return;
                 }
 
+                if (method == "GET" && path == "/history.html")
+                {
+                    WriteFile(context, Path.Combine(_wwwroot, "history.html"), "text/html; charset=utf-8");
+                    return;
+                }
+
                 if (method == "GET" && path == "/api/license")
                 {
                     WriteJson(context, 200, _portal.GetLicenseView());
@@ -138,6 +144,26 @@ namespace PocTrace.Web
                 if (method == "GET" && path == "/api/lines")
                 {
                     WriteJson(context, 200, _portal.GetLines());
+                    return;
+                }
+
+                if (method == "GET" && path == "/api/prefs")
+                {
+                    WriteJson(context, 200, _portal.GetPrefs());
+                    return;
+                }
+
+                if (method == "POST" && path == "/api/prefs")
+                {
+                    var body = ReadJson(context.Request);
+                    _portal.SavePrefs(Value(body, "lang"), Value(body, "theme"));
+                    WriteJson(context, 200, _portal.GetPrefs());
+                    return;
+                }
+
+                if (method == "GET" && path == "/api/history")
+                {
+                    WriteJson(context, 200, _portal.GetHistory());
                     return;
                 }
 

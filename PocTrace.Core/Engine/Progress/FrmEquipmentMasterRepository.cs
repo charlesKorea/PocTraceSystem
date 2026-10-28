@@ -39,7 +39,7 @@ namespace PocTrace.Core.Engine.Progress
       if (string.IsNullOrWhiteSpace(_connectionString))
         return Array.Empty<FrmEquipmentRow>();
 
-      // 식별자 화이트리스트 (SQL injection 방지): 영숫자·밑줄·점만
+      // 뷰 이름은 영숫자, 밑줄, 점만 허용한다. 그 외 문자가 있으면 조회하지 않는다.
       if (!IsSafeSqlIdentifier(_viewName))
       {
         _log.Warning("[FRM] Unsafe FrmEquipmentView name rejected: {View}", _viewName);

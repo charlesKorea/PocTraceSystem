@@ -25,9 +25,10 @@ namespace PocTrace.DeletedPipeLength
                 try
                 {
                     MessageBox.Show(
-                        "시작에 실패했습니다. 창이 없이 끝난 경우는 DLL이 빠진 경우가 많습니다.\r\n"
-                        + "같은 빌드의 PocTrace.Core.dll 만 exe 옆에 두세요. JLic와 Serilog는 exe 안에 있습니다.\r\n"
-                        + "폴더에 예전 DLL이 남아 있으면 그 파일이 먼저 열립니다.\r\n"
+                        "시작에 실패했습니다.\r\n"
+                        + "옆에 둘 DLL은 같은 빌드의 64비트 PocTrace.Core.dll 하나입니다.\r\n"
+                        + "JLic.Core.dll과 Serilog.dll은 exe 안에 있습니다. 그 파일들을 폴더에 두지 마세요.\r\n"
+                        + "32비트 exe가 64비트 Core.dll을 열면 System.BadImageFormatException이 납니다. 이 프로그램은 64비트로 다시 빌드해야 합니다.\r\n"
                         + boot + "\r\n\r\n" + ex,
                         "PocTrace.DeletedPipeLength",
                         MessageBoxButtons.OK,

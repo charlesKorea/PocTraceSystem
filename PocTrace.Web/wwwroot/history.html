@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PocTrace 검수 기록</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f7; --card: #fff; --text: #1b2430; --muted: #5d6b7b; --line: #e4e9ef;
+      --primary: #0c6b66; --primary-ink: #fff; --header: #10212b; --chip: #f3f6f8;
+      --font: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #10141a; --card: #1a2029; --text: #e8eef3; --muted: #a7b4c2; --line: #2c3542;
+      --primary: #5ee0d4; --primary-ink: #062421; --header: #0c1015; --chip: #242b36;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+    header { background: var(--header); color: #f4f7f8; padding: 16px 28px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+    a { color: #fff; font-weight: 700; text-decoration: none; }
+    .tools { display: flex; gap: 8px; align-items: center; }
+    button, .back {
+      border: 1px solid rgba(255,255,255,.2); background: transparent; color: #fff;
+      border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; cursor: pointer;
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 22px 20px 48px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+    h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.03em; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; background: var(--chip); position: sticky; top: 0; }
+    .wrap { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+    .empty { text-align: center; color: var(--muted); padding: 28px; }
+    @media (max-width: 860px) { header { flex-direction: column; align-items: flex-start; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back" id="back" href="/">검수 화면</a>
+    <div class="tools">
+      <button type="button" id="themeBtn">다크</button>
+      <button type="button" id="langKo">한국어</button>
+      <button type="button" id="langZh">中文</button>
+    </div>
+  </header>
+  <main>
+    <section class="card">
+      <h1 id="title">최근 한달 검수 기록</h1>
+      <p id="lead">이 PC에 남은 기록입니다. 사용자, 날짜, 검수 방식, 검수대상을 한 줄씩 보여 줍니다.</p>
+      <div class="wrap">
+        <table>
+          <thead>
+            <tr>
+              <th id="hWhen">날짜</th>
+              <th id="hUser">사용자</th>
+              <th id="hMethod">검수 방식</th>
+              <th id="hLine">라인</th>
+              <th id="hTarget">검수대상</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script>
+    var TEXT = {
+      ko: {
+        title: "최근 한달 검수 기록",
+        lead: "이 PC에 남은 최근 31일입니다. 같은 검수의 대상은 한 줄에 하나씩 나옵니다.",
+        back: "검수 화면",
+        when: "날짜", user: "사용자", method: "검수 방식", line: "라인", target: "검수대상",
+        empty: "최근 한달 기록이 없습니다.",
+        fail: "기록을 읽지 못했습니다.",
+        themeDark: "다크", themeLight: "라이트",
+        methods: { trace: "배관 Trace", batch: "배치 Trace", demolition: "철거검수", nozzle: "노즐추적" }
+      },
+      zh: {
+        title: "最近一个月的检查记录",
+        lead: "这是留在这台电脑上的最近 31 天。同一次检查的对象各占一行。",
+        back: "检查画面",
+        when: "日期", user: "用户", method: "检查方式", line: "线路", target: "检查对象",
+        empty: "最近一个月没有记录。",
+        fail: "无法读取记录。",
+        themeDark: "深色", themeLight: "浅色",
+        methods: { trace: "管道追踪", batch: "批量追踪", demolition: "拆除检验", nozzle: "喷嘴追踪" }
+      }
+    };
+    function lang() {
+      var saved = localStorage.getItem("poc_lang");
+      return saved === "zh" ? "zh" : "ko";
+    }
+    function theme() {
+      var saved = localStorage.getItem("poc_theme");
+      if (saved === "dark" || saved === "light") return saved;
+      return "light";
+    }
+    function pack() { return TEXT[lang()] || TEXT.ko; }
+    function applyChrome() {
+      var mode = theme();
+      document.documentElement.setAttribute("data-theme", mode);
+      document.documentElement.lang = lang() === "zh" ? "zh-CN" : "ko";
+      var t = pack();
+      document.title = t.title;
+      document.getElementById("title").textContent = t.title;
+      document.getElementById("lead").textContent = t.lead;
+      document.getElementById("back").textContent = t.back;
+      document.getElementById("hWhen").textContent = t.when;
+      document.getElementById("hUser").textContent = t.user;
+      document.getElementById("hMethod").textContent = t.method;
+      document.getElementById("hLine").textContent = t.line;
+      document.getElementById("hTarget").textContent = t.target;
+      document.getElementById("themeBtn").textContent = mode === "dark" ? t.themeLight : t.themeDark;
+    }
+    function savePrefs() {
+      fetch("/api/prefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: lang(), theme: theme() })
+      }).catch(function () {});
+    }
+    function when(iso) {
+      var date = new Date(iso);
+      if (isNaN(date.getTime())) return iso || "";
+      function p(n) { return n < 10 ? "0" + n : String(n); }
+      return date.getFullYear() + "-" + p(date.getMonth() + 1) + "-" + p(date.getDate())
+        + " " + p(date.getHours()) + ":" + p(date.getMinutes());
+    }
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    function paint(rows) {
+      var body = document.getElementById("rows");
+      var t = pack();
+      body.innerHTML = "";
+      if (!rows || !rows.length) {
+        body.innerHTML = "<tr><td class='empty' colspan='5'>" + esc(t.empty) + "</td></tr>";
+        return;
+      }
+      rows.forEach(function (row) {
+        var tr = document.createElement("tr");
+        var method = (t.methods && t.methods[row.method]) || row.method || "";
+        tr.innerHTML =
+          "<td>" + esc(when(row.at)) + "</td>" +
+          "<td>" + esc(row.userName || "-") + "</td>" +
+          "<td>" + esc(method) + "</td>" +
+          "<td>" + esc(row.line || "") + "</td>" +
+          "<td>" + esc(row.target || "") + "</td>";
+        body.appendChild(tr);
+      });
+    }
+    async function boot() {
+      applyChrome();
+      try {
+        var pref = await fetch("/api/prefs");
+        if (pref.ok) {
+          var data = await pref.json();
+          if (data.lang === "ko" || data.lang === "zh") localStorage.setItem("poc_lang", data.lang);
+          if (data.theme === "light" || data.theme === "dark") localStorage.setItem("poc_theme", data.theme);
+          applyChrome();
+        }
+      } catch (err) { /* 브라우저에 남은 설정을 쓴다 */ }
+      try {
+        var res = await fetch("/api/history");
+        var data = await res.json();
+        if (!res.ok) throw new Error((data && data.error) || pack().fail);
+        paint(data.rows || []);
+      } catch (err) {
+        document.getElementById("rows").innerHTML = "<tr><td class='empty' colspan='5'>" + esc(pack().fail) + "</td></tr>";
+      }
+    }
+    document.getElementById("themeBtn").onclick = function () {
+      localStorage.setItem("poc_theme", theme() === "dark" ? "light" : "dark");
+      applyChrome();
+      savePrefs();
+    };
+    document.getElementById("langKo").onclick = function () {
+      localStorage.setItem("poc_lang", "ko");
+      applyChrome();
+      savePrefs();
+      boot();
+    };
+    document.getElementById("langZh").onclick = function () {
+      localStorage.setItem("poc_lang", "zh");
+      applyChrome();
+      savePrefs();
+      boot();
+    };
+    boot();
+  </script>
+</body>
+</html>

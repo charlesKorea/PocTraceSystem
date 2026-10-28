@@ -97,7 +97,7 @@
       border-radius: 999px;
       padding: 3px;
     }
-    .theme button, .lang button {
+    .theme button, .lang button, a.headlink {
       border: 0;
       background: transparent;
       color: #fff;
@@ -106,7 +106,10 @@
       padding: 6px 12px;
       border-radius: 999px;
       cursor: pointer;
+      text-decoration: none;
+      font-weight: 700;
     }
+    a.headlink { border: 1px solid rgba(255, 255, 255, 0.16); }
     .lang button.active, .theme button[aria-pressed="true"] {
       background: #fff;
       color: #10212b;
@@ -286,6 +289,7 @@
       <p class="note" id="licenseLine" data-i18n="licenseLoading">라이선스를 확인하는 중...</p>
     </div>
     <div class="tools">
+      <a class="headlink" href="/history.html" data-i18n="historyLink">검수 기록</a>
       <div class="theme" role="group" aria-label="theme">
         <button type="button" id="themeBtn" aria-pressed="false">다크</button>
       </div>
@@ -299,9 +303,12 @@
   <main class="wrap">
     <section class="card stage" id="lineBar">
       <p class="eyebrow" data-i18n="stepCache">1 · 라인과 캐시</p>
-      <h1 data-i18n="lineTitle">라인을 고르면 캐시를 먼저 메모리에 올립니다</h1>
+      <h1 data-i18n="lineTitle">라인을 고른 뒤 캐시 불러오기를 누르세요</h1>
       <label for="db" data-i18n="line">라인</label>
       <select id="db"></select>
+      <div class="actions">
+        <button id="loadCacheBtn" class="primary" type="button" data-i18n="loadCache">캐시 불러오기</button>
+      </div>
       <p class="hint" id="lineHint"></p>
       <div class="status">
         <div class="status-row">
@@ -481,7 +488,10 @@
         kpiLoaded: "메모리 라인",
         kpiLoadedSub: "캐시가 올라온 뒤에 태그를 입력합니다.",
         stepCache: "1 · 라인과 캐시",
-        lineTitle: "라인을 고르면 캐시를 먼저 메모리에 올립니다",
+        lineTitle: "라인을 고른 뒤 캐시 불러오기를 누르세요",
+        loadCache: "캐시 불러오기",
+        pickLineFirst: "라인을 고르고 캐시 불러오기를 누르세요. 이전 작업을 자동으로 이어 받지 않습니다.",
+        historyLink: "검수 기록",
         stepTag: "2 · 태그",
         traceGate: "캐시가 메모리에 올라온 뒤에 태그를 입력합니다.",
         traceGateReady: "이 라인의 캐시가 메모리에 있습니다. 설비 태그를 입력하세요.",
@@ -553,7 +563,7 @@
         batchLimit: "한 번에 {n}개까지. 줄바꿈, 쉼표, 공백으로 구분합니다.",
         nozzleLimit: "한 번에 {n}개까지.",
         demoLimit: "한 번에 {n}행까지. 종합 표는 {summary}행까지 화면에 나옵니다.",
-        lineLoadSlow: "이 라인은 아직 메모리에 없습니다. 첫 실행은 캐시를 올리느라 수십 초 걸릴 수 있습니다.",
+        lineLoadSlow: "이 라인은 아직 메모리에 없습니다. 캐시 불러오기를 누르세요. 첫 실행은 수십 초 걸릴 수 있습니다.",
         lineReady: "이 라인은 메모리에 있습니다.",
         hKeyKind: "키 종류",
         hKey: "키",
@@ -581,7 +591,10 @@
         kpiLoaded: "已载入线路",
         kpiLoadedSub: "缓存载入内存后才能输入标签。",
         stepCache: "1 · 线路与缓存",
-        lineTitle: "选择线路后会先把缓存载入内存",
+        lineTitle: "选择线路后请点击载入缓存",
+        loadCache: "载入缓存",
+        pickLineFirst: "请选择线路并点击载入缓存。不会自动继续上次作业。",
+        historyLink: "检查记录",
         stepTag: "2 · 标签",
         traceGate: "缓存载入内存后才能输入标签。",
         traceGateReady: "此线路的缓存已在内存中。请输入设备标签。",
@@ -653,7 +666,7 @@
         batchLimit: "一次最多 {n} 个。可用换行、逗号或空格分隔。",
         nozzleLimit: "一次最多 {n} 个。",
         demoLimit: "一次最多 {n} 行。综合表在画面上最多显示 {summary} 行。",
-        lineLoadSlow: "此线路尚未载入内存。首次执行可能需要几十秒来加载缓存。",
+        lineLoadSlow: "此线路尚未载入内存。请点击载入缓存。首次可能需要几十秒。",
         lineReady: "此线路已在内存中。",
         hKeyKind: "键类型",
         hKey: "键",
@@ -756,6 +769,7 @@
       $("nozzleText").disabled = lock;
       $("nozzleBtn").disabled = lock;
       $("db").disabled = busy;
+      if ($("loadCacheBtn")) $("loadCacheBtn").disabled = busy;
       $("demoCheck").disabled = busy;
       $("demoClearFile").disabled = busy;
       $("demoFile").disabled = busy;
@@ -845,8 +859,9 @@
       if (!busy && !lastJob) {
         var text = (data.details || []).join("\n");
         if (data.loadedDb) text += "\n" + t("loadedPrefix") + data.loadedDb;
-        $("status").textContent = text || data.message || "";
-        setStatusState("", 0);
+        if (!cacheReady) text = (text ? text + "\n" : "") + t("pickLineFirst");
+        $("status").textContent = text || t("pickLineFirst");
+        setStatusState(cacheReady ? "done" : "", cacheReady ? 100 : 0);
       }
     }
 
@@ -1430,12 +1445,14 @@
     $("themeBtn").onclick = function () {
       localStorage.setItem("poc_theme", theme() === "dark" ? "light" : "dark");
       applyTheme();
+      savePrefs();
     };
     document.querySelector(".lang").addEventListener("click", function (event) {
       var button = event.target.closest("button");
       if (!button) return;
       localStorage.setItem("poc_lang", button.getAttribute("data-lang"));
       applyLanguage();
+      savePrefs();
     });
     $("traceBtn").onclick = startTrace;
     $("tag").addEventListener("keydown", function (event) {
@@ -1444,6 +1461,21 @@
       startTrace();
     });
     $("batchBtn").onclick = startBatch;
+    function savePrefs() {
+      fetch("/api/prefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: lang(), theme: theme() })
+      }).catch(function () { /* 브라우저 저장은 이미 되어 있다 */ });
+    }
+    async function loadPrefs() {
+      var res = await fetch("/api/prefs");
+      if (!res.ok) return;
+      var data = await res.json();
+      if (data.lang === "ko" || data.lang === "zh") localStorage.setItem("poc_lang", data.lang);
+      if (data.theme === "light" || data.theme === "dark") localStorage.setItem("poc_theme", data.theme);
+      applyLanguage();
+    }
     function preloadSelectedLine() {
       if (!lastLicense || !lastLicense.ok) return;
       var line = selectedLine();
@@ -1466,11 +1498,20 @@
       syncInputs();
       start("/api/cache", { db: line.db });
     }
+    $("loadCacheBtn").onclick = function () { preloadSelectedLine(); };
     $("db").addEventListener("change", function () {
       localStorage.setItem(DB_KEY, $("db").value);
+      if (!busy) cacheReady = cacheMatchesSelection();
+      syncInputs();
       hintLine();
       if (busy) return;
-      preloadSelectedLine();
+      if (cacheReady) {
+        $("status").textContent = t("lineReady");
+        setStatusState("done", 100);
+      } else {
+        $("status").textContent = t("pickLineFirst");
+        setStatusState("", 0);
+      }
     });
     function invalidateDraft() {
       if (!demoDraft) return;
@@ -1638,25 +1679,19 @@
     async function boot() {
       applyLanguage();
       try {
-        await Promise.all([loadLicense(), loadLines()]);
+        await loadLicense();
+        await loadPrefs();
+        await loadLines();
       } catch (err) {
         $("status").textContent = String(err);
         setStatusState("error", 0);
       }
       paintRecentTags();
       await refreshJobList();
-      var saved = readLastJob();
-      if (saved && saved.id) {
-        try {
-          var res = await fetch("/api/jobs/" + encodeURIComponent(saved.id));
-          var job = await res.json();
-          if (res.ok && job.state === "running") {
-            await openJob(saved.id, saved.kind);
-            return;
-          }
-        } catch (err) { /* 이어 열지 못하면 캐시부터 올린다 */ }
+      if (!cacheReady && !busy) {
+        $("status").textContent = t("pickLineFirst");
+        setStatusState("", 0);
       }
-      preloadSelectedLine();
     }
     boot();
   </script>

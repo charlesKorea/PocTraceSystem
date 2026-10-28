@@ -38,9 +38,9 @@ namespace PocTrace.Startup
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 var text = new StringBuilder();
                 text.Append(Line("FAIL"));
-                text.AppendLine("DLL이 exe와 다른 빌드이거나 빠져 있으면 창이 뜨기 전에 죽는다.");
-                text.AppendLine("같은 빌드의 PocTrace.Core.dll 만 exe 옆에 둔다. JLic와 Serilog는 exe 안에 있다.");
-                text.AppendLine("폴더에 남은 예전 DLL은 exe 안쪽 복사본보다 먼저 열린다.");
+                text.AppendLine("옆에 둘 DLL은 같은 빌드의 64비트 PocTrace.Core.dll 하나다.");
+                text.AppendLine("JLic.Core.dll과 Serilog.dll은 exe 안에 있다. 폴더에 남아 있으면 그 파일이 먼저 열린다.");
+                text.AppendLine("32비트 프로세스가 64비트 Core.dll을 열면 BadImageFormatException이 난다.");
                 text.AppendLine(ex == null ? "exception=null" : ex.ToString());
                 File.AppendAllText(path, text.ToString(), Encoding.UTF8);
             }
