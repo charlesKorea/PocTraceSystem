@@ -26,7 +26,7 @@ namespace PocTrace.Web
             catch (Exception ex)
             {
                 ExeBootFile.Fail(boot, ex);
-                Console.Error.WriteLine("시작에 실패했습니다. 같은 빌드 출력의 DLL을 exe와 같이 두세요.");
+                Console.Error.WriteLine("시작에 실패했습니다. 같은 빌드의 PocTrace.Core.dll 만 exe 옆에 두세요. JLic와 Serilog는 exe 안에 있습니다.");
                 Console.Error.WriteLine(boot);
                 Console.Error.WriteLine(ex);
                 return 1;
@@ -59,7 +59,7 @@ namespace PocTrace.Web
                 {
                     Log.Error("License failed: {Code} {Error}", lic.ErrorCode, lic.Error);
                     Console.Error.WriteLine("라이선스 오류: " + lic.Error);
-                    Console.Error.WriteLine("앱 폴더에 JLic.Core.dll 과 Lic\\jlab.lic 를 두고 AccessApps에 PT 또는 AL 을 넣으세요.");
+                    Console.Error.WriteLine("앱 폴더에 Lic\\jlab.lic 를 두고 AccessApps에 PT 또는 AL 을 넣으세요.");
                     return 2;
                 }
                 Log.Information("License ok user={User} group={Group} extra={Extra}",

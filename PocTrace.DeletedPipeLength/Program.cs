@@ -26,7 +26,8 @@ namespace PocTrace.DeletedPipeLength
                 {
                     MessageBox.Show(
                         "시작에 실패했습니다. 창이 없이 끝난 경우는 DLL이 빠진 경우가 많습니다.\r\n"
-                        + "같은 빌드 출력의 PocTrace.Core.dll, JLic.Core.dll, Serilog.dll, Serilog.Sinks.File.dll 을 exe와 같이 두세요.\r\n"
+                        + "같은 빌드의 PocTrace.Core.dll 만 exe 옆에 두세요. JLic와 Serilog는 exe 안에 있습니다.\r\n"
+                        + "폴더에 예전 DLL이 남아 있으면 그 파일이 먼저 열립니다.\r\n"
                         + boot + "\r\n\r\n" + ex,
                         "PocTrace.DeletedPipeLength",
                         MessageBoxButtons.OK,

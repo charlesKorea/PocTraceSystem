@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
-  <Costura />
+  <Costura>
+    <!-- 공유 폴더의 공용 DLL은 PocTrace.Core.dll 하나. 나머지 참조는 exe 안에 넣는다. -->
+    <ExcludeAssemblies>
+      PocTrace.Core
+    </ExcludeAssemblies>
+  </Costura>
 </Weavers>

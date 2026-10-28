@@ -6,9 +6,11 @@ Viewer exe와 **같이** 쓰는 1차 웹 화면입니다. Viewer를 끄지 않�
 
 | 프로그램 | 어디서 | 하는 일 |
 |----------|--------|---------|
-| `PocTrace.Admin.exe` | 본인 SVDI, `D:\PocAdmin` | 지금까지처럼 캐시 생성, DailyReport |
-| `PocTrace.UI.exe` | 공용 `X:` | 지금까지처럼 각 사용자가 실행 |
-| `PocTrace.Web.exe` | 공용 `X:`의 **별도 폴더** | 각 사용자가 실행. 자기 화면의 브라우저만 연다 |
+| `PocTrace.Admin.exe` | 공유 실행 폴더 | 캐시 생성, DailyReport |
+| `PocTrace.UI.exe` | 같은 폴더 | 각 사용자가 실행 |
+| `PocTrace.Web.exe` | 같은 폴더 | 각 사용자가 실행. 자기 화면의 브라우저만 연다 |
+
+실행 폴더와 DLL, DB 비밀번호는 `docs/SVDI-SHARED-RUN.md`를 따른다.
 
 웹은 `127.0.0.1`만 엽니다. 다른 사람 세션에서 이 주소로 들어오지 않습니다. 그래서 Viewer와 같이, **사용자마다 exe를 한 번씩** 실행합니다.
 
@@ -17,8 +19,8 @@ Viewer exe와 **같이** 쓰는 1차 웹 화면입니다. Viewer를 끄지 않�
 ## 배포
 
 1. Visual Studio에서 `PocTraceSystem.sln`의 **PocTrace.Web**을 Release로 빌드합니다.
-2. `PocTrace.Web\bin\Release\`에서 `PocTrace.Web.exe`, `PocTrace.Web.exe.config`, `wwwroot`, `PocTrace.Core.dll`, `JLic.Core.dll`, `PocTrace.Demolition.exe`, `PocTrace.NozzleTrace.exe`를 예를 들어 `X:\jHOOK\Apps\PocTrace\Web\`에 복사합니다. Newtonsoft, Serilog, EPPlus 같은 NuGet DLL은 exe 안에 들어 있습니다. Viewer 폴더를 덮어쓰지 않습니다. **`Lic\jlab.lic` 는 꼭 같이** 둡니다. AccessApps에 `PT` 또는 `AL` 이 있어야 합니다.
-3. Viewer 폴더에 있는 `UtMapping.csv`를 Web 폴더에도 복사합니다. 없으면 Trace는 되지만 UT 매핑이 비어 있습니다.
+2. 같은 솔루션 Release에서 exe들과 `PocTrace.Web\bin\Release\PocTrace.Core.dll`을 공유 실행 폴더에 둡니다. Web 출력의 `wwwroot`도 그 폴더에 둡니다. `JLic.Core.dll`과 NuGet DLL은 복사하지 않습니다. 폴더에 남아 있으면 지웁니다. 철거·노즐 exe는 그 폴더의 프로그램을 Web이 그대로 엽니다. **`Lic\jlab.lic` 는 꼭 같이** 둡니다. AccessApps에 `PT` 또는 `AL` 이 있어야 합니다.
+3. `UtMapping.csv`를 그 폴더에 둡니다. 없으면 Trace는 되지만 UT 매핑이 비어 있습니다.
 4. `PocTrace.Web.exe.config`의 `SharedCachePath`, `TargetDatabases`를 Viewer config와 같게 맞춥니다.
 5. `AllowDatabaseFallback`은 `false`로 둡니다. DB 비밀번호는 넣지 않습니다.
 

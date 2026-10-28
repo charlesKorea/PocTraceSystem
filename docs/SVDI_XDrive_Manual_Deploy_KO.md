@@ -1,6 +1,8 @@
 # SVDI 경로 분리: `D:\PocAdmin` (개인) vs `X:\jHOOK` (공용)
 
-코드·config 기본값 기준. Admin은 **개인 D:** 에서만 실행하고, 캐시·HTML·Viewer만 **공용 X:** 에 둡니다.
+**현재 실행 위치는 이 문서가 아니다.** SVDI에서 Viewer, Web, Admin, 철거, 노즐, 삭제 배관 길이는 캐시 하나를 공유하려고 **같은 공유 폴더의 같은 경로**에서 실행한다. 배포 DLL은 그 빌드 Web Release의 `PocTrace.Core.dll` 하나만 두고, DB 비밀번호는 그 폴더의 `config\db.secret`에 암호화한다. 기준 문서는 `SVDI-SHARED-RUN.md`다. 아래 표의 `D:\PocAdmin` 전용 실행, 폴더마다 두는 `JLic.Core.dll`, NuGet DLL 목록은 예전 배치 기록이다.
+
+코드·config 기본값으로 남아 있는 캐시 경로는 `X:\jHOOK\PocTraceData`, DailyReport 경로는 `X:\jHOOK\DailyReport`다.
 
 ---
 

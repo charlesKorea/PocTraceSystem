@@ -128,7 +128,7 @@ namespace PocTrace.DeletedPipeLength
             if (string.IsNullOrWhiteSpace(connectionString) ||
                 connectionString.IndexOf("YOUR_SERVER", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                MessageBox.Show(this, "SourceDb 연결 문자열이 없습니다.\n" + SecretConfigStore.FilePath + "\n숨김 폴더의 secrets.config에 넣으세요.");
+                MessageBox.Show(this, "SourceDb 연결 문자열이 없습니다.\nexe.config의 SourceDb에 비밀번호를 한 번 넣고 다시 실행하세요.\n그러면 " + SecretConfigStore.FilePath + " 로 암호화해서 옮깁니다.");
                 return;
             }
 
