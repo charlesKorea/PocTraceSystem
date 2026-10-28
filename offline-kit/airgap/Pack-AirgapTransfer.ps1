@@ -112,18 +112,29 @@ Write-Host "  -> $zip1 ($([math]::Round((Get-Item $zip1).Length/1MB,1)) MB)" -Fo
 if (-not $SkipNuGet) {
     Write-Host "`n[2/3] Staging NuGet cache..." -ForegroundColor Cyan
     $nugetSrc = Join-Path $OfflineDevRoot "nuget-packages"
-    if (-not (Test-Path $nugetSrc)) {
-        Write-Warning "NuGet folder missing: $nugetSrc — run Download-OfflinePackages.ps1 -All first"
-    } else {
-        $zip2 = Join-Path $OutDir "02-PocTrace-NuGet.zip"
-        if (Test-Path $zip2) { Remove-Item $zip2 -Force }
-        # Compress contents so extract lands as nuget-packages\* or flat — Setup expects folder name
-        $nugetStage = Join-Path $work "nuget-packages"
-        New-Item -ItemType Directory -Force -Path $nugetStage | Out-Null
+    $repoNuget = Join-Path $RepoRoot "offline-kit\nuget-packages"
+    $zip2 = Join-Path $OutDir "02-PocTrace-NuGet.zip"
+    if (Test-Path $zip2) { Remove-Item $zip2 -Force }
+    $nugetStage = Join-Path $work "nuget-packages"
+    New-Item -ItemType Directory -Force -Path $nugetStage | Out-Null
+    $staged = $false
+    if (Test-Path $nugetSrc) {
         Write-Host "  Copying packages (may take a while)..."
         robocopy $nugetSrc $nugetStage /E /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+        $staged = $true
+    } else {
+        Write-Warning "NuGet folder missing: $nugetSrc — run Download-OfflinePackages.ps1 -All first"
+    }
+    if (Test-Path $repoNuget) {
+        Write-Host "  Adding repo packages (Jcs.UiAssets and any other nupkg in offline-kit)..."
+        robocopy $repoNuget $nugetStage *.nupkg /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+        $staged = $true
+    }
+    if ($staged -and (Get-ChildItem -LiteralPath $nugetStage -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
         Compress-Archive -Path $nugetStage -DestinationPath $zip2 -CompressionLevel Optimal
         Write-Host "  -> $zip2 ($([math]::Round((Get-Item $zip2).Length/1MB,1)) MB)" -ForegroundColor Green
+    } else {
+        Write-Warning "No NuGet files staged. 02 zip was not created."
     }
 } else {
     Write-Host "`n[2/3] Skip NuGet (-SkipNuGet)" -ForegroundColor Yellow

@@ -1,0 +1,14 @@
+패키지 이름: Jcs.UiAssets
+버전: 1.0.0
+파일: Jcs.UiAssets.1.0.0.nupkg
+
+인트라넷 노트북에서 이 폴더의 Install-JcsUiAssets.bat 을 실행합니다.
+nupkg가 C:\OfflineDev\nuget-packages 에 복사됩니다.
+
+다른 프로그램에서 받기:
+  nuget install Jcs.UiAssets -Version 1.0.0 -Source C:\OfflineDev\nuget-packages -OutputDirectory packages
+
+PocTrace 웹은 저장소를 받으면 wwwroot\assets\jcs-ui 에 같은 파일이 이미 있습니다.
+이 패키지는 그 아이콘과 유리 UI를 다른 프로그램에서도 쓰기 위한 것입니다.
+아이콘은 Lucide 0.544.0 (ISC)입니다. 마크 png/ico는 원본입니다.
+실행 중 CDN은 쓰지 않습니다.

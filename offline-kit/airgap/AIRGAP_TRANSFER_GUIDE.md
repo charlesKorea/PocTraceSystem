@@ -89,7 +89,7 @@ powershell -ExecutionPolicy Bypass -File .\offline-kit\airgap\Pack-AirgapTransfe
 | ZIP | 내용 | 비고 |
 |-----|------|------|
 | `01-PocTrace-Source.zip` | 소스 + Templates/assets + airgap 스크립트 | **항상 반입** |
-| `02-PocTrace-NuGet.zip` | `C:\OfflineDev\nuget-packages` | 용량 큼. 인트라넷 빌드에 **필수** |
+| `02-PocTrace-NuGet.zip` | `C:\OfflineDev\nuget-packages` + 저장소 `offline-kit\nuget-packages\*.nupkg` | 용량 큼. 인트라넷 빌드에 **필수**. `Jcs.UiAssets`가 여기 포함됩니다 |
 | `03-PocTrace-WebAssets.zip` | `C:\OfflineDev\web-assets` (선택) | Templates에 이미 있으면 생략 가능 |
 
 옵션:
@@ -103,6 +103,19 @@ powershell -ExecutionPolicy Bypass -File .\offline-kit\airgap\Pack-AirgapTransfe
 ```
 
 **메일 용량 제한**이 있으면 `01` / `02` 를 나눠 보내고, SVDI에는 나중에 Release 폴더만 별도 ZIP해도 됩니다.
+
+### 추가 NuGet만 보낼 때 (`Jcs.UiAssets`)
+
+웹 유리 UI용으로 추가된 패키지입니다. 전체 `02` ZIP 없이 이 패키지만 인트라넷 노트북에 넣을 수 있습니다.
+
+| 항목 | 값 |
+|------|-----|
+| 패키지 이름 | `Jcs.UiAssets` |
+| 버전 | `1.0.0` |
+| 파일 | `Jcs.UiAssets.1.0.0.nupkg` |
+| 반입 ZIP | `dist\Jcs.UiAssets-1.0.0-intranet.zip` |
+
+ZIP을 풀고 `Install-JcsUiAssets.bat`을 실행하면 `C:\OfflineDev\nuget-packages`에 복사됩니다. 저장소를 이미 받은 노트북은 `offline-kit\airgap\Install-JcsUiAssets.bat`만 실행해도 됩니다.
 
 ### ZIP에 넣지 않는 것
 

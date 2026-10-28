@@ -127,7 +127,10 @@ PocTrace 웹과 다른 프로그램이 같이 쓰는 아이콘·마크·`jcs-gla
 - 원본: `shared/Jcs.UiAssets`
 - 아이콘: Lucide 0.544.0 (ISC), 저장소에 포함
 - 마크 png/ico: 원본 드로잉
-- 패키지: `nuget pack shared\Jcs.UiAssets\Jcs.UiAssets.nuspec -OutputDirectory offline-kit\nuget-packages`
+- 패키지 이름: `Jcs.UiAssets` `1.0.0` (`offline-kit\nuget-packages\Jcs.UiAssets.1.0.0.nupkg`)
+- 인트라넷 설치: `offline-kit\airgap\Install-JcsUiAssets.bat` → `C:\OfflineDev\nuget-packages`
+- 반입 ZIP: `dist\Jcs.UiAssets-1.0.0-intranet.zip`
+- 다시 만들기: `nuget pack shared\Jcs.UiAssets\Jcs.UiAssets.nuspec -OutputDirectory offline-kit\nuget-packages`
 
 웹은 `PocTrace.Web\wwwroot\assets\jcs-ui` 복사본을 제공합니다.
 
