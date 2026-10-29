@@ -8,7 +8,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// 한 라인의 최신 배관·POC·노드·테이크오프.
     /// 공유 GraphCache에는 삭제 행이 없으므로 exe 옆 파일에만 둔다.
     /// </summary>
-    internal sealed class DeletedPipeSnapshot
+    public sealed class DeletedPipeSnapshot
     {
         public string DbName { get; set; }
         public DateTime Cutover { get; set; }
