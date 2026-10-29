@@ -15,10 +15,9 @@ window.PocTrace = window.PocTrace || {};
   PT.formatNum = (n) => n ? n.toLocaleString() : '0';
 
 PT.rebuildLineNav = function() {
-    const $nav = $('#main-nav');
+    const $nav = $('#line-nav');
     if (!$nav.length) return;
-
-    $nav.find('.nav-line-item').remove();
+    $nav.empty();
 
     let lines = [];
     if (typeof SUMMARY_DATA !== 'undefined' && Array.isArray(SUMMARY_DATA) && SUMMARY_DATA.length) {
@@ -44,12 +43,6 @@ PT.rebuildLineNav = function() {
         ? String(REPORT_META.dbName).toLowerCase()
         : '';
 
-    // Summary 바로 다음 · Check Rules / Progress 앞에 라인 탭 삽입
-    // (요청: X1, X2-PH1… 이 Rules보다 먼저 보이도록)
-    const $summaryLi = $nav.find('a[href="index.html"]').closest('li').first();
-    const $rulesLi = $nav.find('a[href="rules.html"]').closest('li').first();
-    let $insertAfter = $summaryLi.length ? $summaryLi : null;
-
     const failed = {};
     if (typeof SUMMARY_DATA !== 'undefined' && Array.isArray(SUMMARY_DATA)) {
         SUMMARY_DATA.forEach(function (row) {
@@ -60,24 +53,195 @@ PT.rebuildLineNav = function() {
 
     lines.forEach(db => {
         const isFailed = !!failed[String(db).toLowerCase()];
-        const href = isFailed ? 'index.html' : `report_${db}.html`;
+        const href = isFailed ? 'index.html' : ('report_' + db + '.html');
         const isActive = !isFailed && (page === href || currentDb === String(db).toLowerCase());
-        const activeCls = isActive ? ' active' : '';
         const label = PT.getLineName(db) + (isFailed ? ' (실패)' : '');
-        const $li = $(
-            `<li class="nav-item nav-line-item">` +
-            `<a class="nav-link${activeCls}" href="${href}">${label}</a></li>`
+        const cls = 'rail-link' + (isActive ? ' is-active' : '') + (isFailed ? ' is-failed' : '');
+        $nav.append(
+            $('<li>').append(
+                $('<a>').attr('href', href).addClass(cls).text(label)
+            )
         );
-        if ($insertAfter && $insertAfter.length) {
-            $insertAfter.after($li);
-            $insertAfter = $li;
-        } else if ($rulesLi.length) {
-            $rulesLi.before($li);
-        } else {
-            $nav.append($li);
-        }
     });
 }
+
+PT.scrollToNode = function(selector) {
+    const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+    const main = document.querySelector('.report-main');
+    if (!el) return;
+    if (main) {
+        const top = main.scrollTop + (el.getBoundingClientRect().top - main.getBoundingClientRect().top) - 12;
+        main.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+PT.mountCommandBar = function() {
+    const $root = $('#cmdk');
+    if (!$root.length || $root.data('ready')) return;
+    $root.data('ready', 1);
+
+    const $input = $('#cmdk-input');
+    const $list = $('#cmdk-list');
+    let items = [];
+    let active = 0;
+
+    function t(key) {
+        return (typeof window.T === 'function') ? window.T(key) : key;
+    }
+
+    function baseItems() {
+        const list = [
+            { group: t('cmdk_pages'), label: t('nav_summary'), href: 'index.html' },
+            { group: t('cmdk_pages'), label: t('nav_rules'), href: 'rules.html' },
+            { group: t('cmdk_pages'), label: t('nav_progress'), href: 'progress.html' }
+        ];
+        $('#line-nav a').each(function() {
+            list.push({
+                group: t('cmdk_lines'),
+                label: $(this).text().trim(),
+                href: $(this).attr('href')
+            });
+        });
+        if ($('#result-filter-group').length) {
+            [
+                ['FAIL', 'filter_fail'],
+                ['ALL', 'filter_all'],
+                ['PASS', 'filter_pass']
+            ].forEach(function(pair) {
+                list.push({
+                    group: t('cmdk_actions'),
+                    label: t(pair[1]),
+                    run: function() {
+                        $('#result-filter-group button[data-filter="' + pair[0] + '"]').trigger('click');
+                    }
+                });
+            });
+            const excel = $('.btn-excel-wrapper a').attr('href');
+            if (excel) {
+                list.push({ group: t('cmdk_actions'), label: t('btn_export'), href: excel });
+            }
+            list.push({
+                group: t('cmdk_actions'),
+                label: t('cmdk_focus_search'),
+                run: function() {
+                    const input = document.querySelector('.dataTables_filter input');
+                    if (input) input.focus();
+                }
+            });
+        }
+        return list;
+    }
+
+    function tagItems(query) {
+        if (!query || query.length < 2) return [];
+        const api = PT.state && PT.state.dataTableInstance;
+        if (!api || typeof api.rows !== 'function') return [];
+        const needle = query.toLowerCase();
+        const out = [];
+        const rows = api.rows().data().toArray();
+        for (let i = 0; i < rows.length && out.length < 12; i++) {
+            const tag = String((rows[i] && rows[i].Tag) || '');
+            if (tag.toLowerCase().indexOf(needle) < 0) continue;
+            out.push({
+                group: t('cmdk_tags'),
+                label: tag,
+                run: function() {
+                    const $all = $('#result-filter-group button[data-filter="ALL"]');
+                    $('#result-filter-group button').removeClass('active');
+                    $all.addClass('active');
+                    api.column(3).search('');
+                    api.search(tag).draw();
+                    PT.scrollToNode('#mainTable');
+                }
+            });
+        }
+        return out;
+    }
+
+    function render(raw) {
+        const query = String(raw || '').trim().toLowerCase();
+        items = baseItems().concat(tagItems(query)).filter(function(item) {
+            if (!query) return true;
+            return (item.label + ' ' + item.group).toLowerCase().indexOf(query) >= 0;
+        });
+        active = 0;
+        if (!items.length) {
+            $list.html('<li class="cmdk-empty">' + $('<div>').text(t('cmdk_empty')).html() + '</li>');
+            return;
+        }
+        let html = '';
+        let lastGroup = '';
+        items.forEach(function(item, idx) {
+            if (item.group !== lastGroup) {
+                html += '<li class="cmdk-group">' + $('<div>').text(item.group).html() + '</li>';
+                lastGroup = item.group;
+            }
+            html += '<li><button type="button" class="cmdk-item' + (idx === 0 ? ' is-active' : '') +
+                '" data-idx="' + idx + '">' + $('<div>').text(item.label).html() + '</button></li>';
+        });
+        $list.html(html);
+    }
+
+    function setActive(next) {
+        if (!items.length) return;
+        active = (next + items.length) % items.length;
+        const buttons = $list.find('.cmdk-item').removeClass('is-active');
+        const btn = buttons.get(active);
+        if (!btn) return;
+        btn.classList.add('is-active');
+        if (btn.scrollIntoView) btn.scrollIntoView({ block: 'nearest' });
+    }
+
+    function openBar() {
+        $input.attr('placeholder', t('cmdk_placeholder'));
+        $root.find('.cmdk-panel').attr('aria-label', t('cmdk_open'));
+        $input.val('');
+        render('');
+        $root.removeAttr('hidden');
+        setTimeout(function() { $input.trigger('focus'); }, 0);
+    }
+
+    function closeBar() {
+        $root.attr('hidden', 'hidden');
+        $input.val('');
+    }
+
+    function choose(idx) {
+        const item = items[idx];
+        if (!item) return;
+        closeBar();
+        if (item.href) window.location.href = item.href;
+        else if (typeof item.run === 'function') item.run();
+    }
+
+    $('#cmdk-open').on('click', function() {
+        if ($root.is('[hidden]')) openBar();
+        else closeBar();
+    });
+    $root.on('click', '[data-cmdk-close]', closeBar);
+    $input.on('input', function() { render(this.value); });
+    $list.on('click', '.cmdk-item', function() {
+        choose(Number($(this).data('idx')));
+    });
+    $input.on('keydown', function(e) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); setActive(active + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
+        else if (e.key === 'Enter') { e.preventDefault(); choose(active); }
+        else if (e.key === 'Escape') { e.preventDefault(); closeBar(); }
+    });
+    $(document).on('keydown.cmdk', function(e) {
+        const key = String(e.key || '');
+        if ((e.ctrlKey || e.metaKey) && key.toLowerCase() === 'k') {
+            e.preventDefault();
+            if ($root.is('[hidden]')) openBar();
+            else closeBar();
+            return;
+        }
+        if (key === 'Escape' && !$root.is('[hidden]')) closeBar();
+    });
+};
 
 PT.setHeaderMeta = function(genDate, dodText) {
     const parts = [];
@@ -435,6 +599,36 @@ PT.aggregateData = function(rawData) {
 
     return { raw: rawData, eqpList: eqpStats };
 }
+
+  if (window.echarts && !echarts.__pocTheme) {
+    const axis = {
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.28)' } },
+      axisTick: { lineStyle: { color: 'rgba(255,255,255,0.28)' } },
+      axisLabel: { color: '#c8c8cc' },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+      nameTextStyle: { color: '#98989d' }
+    };
+    echarts.registerTheme('poc-dark', {
+      textStyle: { color: '#c8c8cc' },
+      title: { textStyle: { color: '#f5f5f7' }, subtextStyle: { color: '#98989d' } },
+      legend: { textStyle: { color: '#c8c8cc' } },
+      tooltip: {
+        backgroundColor: '#1c1c1e',
+        borderColor: 'rgba(255,255,255,0.12)',
+        textStyle: { color: '#f5f5f7' }
+      },
+      categoryAxis: axis,
+      valueAxis: axis,
+      timeAxis: axis,
+      logAxis: axis
+    });
+    const origInit = echarts.init.bind(echarts);
+    echarts.init = function (dom, theme, opts) {
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      return origInit(dom, theme || (dark ? 'poc-dark' : undefined), opts);
+    };
+    echarts.__pocTheme = true;
+  }
 
   // Backward-compat aliases during transition
   window.getLineName = PT.getLineName;

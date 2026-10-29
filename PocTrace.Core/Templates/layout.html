@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{TITLE}}</title>
+    <script>
+        (function () {
+            var theme = 'light';
+            try { theme = localStorage.getItem('poc_theme') || 'light'; } catch (e) {}
+            if (theme !== 'dark') theme = 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        })();
+    </script>
 
     <!-- 로컬 assets만 사용 (CDN 금지). 차트: echarts -->
     <link href="./assets/css/bootstrap.min.css" rel="stylesheet">
@@ -13,41 +22,57 @@
     <link href="./assets/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.html">M-Link : Pipe Trace</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0" id="main-nav">
-                    <li class="nav-item">
-                        <a class="nav-link {{ACTIVE_SUMMARY}}" href="index.html" data-i18n="nav_summary">Summary</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ACTIVE_RULES}}" href="rules.html" data-i18n="nav_rules">Check Rules</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ACTIVE_PROGRESS}}" href="progress.html" data-i18n="nav_progress">Design Progress</a>
-                    </li>
-                    <!-- Line links injected by app.js (SUMMARY_DATA / LINE_ALIAS / x2_m 확장) -->
-                </ul>
-                <div class="d-flex align-items-center flex-wrap gap-2">
-                    <select id="lang-selector" class="form-select form-select-sm" style="width: 100px; cursor: pointer;">
-                        <option value="en">English</option>
-                        <option value="ko" selected>한국어</option>
-                        <option value="zh">中文</option>
-                    </select>
-                    <span class="navbar-text small text-white" id="meta-date"></span>
-                </div>
+    <div class="app-frame">
+        <header class="report-top">
+            <a class="brand-link" href="index.html">M-Link <span>Pipe Trace</span></a>
+            <ul class="report-nav" id="main-nav">
+                <li>
+                    <a class="nav-link {{ACTIVE_SUMMARY}}" href="index.html" data-i18n="nav_summary">Summary</a>
+                </li>
+                <li>
+                    <a class="nav-link {{ACTIVE_RULES}}" href="rules.html" data-i18n="nav_rules">Check Rules</a>
+                </li>
+                <li>
+                    <a class="nav-link {{ACTIVE_PROGRESS}}" href="progress.html" data-i18n="nav_progress">Design Progress</a>
+                </li>
+            </ul>
+            <div class="top-tools">
+                <button type="button" id="theme-toggle" class="theme-toggle" aria-pressed="false">
+                    <span class="when-light" data-i18n="theme_dark">다크</span>
+                    <span class="when-dark" data-i18n="theme_light">라이트</span>
+                </button>
+                <button type="button" id="cmdk-open" class="cmdk-trigger">
+                    <span data-i18n="cmdk_open">검색</span>
+                    <kbd>Ctrl</kbd><kbd>K</kbd>
+                </button>
+                <select id="lang-selector" class="form-select form-select-sm" aria-label="language">
+                    <option value="en">English</option>
+                    <option value="ko" selected>한국어</option>
+                    <option value="zh">中文</option>
+                </select>
+                <span class="meta-date" id="meta-date"></span>
             </div>
-        </div>
-    </nav>
+        </header>
 
-    <div class="container-fluid px-4" id="main-container">
-        <div class="text-center mt-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted">Loading Dashboard...</p>
+        <div class="app-body">
+            <aside class="line-rail" id="line-rail" aria-label="lines">
+                <div class="rail-label" data-i18n="rail_lines">라인</div>
+                <ul id="line-nav"></ul>
+            </aside>
+            <main class="report-main" id="main-container">
+                <div class="text-center mt-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Loading Dashboard...</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="cmdk" id="cmdk" hidden>
+        <div class="cmdk-backdrop" data-cmdk-close></div>
+        <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="search">
+            <input id="cmdk-input" type="text" autocomplete="off" spellcheck="false" placeholder="Search">
+            <ul class="cmdk-list" id="cmdk-list"></ul>
         </div>
     </div>
 

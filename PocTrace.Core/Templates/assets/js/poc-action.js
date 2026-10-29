@@ -24,10 +24,7 @@ window.PocTrace = window.PocTrace || {};
     api.search(issueName || '').draw();
     $('#result-filter-group button').removeClass('active');
     $('#result-filter-group button[data-filter="FAIL"]').addClass('active');
-    const $tbl = $('#mainTable');
-    if ($tbl.length && $tbl.offset()) {
-      $('html, body').animate({ scrollTop: $tbl.offset().top - 80 }, 400);
-    }
+    if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
   };
 
   PT.copyFiveDMemo = function (issueName, count, owner, $btn) {

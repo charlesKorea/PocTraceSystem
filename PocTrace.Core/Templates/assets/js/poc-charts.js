@@ -180,7 +180,10 @@ PT.initDetailCharts = function(dto, history) {
     });
     // Drill-down: Search text in Table (MainIssues 컬럼 검??
     pieChart.on('click', (params) => {
-        if(PT.state.dataTableInstance) { PT.state.dataTableInstance.search(params.name).draw(); $('html, body').animate({ scrollTop: $("#mainTable").offset().top - 100 }, 500); }
+        if (PT.state.dataTableInstance) {
+            PT.state.dataTableInstance.search(params.name).draw();
+            if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
+        }
     });
   */
             // ----------------------------
@@ -354,7 +357,10 @@ PT.initDetailCharts = function(dto, history) {
     barChart.on('click', (params) => {
         const key = categories[params.dataIndex] || params.name;
         const searchKey = String(key).replace(/\s*\(n=\d+\)\s*$/, '');
-        if(PT.state.dataTableInstance) { PT.state.dataTableInstance.search(searchKey).draw(); $('html, body').animate({ scrollTop: $("#mainTable").offset().top - 100 }, 500); }
+        if (PT.state.dataTableInstance) {
+            PT.state.dataTableInstance.search(searchKey).draw();
+            if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
+        }
     });
   /*
     // ----------------------------
@@ -417,7 +423,7 @@ PT.initPieChart = function(domId, dataMap, emptyLabel) {
         }
         if (PT.state.dataTableInstance) {
             PT.state.dataTableInstance.search(params.name).draw();
-            $('html, body').animate({ scrollTop: $('#mainTable').offset().top - 100 }, 500);
+            if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
         }
     });
 }

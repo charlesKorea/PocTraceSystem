@@ -34,7 +34,7 @@ window.PocTrace = window.PocTrace || {};
       '</div><div class="kpi-value text-primary">' + PT.formatNum(ruleCount) +
       '</div><div class="kpi-sub-text">' + t('rules_registered') + '</div></div></div>' +
       '<div class="col-md-4"><div class="kpi-card pass"><div class="kpi-label">' + t('rules_total_hits') +
-      '</div><div class="kpi-value" style="background:linear-gradient(45deg,#4361ee,#2a9d8f);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">' +
+      '</div><div class="kpi-value">' +
       PT.formatNum(totalHits) + '</div><div class="kpi-sub-text">' + t('rules_hits_hint') + '</div></div></div>' +
       '<div class="col-md-4"><div class="kpi-card hookup"><div class="kpi-label">' + t('lbl_generated') +
       '</div><div class="kpi-value fs-4 text-dark">' + (genDate || '-') +

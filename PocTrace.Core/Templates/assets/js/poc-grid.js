@@ -9,7 +9,7 @@ PT.initGrid = function(eqList, dbName) {
     if (PT.state.dataTableInstance) { PT.state.dataTableInstance.destroy(); $('#mainTable').empty(); }
 
     const excelLink = `./Excel/${dbName}_Error_Detail.xlsx`;
-    const failCount = (eqList || []).filter(e => e.Result === 'FAIL' || e.IssueCount > 0).length;
+    const failCount = (eqList || []).filter(e => e.Result === 'FAIL').length;
     const colKey = 'poc_cols_detail_' + String(dbName || 'line');
 
     PT.state.dataTableInstance = $('#mainTable').DataTable({
@@ -30,13 +30,15 @@ PT.initGrid = function(eqList, dbName) {
                 `<h5 class="m-0 fw-bold text-dark"><i class="bi bi-table" aria-hidden="true"></i> ${T('header_detail')}</h5>`
             );
 
-            $("div.dt-result-filter").html(`
-                <div class="btn-group btn-group-sm ms-2" role="group" id="result-filter-group">
-                    <button type="button" class="btn btn-outline-danger active" data-filter="FAIL">${T('filter_fail')} (${failCount})</button>
-                    <button type="button" class="btn btn-outline-secondary" data-filter="ALL">${T('filter_all')}</button>
-                    <button type="button" class="btn btn-outline-success" data-filter="PASS">${T('filter_pass')}</button>
-                </div>
-            `);
+            const passCount = (eqList || []).filter(e => e.Result === 'PASS').length;
+            const allCount = (eqList || []).length;
+            $("div.dt-result-filter").html(
+                '<div class="filter-chips" id="result-filter-group" role="group" aria-label="' + T('header_res') + '">' +
+                '<button type="button" class="filter-chip fail' + (failCount > 0 ? ' active' : '') + '" data-filter="FAIL">' + T('filter_fail') + ' ' + failCount + '</button>' +
+                '<button type="button" class="filter-chip' + (failCount > 0 ? '' : ' active') + '" data-filter="ALL">' + T('filter_all') + ' ' + allCount + '</button>' +
+                '<button type="button" class="filter-chip pass" data-filter="PASS">' + T('filter_pass') + ' ' + passCount + '</button>' +
+                '</div>'
+            );
 
             $("div.btn-excel-wrapper").html(`
                 <a href="${excelLink}" class="btn btn-success btn-sm fw-bold">
@@ -62,8 +64,8 @@ PT.initGrid = function(eqList, dbName) {
                 const mode = $(this).data('filter');
                 $('#result-filter-group button').removeClass('active');
                 $(this).addClass('active');
-                if (mode === 'ALL') api.column(3).search('').draw();
-                else api.column(3).search(String(mode)).draw();
+                api.search('');
+                api.column(3).search(mode === 'ALL' ? '' : String(mode)).draw();
             });
         },
         

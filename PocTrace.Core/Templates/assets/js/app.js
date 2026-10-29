@@ -8,8 +8,10 @@
 const _ = window._;
 const dayjs = window.dayjs;
 
-const LINE_ALIAS = { 'x1': 'X1', 'x2': 'X2-PH1', 'x2_2': 'X2-PH2' };
-const getLineName = (dbName) => LINE_ALIAS[dbName] || dbName.toUpperCase();
+const LINE_ALIAS = { 'x1': 'X1', 'x2': 'X2-PH1', 'x2_2': 'X2-PH2', 'x2_m': 'X2-M' };
+const getLineName = (dbName) => (window.PocTrace && typeof PocTrace.getLineName === 'function')
+    ? PocTrace.getLineName(dbName)
+    : (LINE_ALIAS[dbName] || String(dbName || '').toUpperCase());
 const formatNum = (n) => n ? n.toLocaleString() : '0';
 
 // T 함수는 lang.js가 window.T로 제공하므로 그대로 사용
@@ -28,22 +30,41 @@ $(document).ready(function () {
         window.applyLanguage();
     }
 
+    const themeDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    $('#theme-toggle').attr('aria-pressed', themeDark ? 'true' : 'false');
+    $('#theme-toggle').on('click', function () {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('poc_theme', next);
+        location.reload();
+    });
+
     $('#lang-selector').on('change', function() {
         localStorage.setItem('poc_lang', $(this).val());
         location.reload();
     });
-    applyNavAlias();
 
-    // 2. Routing
-    if (typeof IS_SUMMARY !== 'undefined' && IS_SUMMARY === true) {
-        // HISTORY_DATA_MAP?� C# GenerateSummary?�서 주입??
+    const PT = window.PocTrace || {};
+    if (typeof IS_RULES_PAGE !== 'undefined' && IS_RULES_PAGE === true && typeof PT.renderRulesPage === 'function') {
+        PT.renderRulesPage(
+            typeof RULES_CATALOG !== 'undefined' ? RULES_CATALOG : [],
+            typeof RULES_HISTORY !== 'undefined' ? RULES_HISTORY : [],
+            typeof RULES_META !== 'undefined' ? RULES_META : {}
+        );
+    } else if (typeof IS_PROGRESS_PAGE !== 'undefined' && IS_PROGRESS_PAGE === true && typeof PT.renderProgressPage === 'function') {
+        PT.renderProgressPage(
+            typeof PROGRESS_DATA !== 'undefined' ? PROGRESS_DATA : [],
+            typeof PROGRESS_HISTORY !== 'undefined' ? PROGRESS_HISTORY : [],
+            typeof PROGRESS_META !== 'undefined' ? PROGRESS_META : {}
+        );
+    } else if (typeof IS_SUMMARY !== 'undefined' && IS_SUMMARY === true) {
         renderSummaryPage(SUMMARY_DATA, typeof HISTORY_DATA_MAP !== 'undefined' ? HISTORY_DATA_MAP : {});
-    } else {
-        if (typeof REPORT_DATA !== 'undefined' && typeof REPORT_META !== 'undefined') {
-            // [중요] aggregateData ?�출 ?�거! REPORT_DATA가 ?��? ?�약본임.
-            renderDetailPage(REPORT_DATA, REPORT_META, typeof HISTORY_DATA !== 'undefined' ? HISTORY_DATA : []);
-        }
+    } else if (typeof REPORT_DATA !== 'undefined' && typeof REPORT_META !== 'undefined') {
+        renderDetailPage(REPORT_DATA, REPORT_META, typeof HISTORY_DATA !== 'undefined' ? HISTORY_DATA : []);
     }
+
+    if (typeof PT.rebuildLineNav === 'function') PT.rebuildLineNav();
+    if (typeof PT.mountCommandBar === 'function') PT.mountCommandBar();
+    applyNavAlias();
 
     window.addEventListener('resize', () => charts.forEach(c => c && c.resize()));
     
@@ -232,12 +253,12 @@ function renderSummaryPage(data, historyMap) {
                                                 <div class="row text-center">
                             <div class="col-6 border-end">
                                 <label class="small text-muted fw-bold">${T('label_hu_no')} Pass(%)</label>
-                                <div class="fs-5 fw-bold" style="background: linear-gradient(45deg, #4361ee, #2a9d8f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${hookupPassRate}%</div>
+                                <div class="metric-num">${hookupPassRate}%</div>
                                 <div class="small text-muted">${formatNum(hookupPass)}/${formatNum(hookupTotal)}</div>
                             </div>
                             <div class="col-6">
                                 <label class="small text-muted fw-bold">POC Pass(%)</label>
-                                <div class="fs-5 fw-bold" style="background: linear-gradient(45deg, #4361ee, #2a9d8f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${pocPassPercent}%</div>
+                                <div class="metric-num">${pocPassPercent}%</div>
                                 <div class="small text-muted">${formatNum(db.PassPocCount)}/${formatNum(totalPoc)}</div>
                             </div>
                         </div>
@@ -439,32 +460,25 @@ function renderDetailPage(dto, meta, history) {
 
                 // KPI Cards Injection (Applying T() and Layout)
         // [수정] 4개 카드: Total Eq, POC Pass, Hookup Pass, Issues + Error Badge + 그라데이션
-    const eqErrorCount = totalEq - passEq; // EQP Fail 수
-    const pocErrorCount = totalPoc - passPoc; // POC Fail 수
-    
-    // 그라데이션 스타일
-    const gradientStyle = 'background: linear-gradient(45deg, #4361ee, #2a9d8f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;';
-    const orangeGradientStyle = 'background: linear-gradient(45deg, #ff6b35, #d62828); -webkit-background-clip: text; -webkit-text-fill-color: transparent;';
-    
+    const eqErrorCount = totalEq - passEq;
+    const pocErrorCount = totalPoc - passPoc;
+
     $('#card-1').html(`
         <div class="kpi-label">${T('kpi_total_eq')}</div>
-        <div class="kpi-value" style="${gradientStyle}">${formatNum(totalEq)}</div>
+        <div class="kpi-value">${formatNum(totalEq)}</div>
         <div class="kpi-sub-text">${T('kpi_target')}</div>
-        ${eqErrorCount > 0 ? `<div class="mt-1"><span class="badge bg-danger">${formatNum(eqErrorCount)} Err</span></div>` : ''}
+        ${eqErrorCount > 0 ? `<div class="mt-1"><span class="status-badge fail">${formatNum(eqErrorCount)} Err</span></div>` : ''}
     `);
-    // POC Rate Highlight
     $('#card-2').html(`
         <div class="kpi-label">${T('card_poc_pass_rate')}</div>
-        <div class="kpi-value" style="${gradientStyle}">${pocRate}%</div>
+        <div class="kpi-value">${pocRate}%</div>
         <div class="kpi-sub-text">${formatNum(passPoc)} / ${formatNum(totalPoc)}</div>
-        ${pocErrorCount > 0 ? `<div class="mt-1"><span class="badge bg-danger">${formatNum(pocErrorCount)} Err</span></div>` : ''}
+        ${pocErrorCount > 0 ? `<div class="mt-1"><span class="status-badge fail">${formatNum(pocErrorCount)} Err</span></div>` : ''}
     `);
-    // [수정] H/U Number Pass - 주황색 계열 + Error Badge
-    const hookupCardContent = totalHookup > 0 
-        ? `<div class="kpi-label">H/U Number Pass(%)</div><div class="kpi-value" style="${orangeGradientStyle}">${hookupPassRate}%</div><div class="kpi-sub-text">${formatNum(okHookup)} / ${formatNum(totalHookup)}</div>${hookupErrorCount > 0 ? `<div class="mt-1"><span class="badge bg-danger">${formatNum(hookupErrorCount)} Err</span></div>` : ''}`
+    const hookupCardContent = totalHookup > 0
+        ? `<div class="kpi-label">H/U Number Pass(%)</div><div class="kpi-value">${hookupPassRate}%</div><div class="kpi-sub-text">${formatNum(okHookup)} / ${formatNum(totalHookup)}</div>${hookupErrorCount > 0 ? `<div class="mt-1"><span class="status-badge fail">${formatNum(hookupErrorCount)} Err</span></div>` : ''}`
         : `<div class="kpi-label">H/U Number Pass(%)</div><div class="kpi-value text-muted">-</div><div class="kpi-sub-text">No Data</div>`;
     $('#card-3').html(hookupCardContent);
-    // Fail + Error Badge
     $('#card-4').html(`
         <div class="kpi-label">${T('card_issue_fail')}</div>
         <div class="kpi-value text-danger">${formatNum(totalIssues)}</div>
@@ -660,7 +674,10 @@ function initDetailCharts(dto, history) {
         ]
     });
     barChart.on('click', (params) => {
-        if(dataTableInstance) { dataTableInstance.search(params.name).draw(); $('html, body').animate({ scrollTop: $("#mainTable").offset().top - 100 }, 500); }
+        if (dataTableInstance) {
+            dataTableInstance.search(params.name).draw();
+            if (window.PocTrace && typeof PocTrace.scrollToNode === 'function') PocTrace.scrollToNode('#mainTable');
+        }
     });
   /*
     // ----------------------------
@@ -830,13 +847,35 @@ function initGrid(eqList, dbName) {
 
     dataTableInstance = $('#mainTable').DataTable({
         data: eqList,
-        dom: '<"dt-top-container" <"dt-left-group" <"dt-custom-title"> l > <"dt-right-group" f <"btn-excel-wrapper"> > >rtip',
-        
-        // DataTables Export 버튼 ?�??"진짜 ?��? ?�일" ?�운로드 링크 버튼 ?�입
+        dom: '<"dt-top-container" <"dt-left-group" <"dt-custom-title"> <"dt-result-filter"> l > <"dt-right-group" f <"btn-excel-wrapper"> > >rtip',
+
         initComplete: function() {
+            const api = this.api();
+            dataTableInstance = api;
+            if (window.PocTrace && PocTrace.state) PocTrace.state.dataTableInstance = api;
+
             $("div.dt-custom-title").html(`<h5 class="m-0 fw-bold text-dark"><i class="bi bi-table"></i> ${T('header_detail')}</h5>`);
-            
-            // 커스?� ?��? 버튼 ?�입
+
+            const rows = eqList || [];
+            const failCount = rows.filter(function (e) { return e.Result === 'FAIL'; }).length;
+            const passCount = rows.filter(function (e) { return e.Result === 'PASS'; }).length;
+            $("div.dt-result-filter").html(
+                '<div class="filter-chips" id="result-filter-group" role="group" aria-label="' + T('header_res') + '">' +
+                '<button type="button" class="filter-chip fail' + (failCount > 0 ? ' active' : '') + '" data-filter="FAIL">' + T('filter_fail') + ' ' + failCount + '</button>' +
+                '<button type="button" class="filter-chip' + (failCount > 0 ? '' : ' active') + '" data-filter="ALL">' + T('filter_all') + ' ' + rows.length + '</button>' +
+                '<button type="button" class="filter-chip pass" data-filter="PASS">' + T('filter_pass') + ' ' + passCount + '</button>' +
+                '</div>'
+            );
+            if (failCount > 0) api.column(3).search('FAIL').draw();
+
+            $('#result-filter-group').on('click', 'button', function() {
+                const mode = $(this).data('filter');
+                $('#result-filter-group button').removeClass('active');
+                $(this).addClass('active');
+                api.search('');
+                api.column(3).search(mode === 'ALL' ? '' : String(mode)).draw();
+            });
+
             $("div.btn-excel-wrapper").html(`
                 <a href="${excelLink}" class="btn btn-success btn-sm fw-bold">
                     <i class="bi bi-file-earmark-excel"></i> ${T('btn_export')}
@@ -854,7 +893,12 @@ function initGrid(eqList, dbName) {
             { title: T('header_proc'), data: "Process" },
             
             // 4. Result
-            { title: T('header_res'), data: "Result", render: d => d==='FAIL'?`<span class="badge bg-danger">${T('label_fail')}</span>`:`<span class="badge bg-success">${T('label_pass')}</span>` },
+            { title: T('header_res'), data: "Result", render: function (d, type) {
+                if (type && type !== 'display') return d || '';
+                return d === 'FAIL'
+                    ? '<span class="status-badge fail">' + T('label_fail') + '</span>'
+                    : '<span class="status-badge pass">' + T('label_pass') + '</span>';
+            } },
 
                         
             // 5. EQP QTY
