@@ -66,7 +66,7 @@ namespace PocTrace.DeletedPipeLength
             _cutover.Value = new DateTime(2026, 1, 1);
             Controls.Add(_cutover);
 
-            var note = LabelAt("EQPID 기준. Op2(기준일 이후)와 Op1+건설코드 Delete를 삭제 설비로 봅니다. BOM은 피팅 이름·QCode 수량입니다.", 16, 112);
+            var note = LabelAt("EQPID 기준. Op2(기준일 이후)와 Op1+건설코드 Delete를 삭제 설비로 봅니다. BOM은 피팅 이름·QCode 수량입니다. 배관 연결은 exe 옆 cache\\deleted-pipe 스냅샷으로 따라갑니다.", 16, 112);
             note.MaximumSize = new System.Drawing.Size(860, 0);
             Controls.Add(note);
 

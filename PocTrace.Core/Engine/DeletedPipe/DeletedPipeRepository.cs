@@ -12,7 +12,8 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// S5D 로그에서 Instance/Pipe/POC 별 최신 행만 읽는다.
     /// 최신 행의 OperationType이 2이고 OPTIME이 기준일 이상이면 완전 삭제다.
     /// OperationType이 1이고 건설코드에 Delete가 있으면 5D에 남아 있는 철거 설비다.
-    /// 결과는 BinaryCache에 넣지 않는다.
+    /// 구간마다 로그를 다시 읽지 않는다. 최신 행은 스냅샷으로 한 번 읽고 exe 옆 파일에 둔다.
+    /// 공유 GraphCache에는 넣지 않는다.
     /// </summary>
     public sealed class DeletedPipeRepository
     {
@@ -261,6 +262,148 @@ FROM (
 WHERE rn = 1";
 
             return QueryBatches<DeletedNodeRow>(sql, list, null);
+        }
+
+        public DeletedPipeSnapshot LoadSnapshot(string dbName, IProgress<string> progress)
+        {
+            progress?.Report(dbName + " 스냅샷 배관");
+            var pipes = Query<DeletedPipeRow>(LatestPipesSql(), new { Cutover = _cutover });
+            _cancellation.ThrowIfCancellationRequested();
+
+            progress?.Report(dbName + " 스냅샷 POC");
+            var pocs = Query<DeletedPocRow>(LatestPocsSql(), new { Cutover = _cutover });
+            _cancellation.ThrowIfCancellationRequested();
+
+            progress?.Report(dbName + " 스냅샷 노드");
+            var nodes = Query<DeletedNodeRow>(LatestNodesSql(), new { Cutover = _cutover });
+            _cancellation.ThrowIfCancellationRequested();
+
+            progress?.Report(dbName + " 스냅샷 테이크오프");
+            var takeoffs = Query<DeletedTakeoffRow>(LatestTakeoffsSql(), null);
+
+            return new DeletedPipeSnapshot
+            {
+                DbName = dbName ?? string.Empty,
+                Cutover = _cutover.Date,
+                BuiltAt = DateTime.Now,
+                Pipes = pipes,
+                Pocs = pocs,
+                Nodes = nodes,
+                Takeoffs = takeoffs
+            };
+        }
+
+        private string LatestPipesSql()
+        {
+            return $@"
+SELECT
+    PipeId, Outlet1, Outlet2, Outlet3, Length, UtilityName, OpTime, OperationType, UserName, CompanyName
+FROM (
+    SELECT
+        A.PipeID AS PipeId,
+        A.Outlet1 AS Outlet1,
+        A.Outlet2 AS Outlet2,
+        A.Outlet3 AS Outlet3,
+        CASE WHEN A.Length IS NULL OR A.Length <= 0 THEN 0 ELSE A.Length END AS Length,
+        B.NAME AS UtilityName,
+        A.OPTIME AS OpTime,
+        A.OperationType AS OperationType,
+        U.NAME AS UserName,
+        U.COMPANYNAME AS CompanyName,
+        ROW_NUMBER() OVER (PARTITION BY A.PipeID ORDER BY A.OPTIME DESC) AS rn
+    FROM {_db}.dbo.PipeLog A WITH (NOLOCK)
+    LEFT JOIN {_db}.dbo.UtilityLog B WITH (NOLOCK)
+        ON A.UtilityID = B.UtilityID AND B.OperationType < 2
+    LEFT JOIN {_db}.dbo.USERLOG U WITH (NOLOCK)
+        ON A.USER_ID = U.USERID
+    WHERE A.Origin = 0
+) x
+WHERE rn = 1
+  AND (
+        OperationType < 2
+        OR (OperationType = 2 AND OpTime >= @Cutover)
+      )";
+        }
+
+        private string LatestPocsSql()
+        {
+            return $@"
+SELECT
+    InstanceId, OwnerId, Outlet, Tag, PocName, UtilityName, OpTime, OperationType
+FROM (
+    SELECT
+        A.InstanceID AS InstanceId,
+        A.OwnerID AS OwnerId,
+        A.Outlet AS Outlet,
+        A.Tag AS Tag,
+        B.Name AS PocName,
+        C.Name AS UtilityName,
+        A.OPTIME AS OpTime,
+        A.OperationType AS OperationType,
+        ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
+    FROM {_db}.dbo.ConnectionPointInstanceLog A WITH (NOLOCK)
+    LEFT JOIN {_db}.dbo.ConnectionPointLog B WITH (NOLOCK)
+        ON A.PocID = B.PointID AND B.OperationType < 2
+    LEFT JOIN {_db}.dbo.UtilityLog C WITH (NOLOCK)
+        ON B.UtilityID = C.UtilityID AND C.OperationType < 2
+) x
+WHERE rn = 1
+  AND (
+        OperationType < 2
+        OR (OperationType = 2 AND OpTime >= @Cutover)
+      )";
+        }
+
+        private string LatestNodesSql()
+        {
+            return $@"
+SELECT
+    InstanceId, Tag, Name, OpTime, OperationType, Division, Sub1Name, Sub2Name, ConstructionCode, QCode
+FROM (
+    SELECT
+        A.InstanceID AS InstanceId,
+        A.Tag AS Tag,
+        A.Name AS Name,
+        A.OPTIME AS OpTime,
+        A.OperationType AS OperationType,
+        B.Division AS Division,
+        S1.Name AS Sub1Name,
+        S2.Name AS Sub2Name,
+        A.CONSTRUCTIONCODE AS ConstructionCode,
+        B.QCode AS QCode,
+        ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
+    FROM {_db}.dbo.ObjectInstanceLog A WITH (NOLOCK)
+    JOIN {_db}.dbo.ObjectLog B WITH (NOLOCK)
+        ON A.ObjectID = B.ObjectID AND B.OperationType < 2
+    LEFT JOIN {_db}.dbo.SubdivisionLog S1 WITH (NOLOCK)
+        ON B.Subdivision1 = S1.SubdivID AND S1.OperationType < 2
+    LEFT JOIN {_db}.dbo.SubdivisionLog S2 WITH (NOLOCK)
+        ON B.Subdivision2 = S2.SubdivID AND S2.OperationType < 2
+) x
+WHERE rn = 1
+  AND (
+        OperationType < 2
+        OR (OperationType = 2 AND OpTime >= @Cutover)
+      )";
+        }
+
+        private string LatestTakeoffsSql()
+        {
+            return $@"
+SELECT
+    TakeoffId, Tag, PipeId, OpTime, OperationType
+FROM (
+    SELECT
+        T.TakeoffID AS TakeoffId,
+        T.Tag AS Tag,
+        T.PipeID AS PipeId,
+        T.OPTIME AS OpTime,
+        T.operationType AS OperationType,
+        ROW_NUMBER() OVER (PARTITION BY T.TakeoffID ORDER BY T.OPTIME DESC) AS rn
+    FROM {_db}.dbo.TakeoffLog T WITH (NOLOCK)
+) x
+WHERE rn = 1
+  AND (OperationType < 2 OR OperationType = 2)";
         }
 
         public List<DeletedTakeoffRow> LoadTakeoffs(IList<Guid> ids)

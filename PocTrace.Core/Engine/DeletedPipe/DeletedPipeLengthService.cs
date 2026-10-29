@@ -47,6 +47,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 connection.Open();
                 var repo = new DeletedPipeRepository(connection, dbName, report.Cutover, cancellation);
                 var session = new DeletedPipeSession(repo);
+                UseSnapshot(dbName, report.Cutover, repo, session, progress);
 
                 progress?.Report(dbName + " 삭제 설비 조회");
                 var equipment = repo.LoadDeletedEquipment();
@@ -168,6 +169,40 @@ namespace PocTrace.Core.Engine.DeletedPipe
             }
 
             return report;
+        }
+
+        private static void UseSnapshot(
+            string dbName,
+            DateTime cutover,
+            DeletedPipeRepository repo,
+            DeletedPipeSession session,
+            IProgress<string> progress)
+        {
+            string path = DeletedPipeSnapshotStore.FilePath(dbName, cutover);
+            var snapshot = DeletedPipeSnapshotStore.TryLoad(dbName, cutover);
+            if (snapshot == null)
+            {
+                progress?.Report(dbName + " 배관 로그를 한 번 읽어 스냅샷을 만듭니다");
+                snapshot = repo.LoadSnapshot(dbName, cutover, progress);
+                if (DeletedPipeSnapshotStore.TrySave(dbName, snapshot))
+                    progress?.Report(dbName + " 스냅샷 저장 " + path);
+                else
+                    progress?.Report(dbName + " 스냅샷 파일을 쓰지 못했습니다. 이번 실행은 메모리에서만 탐색합니다. " + path);
+            }
+            else
+            {
+                progress?.Report(dbName + " 스냅샷 캐시 " + path
+                    + " 작성 " + snapshot.BuiltAt.ToString("yyyy-MM-dd HH:mm"));
+            }
+
+            session.UseSnapshot(snapshot);
+            progress?.Report(string.Format(
+                "{0} 스냅샷 배관 {1:N0} POC {2:N0} 노드 {3:N0} 테이크오프 {4:N0}",
+                dbName,
+                snapshot.Pipes == null ? 0 : snapshot.Pipes.Count,
+                snapshot.Pocs == null ? 0 : snapshot.Pocs.Count,
+                snapshot.Nodes == null ? 0 : snapshot.Nodes.Count,
+                snapshot.Takeoffs == null ? 0 : snapshot.Takeoffs.Count));
         }
 
         private static void MarkShared(List<DeletedPipeDetailRow> details)

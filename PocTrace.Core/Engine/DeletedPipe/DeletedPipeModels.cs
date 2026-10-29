@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace PocTrace.Core.Engine.DeletedPipe
 {
     /// <summary>
-    /// 삭제 배관 길이 VOC. GraphCache와 SqlQueries의 OperationType &lt; 2 경로는 사용하지 않는다.
+    /// 삭제 배관 길이 VOC. 공유 GraphCache는 쓰지 않는다. 최신 로그는 exe 옆 스냅샷으로 읽는다.
     /// </summary>
     public sealed class DeletedPipeReport
     {
@@ -46,6 +46,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public string DbName { get; set; }
         public string EqpId { get; set; }
         public Guid EquipmentInstanceId { get; set; }
+        public string EquipmentInstanceName { get; set; }
         public string EquipmentTag { get; set; }
         public DateTime? EquipmentDeletedAt { get; set; }
         public Guid StartPocId { get; set; }

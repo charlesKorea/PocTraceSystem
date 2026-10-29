@@ -19,11 +19,60 @@ Viewer exe와 **같이** 쓰는 1차 웹 화면입니다. Viewer를 끄지 않�
 
 ## 배포
 
-1. Visual Studio에서 `PocTraceSystem.sln`의 **PocTrace.Web**을 Release로 빌드합니다.
-2. UI, 철거, 노즐, Web exe와 `exe.config`, `wwwroot`를 같은 공유 폴더에 둡니다. `PocTrace.Core.dll`은 그 빌드 산출물 하나만 그 폴더에 둡니다. Admin은 `D:\PocAdmin`에 따로 두고, Core.dll도 그 빌드의 복사본을 D:에 둡니다. `JLic.Core.dll`과 NuGet DLL은 복사하지 않습니다. 폴더에 남아 있으면 지웁니다. **`Lic\jlab.lic` 는 각 실행 폴더에** 둡니다. AccessApps에 `PT` 또는 `AL` 이 있어야 합니다.
-3. `UtMapping.csv`를 그 폴더에 둡니다. 없으면 Trace는 되지만 UT 매핑이 비어 있습니다.
-4. `PocTrace.Web.exe.config`의 `SharedCachePath`, `TargetDatabases`를 Viewer config와 같게 맞춥니다.
-5. `AllowDatabaseFallback`은 `false`로 둡니다. DB 비밀번호는 넣지 않습니다.
+1. Visual Studio에서 `PocTraceSystem.sln`의 **PocTrace.Web**을 Release로 빌드합니다. 산출물은 `PocTrace.Web\bin\Release\` 또는 `bin\x64\Release\` 입니다.
+2. 아래 파일을 공유 폴더 한 곳에 둡니다. UI, 철거, 노즐 exe도 그 폴더이고 `PocTrace.Core.dll`은 그 빌드 하나뿐입니다. Admin은 `D:\PocAdmin`에 따로 두고, Core.dll도 그 빌드의 복사본을 D:에 둡니다.
+3. `PocTrace.Web.exe.config`의 `SharedCachePath`, `TargetDatabases`를 Viewer config와 같게 맞춥니다. `AllowDatabaseFallback`은 `false`로 둡니다. DB 비밀번호는 넣지 않습니다.
+
+화면은 CDN을 쓰지 않습니다. `wwwroot` 안의 CSS와 SVG가 하나라도 빠지면 유리 표면이나 아이콘이 비습니다. `wwwroot`는 exe와 같은 폴더에 두고, 그 안의 상대 경로를 유지합니다.
+
+### exe 옆에 두는 파일
+
+| 파일 | 필수 | 설명 |
+|------|------|------|
+| `PocTrace.Web.exe` | 예 | 웹 본체. JLic, Newtonsoft, Serilog는 이 파일 안에 들어 있습니다 |
+| `PocTrace.Web.exe.config` | 예 | `SharedCachePath`, `TargetDatabases`, `ListenPort` |
+| `PocTrace.Core.dll` | 예 | 이 솔루션 빌드의 Core.dll 하나 |
+| `PocTrace.Demolition.exe` | 예 | Costura 제외. Web이 프로세스를 새로 띄우지 않고 이 어셈블리를 불러 철거 검수를 합니다. EPPlus는 이 exe 안에 있습니다 |
+| `PocTrace.NozzleTrace.exe` | 예 | Costura 제외. 노즐 역추적도 이 어셈블리를 프로세스 안에서 부릅니다 |
+| `Lic\jlab.lic` | 예 | AccessApps에 `PT` 또는 `AL` |
+| `UtMapping.csv` | 권장 | 없으면 Trace는 되고 UT 매핑만 비어 있습니다 |
+| `wwwroot\` | 예 | 아래 트리 전체 |
+
+폴더에 `JLic.Core.dll`, `Serilog.dll`, `Serilog.Sinks.File.dll`, `Newtonsoft.Json.dll`, `EPPlus.dll`, `Dapper.dll`, `Costura.dll`이 남아 있으면 지웁니다. 남아 있으면 exe 안에 넣은 복사본보다 그 파일이 먼저 열립니다. 철거·노즐의 `exe.config`는 Web이 그 exe를 따로 실행하지 않으므로 없어도 됩니다.
+
+### wwwroot (UiAssets)
+
+`jcs-glass.css`가 `icons\*.svg`를 상대 경로로 읽습니다. 아이콘만 다른 폴더에 두면 버튼 모양이 사라집니다.
+
+```
+wwwroot\
+  index.html
+  history.html
+  assets\
+    jcs-ui\
+      jcs-glass.css
+      brand\
+        mark.png
+        mark-180.png
+        mark.ico
+      icons\
+        circle-alert.svg
+        circle-check.svg
+        crosshair.svg
+        database.svg
+        download.svg
+        hammer.svg
+        history.svg
+        layers.svg
+        loader.svg
+        moon.svg
+        play.svg
+        route.svg
+        search.svg
+        sun.svg
+```
+
+`layers.svg`는 이 버전의 CSS가 읽지 않습니다. 폴더를 통째로 복사하면 같이 들어갑니다. 브랜드 파일 세 개와 CSS가 읽는 SVG 13개는 빼면 안 됩니다. CSS가 읽는 아이콘은 route, hammer, crosshair, history, moon, sun, database, circle-check, circle-alert, loader, search, download, play 입니다.
 
 사용자가 `PocTrace.Web.exe`를 실행하면 콘솔 창이 남고 브라우저가 `http://127.0.0.1:5088/`을 엽니다. 콘솔 창을 닫으면 그 사용자의 웹만 멈춥니다.
 

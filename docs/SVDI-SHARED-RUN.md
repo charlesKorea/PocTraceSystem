@@ -7,7 +7,7 @@
 | Admin | `D:\PocAdmin` 에서만 실행 | 그 빌드를 D:에 둔 복사본. 캐시를 만든다 |
 | UI, 철거, 노즐추적 | 같은 공유 폴더의 같은 경로 | 그 폴더의 `PocTrace.Core.dll` 하나 |
 | Web | 그 공유 폴더 | 같은 `PocTrace.Core.dll`. 철거·노즐 exe를 그 자리에서 연다 |
-| 삭제 배관 길이 | 그 공유 폴더에 두면 같은 Core.dll을 쓴다 | 그래프 캐시가 아니라 DB를 읽는다 |
+| 삭제 배관 길이 | `D:\` 에서 실행한다. Admin과 같이 그 PC 디스크를 쓴다 | 공유 GraphCache가 아니다. exe 옆 `cache\deleted-pipe` 스냅샷을 읽고, 없을 때 DB 로그를 한 번 읽어 그 파일에 쓴다 |
 
 UI, 철거, 노즐추적은 같은 캐시를 보므로 폴더를 나누지 않는다. Admin은 캐시를 만드는 쪽이라 D:에서 따로 실행한다. Admin용 `PocTrace.Core.dll`은 D:에 두고, 공유 폴더의 Core.dll과 빌드를 섞지 않는다.
 
@@ -18,6 +18,7 @@ UI, 철거, 노즐추적은 같은 캐시를 보므로 폴더를 나누지 않�
 - 캐시 폴더는 하나다. `SharedCachePath` 기본값은 `X:\jHOOK\PocTraceData`.
 - 사용자별, exe별 GraphCache를 만들지 않는다.
 - 캐시를 읽는 코드는 이 공유 경로만 본다. Admin만 그 경로에 쓴다.
+- 삭제 배관 길이의 `cache\deleted-pipe`는 그 공유 캐시의 복사본이 아니다. 삭제된 배관은 GraphCache에 없다. 파일은 그 exe 폴더에만 두고, 사용자별 LocalAppData에는 만들지 않는다. 같은 DB와 기준일이고 만든 지 24시간이 지나지 않았으면 그 파일을 읽는다. 그 뒤에는 DB 로그를 다시 읽어 파일을 바꾼다.
 - `PocTrace.DdwAcceptance.exe`는 공유 폴더에서 실행하지 않는다. `SharedCachePath` 폴더가 있으면 지우고 시험 캐시를 쓴다.
 
 ## 배포 DLL

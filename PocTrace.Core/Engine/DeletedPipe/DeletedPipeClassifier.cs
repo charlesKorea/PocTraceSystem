@@ -9,6 +9,10 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// </summary>
     public static class DeletedPipeClassifier
     {
+        /// <summary>
+        /// 한 설비 인스턴스에서 새로 밟는 연결 ID 상한.
+        /// 이미 큐에 있거나 밟은 ID는 세지 않는다.
+        /// </summary>
         public const int MaxHops = 2000;
 
         private static readonly string[] EquipmentSub1Names =

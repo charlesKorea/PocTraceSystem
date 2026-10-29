@@ -82,7 +82,7 @@ namespace PocTrace.DeletedPipeLength.Export
         {
             string[] headers =
             {
-                "DB", "EQPID", "설비InstanceId", "설비Tag", "설비삭제시각", "시작POC",
+                "DB", "EQPID", "설비InstanceName", "설비InstanceId", "설비Tag", "설비삭제시각", "시작POC",
                 "배관ID", "Utility", "길이_m", "길이_mm", "배관삭제시각", "순서", "공유", "작업자", "회사"
             };
             WriteHeaders(ws, headers);
@@ -95,19 +95,20 @@ namespace PocTrace.DeletedPipeLength.Export
                     var item = items[d];
                     ws.Cells[row, 1].Value = item.DbName;
                     ws.Cells[row, 2].Value = item.EqpId;
-                    ws.Cells[row, 3].Value = item.EquipmentInstanceId.ToString();
-                    ws.Cells[row, 4].Value = item.EquipmentTag;
-                    ws.Cells[row, 5].Value = FormatTime(item.EquipmentDeletedAt);
-                    ws.Cells[row, 6].Value = item.StartPocId.ToString();
-                    ws.Cells[row, 7].Value = item.PipeId.ToString();
-                    ws.Cells[row, 8].Value = item.UtilityName;
-                    ws.Cells[row, 9].Value = item.LengthMeters;
-                    ws.Cells[row, 10].Value = item.LengthMillimeters;
-                    ws.Cells[row, 11].Value = FormatTime(item.PipeDeletedAt);
-                    ws.Cells[row, 12].Value = item.Order;
-                    ws.Cells[row, 13].Value = item.Shared ? "Y" : "";
-                    ws.Cells[row, 14].Value = item.UserName;
-                    ws.Cells[row, 15].Value = item.CompanyName;
+                    ws.Cells[row, 3].Value = item.EquipmentInstanceName ?? string.Empty;
+                    ws.Cells[row, 4].Value = item.EquipmentInstanceId.ToString();
+                    ws.Cells[row, 5].Value = item.EquipmentTag;
+                    ws.Cells[row, 6].Value = FormatTime(item.EquipmentDeletedAt);
+                    ws.Cells[row, 7].Value = item.StartPocId.ToString();
+                    ws.Cells[row, 8].Value = item.PipeId.ToString();
+                    ws.Cells[row, 9].Value = item.UtilityName;
+                    ws.Cells[row, 10].Value = item.LengthMeters;
+                    ws.Cells[row, 11].Value = item.LengthMillimeters;
+                    ws.Cells[row, 12].Value = FormatTime(item.PipeDeletedAt);
+                    ws.Cells[row, 13].Value = item.Order;
+                    ws.Cells[row, 14].Value = item.Shared ? "Y" : "";
+                    ws.Cells[row, 15].Value = item.UserName;
+                    ws.Cells[row, 16].Value = item.CompanyName;
                     row++;
                 }
             }
@@ -140,6 +141,7 @@ namespace PocTrace.DeletedPipeLength.Export
             for (int i = 0; i < headers.Length; i++)
                 ws.Cells[1, i + 1].Value = headers[i];
             ws.Row(1).Style.Font.Bold = true;
+            ws.View.FreezePanes(2, 1);
         }
 
         private static string FormatTime(DateTime? value)
