@@ -168,11 +168,15 @@ namespace PocTrace.Core.Engine.DeletedPipe
         {
             bool matched = false;
 
+            bool holdPipes = false;
             DeletedTakeoffRow takeoff;
             if (_takeoffs.TryGetValue(id, out takeoff))
             {
                 matched = true;
-                HandleTakeoff(takeoff, id, state, cutover, cancellation);
+                if (DeletedPipeClassifier.ContinuesPastTakeoff(state.StartPoc))
+                    HandleTakeoff(takeoff, id, state, cutover, cancellation);
+                else
+                    holdPipes = true;
             }
 
             var pocs = PocsTouching(new[] { id });
@@ -184,7 +188,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
             }
 
             var pipes = PipesTouching(new[] { id });
-            if (pipes.Count > 0)
+            if (!holdPipes && pipes.Count > 0)
             {
                 matched = true;
                 for (int i = 0; i < pipes.Count; i++)
@@ -246,7 +250,11 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 return;
             if (!DeletedPipeClassifier.Accepts(state.Mode, owner.OperationType, owner.OpTime, cutover))
                 return;
+            if (DeletedPipeClassifier.IsNozzleEnd(owner, poc))
+                return;
             state.RememberFitting(owner);
+            if (DeletedPipeClassifier.IsCapEnd(owner))
+                return;
 
             EnsureOwners(new[] { owner.InstanceId });
             List<DeletedPocRow> siblings;
@@ -279,7 +287,11 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 return;
             if (!DeletedPipeClassifier.Accepts(state.Mode, node.OperationType, node.OpTime, cutover))
                 return;
+            if (DeletedPipeClassifier.IsNozzleEnd(node, null))
+                return;
             state.RememberFitting(node);
+            if (DeletedPipeClassifier.IsCapEnd(node))
+                return;
 
             EnsureOwners(new[] { node.InstanceId });
             List<DeletedPocRow> pocs;

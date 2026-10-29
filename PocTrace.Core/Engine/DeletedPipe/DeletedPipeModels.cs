@@ -89,7 +89,9 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public Guid? Outlet { get; set; }
         public string Tag { get; set; }
         public string PocName { get; set; }
+        public string Information { get; set; }
         public string UtilityName { get; set; }
+        public string UtilityGroupName { get; set; }
         public DateTime? OpTime { get; set; }
         public int OperationType { get; set; }
     }

@@ -11,7 +11,8 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// OperationType 2(기준일 이후)는 삭제된 객체만 따라간다.
     /// OperationType 1이면서 건설코드에 Delete가 있으면 5D에 남은 설비로 보고,
     /// OperationType 2 미만인 배관 길이와 피팅(이름·QCode) 수량을 낸다.
-    /// 다른 설비나 끊긴 끝에서 멈추고, 피팅 인스턴스 목록은 쓰지 않는다.
+    /// 다른 설비, 노즐, 캡에서 멈춘다. 노즐 너머 1차 훅업 배관은 넣지 않는다.
+    /// 피팅 인스턴스 목록은 쓰지 않는다.
     /// </summary>
     public sealed class DeletedPipeLengthService
     {

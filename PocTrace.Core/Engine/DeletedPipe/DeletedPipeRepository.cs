@@ -122,7 +122,7 @@ WHERE rn = 1
 
             string sql = $@"
 SELECT
-    InstanceId, OwnerId, Outlet, Tag, PocName, UtilityName, OpTime, OperationType
+    InstanceId, OwnerId, Outlet, Tag, PocName, Information, UtilityName, UtilityGroupName, OpTime, OperationType
 FROM (
     SELECT
         A.InstanceID AS InstanceId,
@@ -130,7 +130,9 @@ FROM (
         A.Outlet AS Outlet,
         A.Tag AS Tag,
         B.Name AS PocName,
+        B.Information AS Information,
         C.Name AS UtilityName,
+        D.Name AS UtilityGroupName,
         A.OPTIME AS OpTime,
         A.OperationType AS OperationType,
         ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
@@ -139,6 +141,8 @@ FROM (
         ON A.PocID = B.PointID AND B.OperationType < 2
     LEFT JOIN {_db}.dbo.UtilityLog C WITH (NOLOCK)
         ON B.UtilityID = C.UtilityID AND C.OperationType < 2
+    LEFT JOIN {_db}.dbo.UtilityGroupLog D WITH (NOLOCK)
+        ON C.GroupID = D.GroupID
     WHERE A.InstanceID IN (
             SELECT P.InstanceID
             FROM {_db}.dbo.ConnectionPointInstanceLog P WITH (NOLOCK)
@@ -159,7 +163,7 @@ WHERE rn = 1";
 
             string sql = $@"
 SELECT
-    InstanceId, OwnerId, Outlet, Tag, PocName, UtilityName, OpTime, OperationType
+    InstanceId, OwnerId, Outlet, Tag, PocName, Information, UtilityName, UtilityGroupName, OpTime, OperationType
 FROM (
     SELECT
         A.InstanceID AS InstanceId,
@@ -167,7 +171,9 @@ FROM (
         A.Outlet AS Outlet,
         A.Tag AS Tag,
         B.Name AS PocName,
+        B.Information AS Information,
         C.Name AS UtilityName,
+        D.Name AS UtilityGroupName,
         A.OPTIME AS OpTime,
         A.OperationType AS OperationType,
         ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
@@ -176,6 +182,8 @@ FROM (
         ON A.PocID = B.PointID AND B.OperationType < 2
     LEFT JOIN {_db}.dbo.UtilityLog C WITH (NOLOCK)
         ON B.UtilityID = C.UtilityID AND C.OperationType < 2
+    LEFT JOIN {_db}.dbo.UtilityGroupLog D WITH (NOLOCK)
+        ON C.GroupID = D.GroupID
     WHERE A.OwnerID IN @Ids
 ) x
 WHERE rn = 1";
@@ -329,7 +337,7 @@ WHERE rn = 1
         {
             return $@"
 SELECT
-    InstanceId, OwnerId, Outlet, Tag, PocName, UtilityName, OpTime, OperationType
+    InstanceId, OwnerId, Outlet, Tag, PocName, Information, UtilityName, UtilityGroupName, OpTime, OperationType
 FROM (
     SELECT
         A.InstanceID AS InstanceId,
@@ -337,7 +345,9 @@ FROM (
         A.Outlet AS Outlet,
         A.Tag AS Tag,
         B.Name AS PocName,
+        B.Information AS Information,
         C.Name AS UtilityName,
+        D.Name AS UtilityGroupName,
         A.OPTIME AS OpTime,
         A.OperationType AS OperationType,
         ROW_NUMBER() OVER (PARTITION BY A.InstanceID ORDER BY A.OPTIME DESC) AS rn
@@ -346,6 +356,8 @@ FROM (
         ON A.PocID = B.PointID AND B.OperationType < 2
     LEFT JOIN {_db}.dbo.UtilityLog C WITH (NOLOCK)
         ON B.UtilityID = C.UtilityID AND C.OperationType < 2
+    LEFT JOIN {_db}.dbo.UtilityGroupLog D WITH (NOLOCK)
+        ON C.GroupID = D.GroupID
 ) x
 WHERE rn = 1
   AND (

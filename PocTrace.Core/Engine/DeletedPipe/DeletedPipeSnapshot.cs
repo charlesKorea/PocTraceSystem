@@ -22,7 +22,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
     internal static class DeletedPipeSnapshotStore
     {
         public static readonly TimeSpan MaxAge = TimeSpan.FromHours(24);
-        private const int Version = 1;
+        private const int Version = 2;
         private const int MaxRows = 5000000;
 
         public static string FilePath(string dbName, DateTime cutover)
@@ -205,7 +205,9 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 WriteGuid(writer, row.Outlet);
                 WriteText(writer, row.Tag);
                 WriteText(writer, row.PocName);
+                WriteText(writer, row.Information);
                 WriteText(writer, row.UtilityName);
+                WriteText(writer, row.UtilityGroupName);
                 WriteTime(writer, row.OpTime);
                 writer.Write(row.OperationType);
             }
@@ -224,7 +226,9 @@ namespace PocTrace.Core.Engine.DeletedPipe
                     Outlet = ReadOptionalGuid(reader),
                     Tag = ReadText(reader),
                     PocName = ReadText(reader),
+                    Information = ReadText(reader),
                     UtilityName = ReadText(reader),
+                    UtilityGroupName = ReadText(reader),
                     OpTime = ReadTime(reader),
                     OperationType = reader.ReadInt32()
                 });
