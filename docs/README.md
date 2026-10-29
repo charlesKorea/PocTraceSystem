@@ -15,7 +15,8 @@
 | `UPDATE-2026-10.md` | 한국어 | **2026-10 변경 요약** (캐시 로드 메모리, Web 포털, JLic 검증, 배포) |
 | `SVDI_XDrive_Manual_Deploy_KO.md` | 한국어 | **SVDI X: 수동 배포·Admin 영향** |
 | `WebPortal_API_Concept_KO.md` | 한국어 | **웹 포털 API 구상** (WinForms → HTML, Core 재사용, GET/POST) |
-| `PocTrace.Web/README.md` | 한국어 | **PocTrace.Web 실행** (Viewer와 병행, X: 배포) |
+| `PocTrace.Web/README.md` | 한국어 | **PocTrace.Web 실행** (Viewer와 병행, X: 배포, UiAssets 파일 목록) |
+| `PocTrace.DeletedPipeLength/가이드.md` | 한국어 | **삭제 배관 길이 Excel** 열 뜻, 순서 열, 탐색 상한 |
 | `BinaryCache_Easy_Guide_KO.md` | 한국어 | **공유 캐시 쉬운 설명**（비개발자·동료 공유） |
 | `BinaryCache_Easy_Guide_ZH.md` | 中文 | **共享缓存简明说明**（非开发同事共享） |
 

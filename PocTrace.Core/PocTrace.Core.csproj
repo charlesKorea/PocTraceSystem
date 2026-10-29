@@ -64,6 +64,7 @@
     <Compile Include="Engine\DeletedPipe\DeletedPipeRepository.cs" />
     <Compile Include="Engine\DeletedPipe\DeletedPipeLengthService.cs" />
     <Compile Include="Engine\DeletedPipe\DeletedPipeSession.cs" />
+    <Compile Include="Engine\DeletedPipe\DeletedPipeSnapshot.cs" />
     <Compile Include="Engine\Cache\GraphCacheManager.cs" />
     <Compile Include="Engine\Cache\IGraphCache.cs" />
     <Compile Include="Composition\PocTraceAppServices.cs" />

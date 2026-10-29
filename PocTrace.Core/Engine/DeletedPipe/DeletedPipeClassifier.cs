@@ -9,6 +9,10 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// </summary>
     public static class DeletedPipeClassifier
     {
+        /// <summary>
+        /// 한 설비 인스턴스에서 새로 밟는 연결 ID 상한.
+        /// 이미 큐에 있거나 밟은 ID는 세지 않는다.
+        /// </summary>
         public const int MaxHops = 2000;
 
         private static readonly string[] EquipmentSub1Names =
@@ -131,7 +135,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
 
         /// <summary>
         /// Division 0 이면서 설비 Subdivision이면 다른 설비로 보고 탐색을 멈춘다.
-        /// Damper, TAKE-OFF, 그 밖 이름은 피팅·노즐로 통과한다.
+        /// Damper와 일반 피팅은 통과한다. 노즐과 캡은 Trace와 같이 끝이다.
         /// </summary>
         public static bool IsEquipment(DeletedNodeRow node)
         {
@@ -183,6 +187,101 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 || sub1.StartsWith("4-", StringComparison.OrdinalIgnoreCase)
                 || sub1.StartsWith("5-", StringComparison.OrdinalIgnoreCase)
                 || sub1.StartsWith("6-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// TraceAlgorithm이 노즐로 끝내고 통과하지 않는 지점.
+        /// 여기 도착한 2차 훅업 배관은 이미 기록돼 있고, 노즐 반대쪽 1차 훅업 배관은 따라가지 않는다.
+        /// </summary>
+        public static bool IsNozzleEnd(DeletedNodeRow node, DeletedPocRow arrivedPoc)
+        {
+            if (arrivedPoc != null && Contains(arrivedPoc.Information, "Nozzle"))
+                return true;
+            if (node == null)
+                return false;
+            if (IsNozzleTakeoff(node))
+                return true;
+            if (IsChemicalTakeoff(node))
+                return true;
+            return Contains(node.Name, "Nozzle");
+        }
+
+        /// <summary>
+        /// TraceAlgorithm의 캡 마감. 캡 너머로는 가지 않는다.
+        /// </summary>
+        public static bool IsCapEnd(DeletedNodeRow node)
+        {
+            if (node == null || node.Division == 0)
+                return false;
+
+            string name = node.Name ?? string.Empty;
+            string sub1 = (node.Sub1Name ?? string.Empty).Trim();
+            string sub2 = (node.Sub2Name ?? string.Empty).Trim();
+
+            if (sub1.Equals("FLANGE", StringComparison.OrdinalIgnoreCase)
+                && (sub2.Equals("MF FLANGE", StringComparison.OrdinalIgnoreCase)
+                    || sub2.Equals("KF FLANGE", StringComparison.OrdinalIgnoreCase))
+                && name.IndexOf("END", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            if (name.IndexOf("미사용", StringComparison.OrdinalIgnoreCase) >= 0
+                && sub2.Equals("기타", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return IsCapName(name, sub1, sub2);
+        }
+
+        /// <summary>
+        /// 일반 테이크오프는 Trace에서 끝이다. Water 그룹과 vent/vac/foreline만 하류를 계속 본다.
+        /// </summary>
+        public static bool ContinuesPastTakeoff(DeletedPocRow startPoc)
+        {
+            if (startPoc == null)
+                return false;
+            string group = startPoc.UtilityGroupName ?? string.Empty;
+            if (group.IndexOf("water", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            string utility = startPoc.UtilityName ?? string.Empty;
+            return utility.IndexOf("vent", StringComparison.OrdinalIgnoreCase) >= 0
+                || utility.IndexOf("vac", StringComparison.OrdinalIgnoreCase) >= 0
+                || utility.IndexOf("fore line", StringComparison.OrdinalIgnoreCase) >= 0
+                || utility.IndexOf("fore-line", StringComparison.OrdinalIgnoreCase) >= 0
+                || utility.IndexOf("foreline", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsChemicalTakeoff(DeletedNodeRow node)
+        {
+            string sub1 = (node.Sub1Name ?? string.Empty).Replace(" ", string.Empty);
+            if (!sub1.Equals("TAKE-OFF", StringComparison.OrdinalIgnoreCase))
+                return false;
+            return Contains(node.Sub2Name, "Chemical");
+        }
+
+        private static bool IsCapName(string name, string sub1, string sub2)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+            if (name.IndexOf("TEE", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+            if (Contains(name, "Nozzle") && Contains(sub2, "Nozzle"))
+                return false;
+
+            return name.Equals("기타", StringComparison.OrdinalIgnoreCase)
+                || Contains(name, "Valve Box 80A_B_Valve Box")
+                || Contains(name, "cap")
+                || Contains(sub1, "cap")
+                || Contains(name, "vac-030")
+                || Contains(name, "vac-012")
+                || Contains(name, "vac-013")
+                || Contains(name, "bulk-057")
+                || (Contains(name, "nw25") && Contains(name, "pot"));
+        }
+
+        private static bool Contains(string value, string part)
+        {
+            return !string.IsNullOrEmpty(value)
+                && value.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }
