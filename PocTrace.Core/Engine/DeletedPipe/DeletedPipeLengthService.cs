@@ -184,7 +184,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
             if (snapshot == null)
             {
                 progress?.Report(dbName + " 배관 로그를 한 번 읽어 스냅샷을 만듭니다");
-                snapshot = repo.LoadSnapshot(dbName, cutover, progress);
+                snapshot = repo.LoadSnapshot(dbName, progress);
                 if (DeletedPipeSnapshotStore.TrySave(dbName, snapshot))
                     progress?.Report(dbName + " 스냅샷 저장 " + path);
                 else
