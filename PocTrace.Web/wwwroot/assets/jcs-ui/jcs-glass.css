@@ -42,6 +42,9 @@
   --ico-search: url("icons/search.svg");
   --ico-download: url("icons/download.svg");
   --ico-play: url("icons/play.svg");
+  --ico-help: url("icons/circle-help.svg");
+  --ico-cpu: url("icons/cpu.svg");
+  --ico-upload: url("icons/upload.svg");
 }
 [data-theme="dark"] {
   color-scheme: dark;
@@ -152,13 +155,14 @@ a.headlink, a.back {
   background: var(--text);
   color: var(--card-solid);
 }
-#themeBtn::before, a.headlink::before, a.back::before {
+#themeBtn::before, #helpBtn::before, a.headlink::before, a.back::before {
   content: "";
   width: 16px; height: 16px; flex: none;
   background: currentColor;
   -webkit-mask: var(--ico) center / contain no-repeat;
   mask: var(--ico) center / contain no-repeat;
 }
+#helpBtn { --ico: var(--ico-help); padding: 7px 10px; }
 #themeBtn { --ico: var(--ico-moon); }
 #themeBtn[aria-pressed="true"] { --ico: var(--ico-sun); }
 a.headlink, a.back { --ico: var(--ico-history); }
@@ -203,7 +207,9 @@ a.headlink, a.back { --ico: var(--ico-history); }
   line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums;
 }
 .kpi-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.grid-2 > * { min-width: 0; }
+.card { min-width: 0; }
 label { display: block; font-weight: 680; margin: 4px 0 6px; font-size: 13px; }
 input, select, textarea {
   width: 100%;
@@ -253,9 +259,13 @@ button.ghost[hidden] { display: none; }
 #loadCacheBtn { --ico: var(--ico-database); }
 #traceBtn, #batchBtn, #demoBtn, #nozzleBtn { --ico: var(--ico-play); }
 #demoCheck { --ico: var(--ico-search); }
-#excel, #demoExcel { --ico: var(--ico-download); }
+#excel, #demoExcel, #demoHtml { --ico: var(--ico-download); }
+#batchFileBtn { --ico: var(--ico-upload); }
+#historyExcel { --ico: var(--ico-download); }
+#historyFind { --ico: var(--ico-search); }
+#batchFileBtn::before, #historyExcel::before, #historyFind::before,
 #loadCacheBtn::before, #traceBtn::before, #batchBtn::before, #demoBtn::before,
-#nozzleBtn::before, #demoCheck::before, #excel::before, #demoExcel::before {
+#nozzleBtn::before, #demoCheck::before, #excel::before, #demoExcel::before, #demoHtml::before {
   content: "";
   width: 16px; height: 16px; flex: none;
   background: currentColor;
@@ -266,7 +276,11 @@ button.ghost[hidden] { display: none; }
 .status { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .status p { margin: 0; white-space: pre-wrap; }
 .bar { height: 6px; background: var(--bar); border-radius: 99px; overflow: hidden; }
-.bar > i { display: block; height: 100%; width: 0; background: var(--primary); border-radius: 99px; transition: width 0.35s ease; }
+.bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--primary), var(--info)); border-radius: 99px; transition: width 0.12s linear; }
+.bar-row { display: flex; align-items: center; gap: 12px; }
+.bar-row .bar { flex: 1; height: 8px; }
+.bar-pct { min-width: 3.6em; text-align: right; font-weight: 720; font-variant-numeric: tabular-nums; color: var(--muted); }
+.bar-stage { color: var(--muted); font-size: 12.5px; }
 .bar.done > i { background: var(--ok); }
 .bar.error > i { background: var(--danger); }
 .bar.cancelled > i { background: var(--warn); }
@@ -342,9 +356,33 @@ tr:hover td { background: rgba(12, 110, 104, 0.04); }
 .tabs button[hidden] { display: none; }
 .panel[hidden] { display: none; }
 .kpis[hidden] { display: none !important; }
-.table-wrap, .wrap table { }
-.table-wrap { max-height: 440px; overflow: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--card-solid); }
-.table-wrap th { position: sticky; top: 0; z-index: 1; }
+/* 표 규칙은 docs/Web_Table_Layout_Guide_KO.md 를 따른다. */
+.table-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  max-height: 440px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card-solid);
+}
+.table-wrap > table { width: 100%; min-width: max-content; table-layout: auto; }
+.table-wrap th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+  background-color: var(--card-solid);
+  background-image: linear-gradient(var(--chip), var(--chip));
+  box-shadow: 0 1px 0 var(--line);
+}
+.table-wrap td { white-space: nowrap; }
+.table-wrap td.cell-wrap { white-space: normal; overflow-wrap: anywhere; min-width: 14em; max-width: 34em; }
+.table-wrap td.num, .table-wrap th.num { text-align: right; font-variant-numeric: tabular-nums; }
 tr.bad td { background: var(--warn-bg); color: var(--warn); }
 .tag-ok { color: var(--ok); font-weight: 800; }
 .tag-miss { color: var(--danger); font-weight: 800; }
@@ -372,13 +410,126 @@ tr.issue td { background: var(--chip); color: var(--text); white-space: pre-wrap
 .choices input { width: auto; margin-right: 6px; min-height: 0; }
 #preview { margin: 0; padding-left: 18px; }
 #preview:empty { display: none; }
-#traceTable, #nozzleTable { display: block; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--card-solid); }
-main .wrap, .history-table { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--card-solid); }
+#traceTable, #nozzleTable { display: block; max-width: 100%; max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--card-solid); }
+#traceTable th, #nozzleTable th {
+  position: sticky; top: 0; z-index: 2; white-space: nowrap;
+  background-color: var(--card-solid);
+  background-image: linear-gradient(var(--chip), var(--chip));
+}
+.history-table { max-height: 62vh; }
 
 @media (max-width: 860px) {
-  .kpis, .grid-2 { grid-template-columns: 1fr; }
+  .kpis, .grid-2 { grid-template-columns: minmax(0, 1fr); }
   .topbar, header.topbar { margin: 8px 10px 0; align-items: flex-start; flex-direction: column; border-radius: 22px; }
   .tabs { width: 100%; }
   .stage h1, main h1 { font-size: 24px; }
   .wrap, main.wrap { padding-left: 12px; padding-right: 12px; }
+}
+
+/* 상단 메모리 칩 */
+.memchip {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 6px; padding: 4px 10px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--chip); color: var(--muted);
+  font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.memchip::before {
+  content: ""; width: 14px; height: 14px; flex: none; background: currentColor;
+  -webkit-mask: var(--ico-cpu) center / contain no-repeat; mask: var(--ico-cpu) center / contain no-repeat;
+}
+.memchip b { color: var(--text); font-weight: 760; }
+.memchip.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.memchip.danger { background: var(--fail-bg); color: var(--danger); border-color: transparent; }
+.memchip[hidden] { display: none; }
+
+/* 원형 진행 카드 */
+.jobcard { display: flex; align-items: center; gap: 22px; }
+.jobcard[hidden] { display: none; }
+.ring { position: relative; width: 136px; height: 136px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.ring .track { fill: none; stroke: var(--bar); stroke-width: 10; }
+.ring .arc {
+  fill: none; stroke: url(#ringGradRun); stroke-width: 10; stroke-linecap: round;
+  stroke-dasharray: 339.292; stroke-dashoffset: 339.292;
+  transition: stroke-dashoffset 0.12s linear;
+}
+.ring.running .arc { filter: drop-shadow(0 0 7px rgba(10, 132, 255, 0.45)); }
+.ring.done .arc { stroke: url(#ringGradOk); }
+.ring.error .arc { stroke: url(#ringGradErr); }
+.ring.cancelled .arc { stroke: url(#ringGradWarn); }
+.ring-num {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 740; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; line-height: 1;
+}
+.ring-num small { margin-top: 4px; font-size: 11px; font-weight: 650; letter-spacing: 0; color: var(--muted); }
+.jobinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.jobinfo h2 { margin: 0; font-size: 18px; letter-spacing: -0.03em; }
+.jobinfo p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.step {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--chip);
+  color: var(--muted); font-size: 12px; font-weight: 700;
+}
+.step.on { background: var(--info-bg); color: var(--info); border-color: transparent; }
+.step.done { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.facts { display: flex; gap: 8px; flex-wrap: wrap; }
+.facts span {
+  padding: 3px 10px; border-radius: 10px; background: var(--chip); border: 1px solid var(--line);
+  font-size: 12px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.facts b { color: var(--text); }
+
+/* 도움말 팝업 */
+.modal-back {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(12, 16, 22, 0.46);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.modal-back[hidden] { display: none; }
+.modal {
+  width: min(900px, 100%); max-height: min(80vh, 760px);
+  display: grid; grid-template-columns: 210px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+  background: var(--card-solid); color: var(--text);
+  border: 1px solid var(--line); border-radius: 26px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.modal-head {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.modal-head h2 { margin: 0; font-size: 18px; letter-spacing: -0.03em; }
+.modal-nav { display: flex; flex-direction: column; gap: 4px; padding: 12px; overflow: auto; border-right: 1px solid var(--line); background: var(--chip); }
+.modal-nav button {
+  text-align: left; border: 0; background: transparent; color: var(--muted);
+  font: inherit; font-weight: 700; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+}
+.modal-nav button.active { background: var(--card-solid); color: var(--text); box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08); }
+.modal-body { padding: 18px 22px 24px; overflow: auto; min-width: 0; line-height: 1.65; }
+.modal-body h3 { margin: 0 0 10px; font-size: 20px; letter-spacing: -0.04em; }
+.modal-body h4 { margin: 18px 0 6px; font-size: 14px; color: var(--primary); }
+.modal-body ol, .modal-body ul { margin: 0 0 8px; padding-left: 20px; }
+.modal-body li { margin: 3px 0; }
+.modal-body code { background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; font-size: 12.5px; }
+.modal-body .tip { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--info-bg); color: var(--text); font-size: 13.5px; }
+button.icon-close {
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--chip); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer;
+}
+
+/* 배치 Excel 올리기 / 검수 기록 조회 */
+.inline-file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.inline-file input[type=file] { display: none; }
+.inline-file .hint { margin: 0; }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+.filters > div { min-width: 0; }
+.notice { margin: 8px 0; padding: 8px 12px; border-radius: 12px; font-size: 13px; background: var(--info-bg); }
+.notice.warn { background: var(--warn-bg); color: var(--warn); }
+
+@media (max-width: 860px) {
+  .jobcard { flex-direction: column; align-items: flex-start; }
+  .modal { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
+  .modal-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .modal-nav button { white-space: nowrap; }
 }

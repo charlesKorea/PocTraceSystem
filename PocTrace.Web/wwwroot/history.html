@@ -22,10 +22,43 @@
   </header>
   <main class="wrap">
     <section class="card">
-      <h1 id="title">최근 한달 검수 기록</h1>
-      <p id="lead">이 PC에 남은 기록입니다. 사용자, 날짜, 검수 방식, 검수대상을 한 줄씩 보여 줍니다.</p>
+      <h1 id="title">검수 기록</h1>
+      <p id="lead" class="hint"></p>
+      <div class="notice" id="sharedNotice" hidden></div>
+      <form class="filters" id="filters" autocomplete="off">
+        <div>
+          <label for="fUser" id="lUser">사용자</label>
+          <select id="fUser"></select>
+        </div>
+        <div>
+          <label for="fMethod" id="lMethod">검수 방식</label>
+          <select id="fMethod"></select>
+        </div>
+        <div>
+          <label for="fLine" id="lLine">라인</label>
+          <select id="fLine"></select>
+        </div>
+        <div>
+          <label for="fFrom" id="lFrom">시작일</label>
+          <input id="fFrom" type="date" />
+        </div>
+        <div>
+          <label for="fTo" id="lTo">종료일</label>
+          <input id="fTo" type="date" />
+        </div>
+        <div>
+          <label for="fText" id="lText">검수대상 검색</label>
+          <input id="fText" type="search" />
+        </div>
+      </form>
+      <div class="actions">
+        <button id="historyFind" class="primary" type="button">조회</button>
+        <button id="historyReset" class="ghost" type="button">조건 초기화</button>
+        <a id="historyExcel" class="primary" href="#">Excel 다운로드</a>
+        <span class="hint" id="countLine"></span>
+      </div>
       <div class="table-wrap history-table">
-        <table>
+        <table id="historyTable">
           <thead>
             <tr>
               <th id="hWhen">날짜</th>
@@ -43,26 +76,41 @@
   <script>
     var TEXT = {
       ko: {
-        title: "최근 한달 검수 기록",
-        lead: "이 PC에 남은 최근 31일입니다. 같은 검수의 대상은 한 줄에 하나씩 나옵니다.",
+        title: "검수 기록",
+        lead: "모든 사용자의 기록입니다. 같은 검수의 대상은 한 줄에 하나씩 나옵니다.",
         back: "검수 화면",
         when: "날짜", user: "사용자", method: "검수 방식", line: "라인", target: "검수대상",
-        empty: "최근 한달 기록이 없습니다.",
+        from: "시작일", to: "종료일", search: "검수대상 검색",
+        all: "전체",
+        find: "조회", reset: "조건 초기화", excel: "Excel 다운로드",
+        empty: "조건에 맞는 기록이 없습니다.",
         fail: "기록을 읽지 못했습니다.",
+        count: "{n}행",
+        truncated: "{n}행까지만 보여 줍니다. 조건을 좁혀 주세요.",
+        sharedOk: "공용 폴더 {path} 의 기록을 함께 보고 있습니다.",
+        sharedFail: "공용 폴더를 읽지 못해 이 PC의 기록만 보입니다. ({path}) {error}",
         themeDark: "다크", themeLight: "라이트",
         methods: { trace: "배관 Trace", batch: "배치 Trace", demolition: "철거검수", nozzle: "노즐추적" }
       },
       zh: {
-        title: "最近一个月的检查记录",
-        lead: "这是留在这台电脑上的最近 31 天。同一次检查的对象各占一行。",
+        title: "检查记录",
+        lead: "这是所有用户的记录。同一次检查的对象各占一行。",
         back: "检查画面",
         when: "日期", user: "用户", method: "检查方式", line: "线路", target: "检查对象",
-        empty: "最近一个月没有记录。",
+        from: "开始日期", to: "结束日期", search: "搜索检查对象",
+        all: "全部",
+        find: "查询", reset: "重置条件", excel: "下载 Excel",
+        empty: "没有符合条件的记录。",
         fail: "无法读取记录。",
+        count: "{n} 行",
+        truncated: "最多显示 {n} 行。请缩小条件。",
+        sharedOk: "同时显示公用文件夹 {path} 的记录。",
+        sharedFail: "无法读取公用文件夹，仅显示本机记录。({path}) {error}",
         themeDark: "深色", themeLight: "浅色",
-        methods: { trace: "管道追踪", batch: "批量追踪", demolition: "拆除检验", nozzle: "喷嘴追踪" }
+        methods: { trace: "Pipe Trace", batch: "Batch Trace", demolition: "拆除检验", nozzle: "Nozzle Trace" }
       }
     };
+    function $(id) { return document.getElementById(id); }
     function lang() {
       var saved = localStorage.getItem("poc_lang");
       return saved === "zh" ? "zh" : "ko";
@@ -73,24 +121,40 @@
       return "light";
     }
     function pack() { return TEXT[lang()] || TEXT.ko; }
+    function fill(template, map) {
+      return String(template || "").replace(/\{(\w+)\}/g, function (_, key) {
+        return map[key] == null ? "" : map[key];
+      });
+    }
+    var lastData = null;
+
     function applyChrome() {
       var mode = theme();
       document.documentElement.setAttribute("data-theme", mode);
       document.documentElement.lang = lang() === "zh" ? "zh-CN" : "ko";
       var t = pack();
       document.title = t.title;
-      document.getElementById("title").textContent = t.title;
-      document.getElementById("lead").textContent = t.lead;
-      document.getElementById("back").textContent = t.back;
-      document.getElementById("hWhen").textContent = t.when;
-      document.getElementById("hUser").textContent = t.user;
-      document.getElementById("hMethod").textContent = t.method;
-      document.getElementById("hLine").textContent = t.line;
-      document.getElementById("hTarget").textContent = t.target;
-      document.getElementById("themeBtn").textContent = mode === "dark" ? t.themeLight : t.themeDark;
-      document.getElementById("themeBtn").setAttribute("aria-pressed", mode === "dark" ? "true" : "false");
-      document.getElementById("langKo").className = lang() === "ko" ? "active" : "";
-      document.getElementById("langZh").className = lang() === "zh" ? "active" : "";
+      $("title").textContent = t.title;
+      $("lead").textContent = t.lead;
+      $("back").textContent = t.back;
+      $("hWhen").textContent = t.when;
+      $("hUser").textContent = t.user;
+      $("hMethod").textContent = t.method;
+      $("hLine").textContent = t.line;
+      $("hTarget").textContent = t.target;
+      $("lUser").textContent = t.user;
+      $("lMethod").textContent = t.method;
+      $("lLine").textContent = t.line;
+      $("lFrom").textContent = t.from;
+      $("lTo").textContent = t.to;
+      $("lText").textContent = t.search;
+      $("historyFind").textContent = t.find;
+      $("historyReset").textContent = t.reset;
+      $("historyExcel").textContent = t.excel;
+      $("themeBtn").textContent = mode === "dark" ? t.themeLight : t.themeDark;
+      $("themeBtn").setAttribute("aria-pressed", mode === "dark" ? "true" : "false");
+      $("langKo").className = lang() === "ko" ? "active" : "";
+      $("langZh").className = lang() === "zh" ? "active" : "";
     }
     function savePrefs() {
       fetch("/api/prefs", {
@@ -99,36 +163,118 @@
         body: JSON.stringify({ lang: lang(), theme: theme() })
       }).catch(function () {});
     }
+    function pad(n) { return n < 10 ? "0" + n : String(n); }
     function when(iso) {
       var date = new Date(iso);
       if (isNaN(date.getTime())) return iso || "";
-      function p(n) { return n < 10 ? "0" + n : String(n); }
-      return date.getFullYear() + "-" + p(date.getMonth() + 1) + "-" + p(date.getDate())
-        + " " + p(date.getHours()) + ":" + p(date.getMinutes());
+      return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate())
+        + " " + pad(date.getHours()) + ":" + pad(date.getMinutes());
+    }
+    function dayString(date) {
+      return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
     }
     function esc(value) {
       return String(value == null ? "" : value)
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
-    function paint(rows) {
-      var body = document.getElementById("rows");
+    function methodName(value) {
       var t = pack();
+      return (t.methods && t.methods[value]) || value || "";
+    }
+
+    function fillSelect(select, values, current, labeler) {
+      var t = pack();
+      select.innerHTML = "";
+      var all = document.createElement("option");
+      all.value = "";
+      all.textContent = t.all;
+      select.appendChild(all);
+      (values || []).forEach(function (value) {
+        var opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = labeler ? labeler(value) : value;
+        select.appendChild(opt);
+      });
+      select.value = current || "";
+      if (select.value !== (current || "")) select.value = "";
+    }
+    function queryString(extra) {
+      var parts = [];
+      function add(key, value) {
+        if (value) parts.push(key + "=" + encodeURIComponent(value));
+      }
+      add("user", $("fUser").value);
+      add("method", $("fMethod").value);
+      add("line", $("fLine").value);
+      add("from", $("fFrom").value);
+      add("to", $("fTo").value);
+      add("q", $("fText").value.trim());
+      if (extra) parts.push(extra);
+      return parts.length ? "?" + parts.join("&") : "";
+    }
+    function paintNotice(data) {
+      var t = pack();
+      var box = $("sharedNotice");
+      var shared = data.shared || {};
+      box.hidden = false;
+      if (shared.available) {
+        box.className = "notice";
+        box.textContent = fill(t.sharedOk, { path: shared.path });
+      } else {
+        box.className = "notice warn";
+        box.textContent = fill(t.sharedFail, { path: shared.path, error: shared.error || "" });
+      }
+    }
+    function paint(data) {
+      var t = pack();
+      var rows = data.rows || [];
+      var body = $("rows");
       body.innerHTML = "";
-      if (!rows || !rows.length) {
+      if (!rows.length) {
         body.innerHTML = "<tr><td class='empty' colspan='5'>" + esc(t.empty) + "</td></tr>";
-        return;
       }
       rows.forEach(function (row) {
         var tr = document.createElement("tr");
-        var method = (t.methods && t.methods[row.method]) || row.method || "";
         tr.innerHTML =
           "<td>" + esc(when(row.at)) + "</td>" +
           "<td>" + esc(row.userName || "-") + "</td>" +
-          "<td>" + esc(method) + "</td>" +
+          "<td>" + esc(methodName(row.method)) + "</td>" +
           "<td>" + esc(row.line || "") + "</td>" +
           "<td>" + esc(row.target || "") + "</td>";
         body.appendChild(tr);
       });
+      var count = fill(t.count, { n: rows.length });
+      if (data.truncated) count += " · " + fill(t.truncated, { n: data.maxRows });
+      $("countLine").textContent = count;
+      $("historyExcel").href = "/api/history/excel" + queryString("lang=" + lang());
+    }
+    async function load(keepFilters) {
+      var t = pack();
+      var prev = keepFilters ? { user: $("fUser").value, method: $("fMethod").value, line: $("fLine").value } : { user: "", method: "", line: "" };
+      try {
+        var res = await fetch("/api/history" + queryString());
+        var data = await res.json();
+        if (!res.ok) throw new Error((data && data.error) || t.fail);
+        lastData = data;
+        fillSelect($("fUser"), data.users, prev.user);
+        fillSelect($("fMethod"), data.methods, prev.method, methodName);
+        fillSelect($("fLine"), data.lines, prev.line);
+        paintNotice(data);
+        paint(data);
+      } catch (err) {
+        $("rows").innerHTML = "<tr><td class='empty' colspan='5'>" + esc(t.fail) + "</td></tr>";
+      }
+    }
+    function resetFilters() {
+      var to = new Date();
+      var from = new Date();
+      from.setDate(from.getDate() - 30);
+      $("fFrom").value = dayString(from);
+      $("fTo").value = dayString(to);
+      $("fText").value = "";
+      $("fUser").value = "";
+      $("fMethod").value = "";
+      $("fLine").value = "";
     }
     async function boot() {
       applyChrome();
@@ -141,32 +287,47 @@
           applyChrome();
         }
       } catch (err) { /* 브라우저에 남은 설정을 쓴다 */ }
-      try {
-        var res = await fetch("/api/history");
-        var data = await res.json();
-        if (!res.ok) throw new Error((data && data.error) || pack().fail);
-        paint(data.rows || []);
-      } catch (err) {
-        document.getElementById("rows").innerHTML = "<tr><td class='empty' colspan='5'>" + esc(pack().fail) + "</td></tr>";
+      resetFilters();
+      await load(false);
+    }
+    function rerender() {
+      applyChrome();
+      if (lastData) {
+        var cur = { user: $("fUser").value, method: $("fMethod").value, line: $("fLine").value };
+        fillSelect($("fUser"), lastData.users, cur.user);
+        fillSelect($("fMethod"), lastData.methods, cur.method, methodName);
+        fillSelect($("fLine"), lastData.lines, cur.line);
+        paintNotice(lastData);
+        paint(lastData);
       }
     }
-    document.getElementById("themeBtn").onclick = function () {
+    $("themeBtn").onclick = function () {
       localStorage.setItem("poc_theme", theme() === "dark" ? "light" : "dark");
       applyChrome();
       savePrefs();
     };
-    document.getElementById("langKo").onclick = function () {
+    $("langKo").onclick = function () {
       localStorage.setItem("poc_lang", "ko");
-      applyChrome();
       savePrefs();
-      boot();
+      rerender();
     };
-    document.getElementById("langZh").onclick = function () {
+    $("langZh").onclick = function () {
       localStorage.setItem("poc_lang", "zh");
-      applyChrome();
       savePrefs();
-      boot();
+      rerender();
     };
+    $("historyFind").onclick = function () { load(true); };
+    $("historyReset").onclick = function () { resetFilters(); load(false); };
+    $("filters").addEventListener("submit", function (event) { event.preventDefault(); load(true); });
+    $("fText").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); load(true); }
+    });
+    ["fUser", "fMethod", "fLine", "fFrom", "fTo"].forEach(function (id) {
+      $(id).addEventListener("change", function () { load(true); });
+    });
+    $("historyExcel").addEventListener("click", function () {
+      $("historyExcel").href = "/api/history/excel" + queryString("lang=" + lang());
+    });
     boot();
   </script>
 </body>
