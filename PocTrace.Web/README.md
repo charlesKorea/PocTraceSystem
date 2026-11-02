@@ -30,7 +30,7 @@ Viewer exe와 **같이** 쓰는 1차 웹 화면입니다. Viewer를 끄지 않�
 | 파일 | 필수 | 설명 |
 |------|------|------|
 | `PocTrace.Web.exe` | 예 | 웹 본체. JLic, Newtonsoft, Serilog, EPPlus(배치 Excel 업로드, 검수 기록 Excel)는 이 파일 안에 들어 있습니다 |
-| `PocTrace.Web.exe.config` | 예 | `SharedCachePath`, `TargetDatabases`, `ListenPort`, `SharedHistoryPath`, `MemoryEstimateFactor` |
+| `PocTrace.Web.exe.config` | 예 | `SharedCachePath`, `TargetDatabases`, `ListenPort`, `SharedHistoryPath`, `MemoryEstimateFactor`, `AutoExitOnBrowserClose`, `AutoExitGraceSeconds`, `AutoExitStaleSeconds` |
 | `PocTrace.Core.dll` | 예 | 이 솔루션 빌드의 Core.dll 하나 |
 | `PocTrace.Demolition.exe` | 예 | Costura 제외. Web이 프로세스를 새로 띄우지 않고 이 어셈블리를 불러 철거 검수를 합니다. EPPlus는 이 exe 안에 있습니다 |
 | `PocTrace.NozzleTrace.exe` | 예 | Costura 제외. 노즐 역추적도 이 어셈블리를 프로세스 안에서 부릅니다 |
@@ -81,7 +81,9 @@ wwwroot\
 
 포트 5088이 이미 쓰이면 5089부터 차례로 시도합니다.
 
-화면은 라인을 고른 뒤 **캐시 불러오기**를 눌러야 그 라인 캐시를 메모리에 올립니다. 고르는 즉시 올리거나, 이전에 켜 둔 작업을 자동으로 이어 받지 않습니다. 언어와 라이트/다크는 그 브라우저와 이 PC의 `%LocalAppData%\PocTrace\Web\ui-prefs.json`에 남아 다음 실행에 적용됩니다. 끝난 검수는 같은 폴더의 `inspection-history.json`과 공용 폴더(`SharedHistoryPath`, 기본 `Y:\sds\999. data\PocTraceWebHistory`)에 함께 남고, 화면의 **검수 기록**에서 모든 사용자의 기록을 사용자·검수 방식·라인·기간·대상별로 조회하고 Excel로 내려받습니다. 공용 폴더에 닿지 않으면 이 PC 기록만 보이고 화면에 안내가 나옵니다.
+화면은 라인을 고른 뒤 **캐시 불러오기**를 눌러야 그 라인 캐시를 메모리에 올립니다. 고르는 즉시 올리거나, 이전에 켜 둔 작업을 자동으로 이어 받지 않습니다. 언어와 라이트/다크는 그 브라우저와 이 PC의 `%LocalAppData%\PocTrace\Web\ui-prefs.json`에 남아 다음 실행에 적용됩니다. 끝난 검수는 같은 폴더의 `inspection-history.json`과 공용 폴더(`SharedHistoryPath`, 기본 `Y:\sds\999. data\PocTraceWebHistory`)에 함께 남고, 화면의 **검수 기록**에서 모든 사용자의 기록을 사용자·검수 방식·라인·기간·대상별로 조회하고 Excel로 내려받습니다. 공용 폴더에 닿지 않으면 이 PC 기록만 보이고 화면에 안내가 나옵니다. 어느 화면에도 공용 폴더 경로는 표시하지 않습니다. Admin 권한 사용자는 기록 표의 체크박스로 여러 행을 골라 삭제할 수 있고, 삭제는 공용 폴더의 `deleted.tomb` 표식과 실제 파일 정리로 모든 사용자에게 반영됩니다.
+
+Web.exe는 같은 Windows 세션에서 하나만 실행됩니다. 이미 떠 있으면 안내 팝업을 띄우고 기존 화면을 엽니다. 브라우저 화면을 모두 닫으면(마지막 화면이 닫히고 `AutoExitGraceSeconds` 뒤, 작업 중이면 끝난 뒤) 자동으로 종료됩니다. 브라우저가 비정상 종료되면 `AutoExitStaleSeconds` 뒤에 종료합니다.
 
 ## 이 버전의 기능
 
