@@ -29,8 +29,8 @@ Viewer exe와 **같이** 쓰는 1차 웹 화면입니다. Viewer를 끄지 않�
 
 | 파일 | 필수 | 설명 |
 |------|------|------|
-| `PocTrace.Web.exe` | 예 | 웹 본체. JLic, Newtonsoft, Serilog는 이 파일 안에 들어 있습니다 |
-| `PocTrace.Web.exe.config` | 예 | `SharedCachePath`, `TargetDatabases`, `ListenPort` |
+| `PocTrace.Web.exe` | 예 | 웹 본체. JLic, Newtonsoft, Serilog, EPPlus(배치 Excel 업로드, 검수 기록 Excel)는 이 파일 안에 들어 있습니다 |
+| `PocTrace.Web.exe.config` | 예 | `SharedCachePath`, `TargetDatabases`, `ListenPort`, `SharedHistoryPath`, `MemoryEstimateFactor` |
 | `PocTrace.Core.dll` | 예 | 이 솔루션 빌드의 Core.dll 하나 |
 | `PocTrace.Demolition.exe` | 예 | Costura 제외. Web이 프로세스를 새로 띄우지 않고 이 어셈블리를 불러 철거 검수를 합니다. EPPlus는 이 exe 안에 있습니다 |
 | `PocTrace.NozzleTrace.exe` | 예 | Costura 제외. 노즐 역추적도 이 어셈블리를 프로세스 안에서 부릅니다 |
@@ -58,6 +58,8 @@ wwwroot\
       icons\
         circle-alert.svg
         circle-check.svg
+        circle-help.svg
+        cpu.svg
         crosshair.svg
         database.svg
         download.svg
@@ -70,15 +72,16 @@ wwwroot\
         route.svg
         search.svg
         sun.svg
+        upload.svg
 ```
 
-`layers.svg`는 이 버전의 CSS가 읽지 않습니다. 폴더를 통째로 복사하면 같이 들어갑니다. 브랜드 파일 세 개와 CSS가 읽는 SVG 13개는 빼면 안 됩니다. CSS가 읽는 아이콘은 route, hammer, crosshair, history, moon, sun, database, circle-check, circle-alert, loader, search, download, play 입니다.
+`layers.svg`는 이 버전의 CSS가 읽지 않습니다. 폴더를 통째로 복사하면 같이 들어갑니다. 브랜드 파일 세 개와 CSS가 읽는 SVG 16개는 빼면 안 됩니다. CSS가 읽는 아이콘은 route, hammer, crosshair, history, moon, sun, database, circle-check, circle-alert, loader, search, download, play, circle-help, cpu, upload 입니다.
 
 사용자가 `PocTrace.Web.exe`를 실행하면 콘솔 창이 남고 브라우저가 `http://127.0.0.1:5088/`을 엽니다. 콘솔 창을 닫으면 그 사용자의 웹만 멈춥니다.
 
 포트 5088이 이미 쓰이면 5089부터 차례로 시도합니다.
 
-화면은 라인을 고른 뒤 **캐시 불러오기**를 눌러야 그 라인 캐시를 메모리에 올립니다. 고르는 즉시 올리거나, 이전에 켜 둔 작업을 자동으로 이어 받지 않습니다. 언어와 라이트/다크는 그 브라우저와 이 PC의 `%LocalAppData%\PocTrace\Web\ui-prefs.json`에 남아 다음 실행에 적용됩니다. 끝난 검수는 같은 폴더의 `inspection-history.json`에 남고, 화면의 **검수 기록**에서 최근 31일을 사용자·날짜·방식·대상별로 봅니다.
+화면은 라인을 고른 뒤 **캐시 불러오기**를 눌러야 그 라인 캐시를 메모리에 올립니다. 고르는 즉시 올리거나, 이전에 켜 둔 작업을 자동으로 이어 받지 않습니다. 언어와 라이트/다크는 그 브라우저와 이 PC의 `%LocalAppData%\PocTrace\Web\ui-prefs.json`에 남아 다음 실행에 적용됩니다. 끝난 검수는 같은 폴더의 `inspection-history.json`과 공용 폴더(`SharedHistoryPath`, 기본 `Y:\sds\999. data\PocTraceWebHistory`)에 함께 남고, 화면의 **검수 기록**에서 모든 사용자의 기록을 사용자·검수 방식·라인·기간·대상별로 조회하고 Excel로 내려받습니다. 공용 폴더에 닿지 않으면 이 PC 기록만 보이고 화면에 안내가 나옵니다.
 
 ## 이 버전의 기능
 
@@ -86,10 +89,19 @@ wwwroot\
 
 화면 위 탭 세 개입니다. 한 번에 작업은 하나만 돕니다.
 
-- **배관 Trace:** 라인을 고르고 캐시 불러오기를 누른 뒤에 태그 하나, 배치, 설비 요약, Excel을 합니다. 48시간이 지난 라인은 거부합니다.
-- **검수 기록:** `/history.html`. 최근 31일의 라이선스 사용자, 날짜, 검수 방식, 검수대상입니다.
+- **배관 Trace:** 라인을 고르고 캐시 불러오기를 누른 뒤에 태그 하나, 배치, 설비 요약, Excel을 합니다. 48시간이 지난 라인은 거부합니다. 배치는 Excel A열(2행부터)의 EQPID를 올려 채울 수 있고, 진행은 원형 진행 표시(캐시 → Trace → Excel, Tag n/m, 경과 시간)로 보입니다.
+- **검수 기록:** `/history.html`. 모든 사용자의 날짜, 사용자, 검수 방식, 라인, 검수대상. 조회 조건과 Excel 다운로드가 있습니다.
 - **철거검수:** Excel 업로드 또는 `Site,공정,건설코드,EQPID` 붙여넣기. 공정과 건설코드는 생략 가능 (`X1,EQP-001`). 검증 그리드에서 잘못된 행은 노란 색으로 남고, 검수는 유효 행만 한다. 진행률, 남은 시간, 행별 추적 상태, 종합 표, Excel, HTML 요약을 보여 준다. 실행 중 취소할 수 있다. 기존 철거 exe와 같은 검수다.
 - **노즐추적:** BIM / Instance / GUID. 기존 노즐 exe와 같은 역추적 후 Excel. 파일은 DailyReport 아래에도 남고, 화면에서는 사용자 PC 폴더 복사본을 받습니다
+
+공통 화면 요소:
+
+- 라인 이름 옆에 `DB sync 날짜`(Admin이 DB에서 캐시를 만든 시각)를 보여 줍니다.
+- 캐시 불러오기 진행률은 단계(파일 읽기 → 그래프 준비 → 인덱스)마다 숫자가 올라가고, 한 단계가 길어도 화면이 천천히 움직입니다.
+- 상단 메모리 표시: 실행 시 예상 메모리(캐시 폴더 크기 × `MemoryEstimateFactor` + 300MB), 가용 메모리. 메모리에 올린 뒤에는 이 프로세스 사용량을 보여 줍니다.
+- 상단 `?` 버튼: 기능별 사용 가이드 팝업(한국어/中文).
+- 중문 화면에서는 Nozzle, Duct, Damper, Excel, ID, Instance, Tag, Trace 같은 업종 용어를 영어로 둡니다.
+- 표 규칙은 `docs/Web_Table_Layout_Guide_KO.md`.
 
 한 번에 철거 입력은 2000행, Excel은 8MB까지다. 종합 표는 화면에서 500행까지 보여주고, 전체는 Excel과 HTML에 있다.
 
