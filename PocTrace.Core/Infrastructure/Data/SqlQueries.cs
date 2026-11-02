@@ -190,10 +190,7 @@ namespace PocTrace.Core.Infrastructure.Data
               AND (S1.Name LIKE '1-%' OR S1.Name LIKE '6-%')
               AND (
                     A.CONSTRUCTIONCODE IS NULL
-                    OR (
-                      A.CONSTRUCTIONCODE LIKE '%-%'
-                      AND A.CONSTRUCTIONCODE NOT LIKE '%Delete%'
-                    )
+                    OR A.CONSTRUCTIONCODE NOT LIKE '%Delete%'
                   )
             ORDER BY A.Tag
             ";
