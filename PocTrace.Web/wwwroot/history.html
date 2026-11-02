@@ -55,12 +55,15 @@
         <button id="historyFind" class="primary" type="button">조회</button>
         <button id="historyReset" class="ghost" type="button">조건 초기화</button>
         <a id="historyExcel" class="primary" href="#">Excel 다운로드</a>
+        <button id="historyDelete" class="danger" type="button" hidden disabled>선택 삭제</button>
         <span class="hint" id="countLine"></span>
       </div>
+      <p class="hint" id="deleteMsg" role="status" hidden></p>
       <div class="table-wrap history-table">
         <table id="historyTable">
           <thead>
             <tr>
+              <th id="hSel" class="sel" hidden><input type="checkbox" id="selAll" aria-label="select all" /></th>
               <th id="hWhen">날짜</th>
               <th id="hUser">사용자</th>
               <th id="hMethod">검수 방식</th>
@@ -87,8 +90,12 @@
         fail: "기록을 읽지 못했습니다.",
         count: "{n}행",
         truncated: "{n}행까지만 보여 줍니다. 조건을 좁혀 주세요.",
-        sharedOk: "공용 폴더 {path} 의 기록을 함께 보고 있습니다.",
-        sharedFail: "공용 폴더를 읽지 못해 이 PC의 기록만 보입니다. ({path}) {error}",
+        sharedOk: "공용 폴더의 기록을 함께 보고 있습니다.",
+        sharedFail: "공용 폴더를 읽지 못해 이 PC의 기록만 보입니다. {error}",
+        del: "선택 삭제", selAll: "현재 목록 전체 선택",
+        confirmDel: "선택한 {n}행을 삭제합니다.\n모든 사용자의 기록에서 지워지며 되돌릴 수 없습니다. 계속할까요?",
+        deleted: "{n}행을 삭제했습니다.",
+        deleteFail: "삭제하지 못했습니다.",
         themeDark: "다크", themeLight: "라이트",
         methods: { trace: "배관 Trace", batch: "배치 Trace", demolition: "철거검수", nozzle: "노즐추적" }
       },
@@ -104,8 +111,12 @@
         fail: "无法读取记录。",
         count: "{n} 行",
         truncated: "最多显示 {n} 行。请缩小条件。",
-        sharedOk: "同时显示公用文件夹 {path} 的记录。",
-        sharedFail: "无法读取公用文件夹，仅显示本机记录。({path}) {error}",
+        sharedOk: "同时显示公用文件夹的记录。",
+        sharedFail: "无法读取公用文件夹，仅显示本机记录。{error}",
+        del: "删除所选", selAll: "全选当前列表",
+        confirmDel: "将删除所选 {n} 行。\n所有用户的记录中都会被删除，且无法恢复。是否继续？",
+        deleted: "已删除 {n} 行。",
+        deleteFail: "删除失败。",
         themeDark: "深色", themeLight: "浅色",
         methods: { trace: "Pipe Trace", batch: "Batch Trace", demolition: "拆除检验", nozzle: "Nozzle Trace" }
       }
@@ -127,6 +138,7 @@
       });
     }
     var lastData = null;
+    var canDelete = false;
 
     function applyChrome() {
       var mode = theme();
@@ -151,6 +163,8 @@
       $("historyFind").textContent = t.find;
       $("historyReset").textContent = t.reset;
       $("historyExcel").textContent = t.excel;
+      $("historyDelete").textContent = selectedCount() ? t.del + " (" + selectedCount() + ")" : t.del;
+      $("selAll").setAttribute("aria-label", t.selAll);
       $("themeBtn").textContent = mode === "dark" ? t.themeLight : t.themeDark;
       $("themeBtn").setAttribute("aria-pressed", mode === "dark" ? "true" : "false");
       $("langKo").className = lang() === "ko" ? "active" : "";
@@ -219,23 +233,44 @@
       box.hidden = false;
       if (shared.available) {
         box.className = "notice";
-        box.textContent = fill(t.sharedOk, { path: shared.path });
+        box.textContent = t.sharedOk;
       } else {
         box.className = "notice warn";
-        box.textContent = fill(t.sharedFail, { path: shared.path, error: shared.error || "" });
+        box.textContent = fill(t.sharedFail, { error: shared.error || "" });
+      }
+    }
+    function colCount() { return canDelete ? 6 : 5; }
+    function selectedCount() {
+      return document.querySelectorAll("#rows input.pick:checked").length;
+    }
+    function syncSelection() {
+      var picks = document.querySelectorAll("#rows input.pick");
+      var on = selectedCount();
+      var all = $("selAll");
+      all.checked = picks.length > 0 && on === picks.length;
+      all.indeterminate = on > 0 && on < picks.length;
+      var btn = $("historyDelete");
+      btn.disabled = on === 0;
+      btn.textContent = on ? pack().del + " (" + on + ")" : pack().del;
+      for (var i = 0; i < picks.length; i++) {
+        picks[i].closest("tr").classList.toggle("picked", picks[i].checked);
       }
     }
     function paint(data) {
       var t = pack();
+      canDelete = !!data.canDelete;
+      $("hSel").hidden = !canDelete;
+      $("historyDelete").hidden = !canDelete;
       var rows = data.rows || [];
       var body = $("rows");
       body.innerHTML = "";
       if (!rows.length) {
-        body.innerHTML = "<tr><td class='empty' colspan='5'>" + esc(t.empty) + "</td></tr>";
+        body.innerHTML = "<tr><td class='empty' colspan='" + colCount() + "'>" + esc(t.empty) + "</td></tr>";
       }
-      rows.forEach(function (row) {
+      rows.forEach(function (row, index) {
         var tr = document.createElement("tr");
         tr.innerHTML =
+          (canDelete ? "<td class='sel'><input type='checkbox' class='pick' data-i='" + index + "' /></td>" : "") +
           "<td>" + esc(when(row.at)) + "</td>" +
           "<td>" + esc(row.userName || "-") + "</td>" +
           "<td>" + esc(methodName(row.method)) + "</td>" +
@@ -247,6 +282,39 @@
       if (data.truncated) count += " · " + fill(t.truncated, { n: data.maxRows });
       $("countLine").textContent = count;
       $("historyExcel").href = "/api/history/excel" + queryString("lang=" + lang());
+      syncSelection();
+    }
+    function showDeleteMessage(text, isError) {
+      var box = $("deleteMsg");
+      box.hidden = !text;
+      box.textContent = text || "";
+      box.className = "hint " + (isError ? "msg-error" : "msg-ok");
+    }
+    async function deleteSelected() {
+      var t = pack();
+      if (!lastData || !canDelete) return;
+      var items = [];
+      document.querySelectorAll("#rows input.pick:checked").forEach(function (box) {
+        var row = (lastData.rows || [])[Number(box.getAttribute("data-i"))];
+        if (row) items.push({ at: row.at, userName: row.userName, method: row.method, line: row.line, target: row.target });
+      });
+      if (!items.length) return;
+      if (!window.confirm(fill(t.confirmDel, { n: items.length }))) return;
+      $("historyDelete").disabled = true;
+      try {
+        var res = await fetch("/api/history/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-PocTrace": "1" },
+          body: JSON.stringify({ items: items })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error((data && data.error) || t.deleteFail);
+        await load(true);
+        showDeleteMessage(fill(t.deleted, { n: data.deleted }), false);
+      } catch (err) {
+        showDeleteMessage(err && err.message ? err.message : t.deleteFail, true);
+        syncSelection();
+      }
     }
     async function load(keepFilters) {
       var t = pack();
@@ -262,7 +330,7 @@
         paintNotice(data);
         paint(data);
       } catch (err) {
-        $("rows").innerHTML = "<tr><td class='empty' colspan='5'>" + esc(t.fail) + "</td></tr>";
+        $("rows").innerHTML = "<tr><td class='empty' colspan='" + colCount() + "'>" + esc(t.fail) + "</td></tr>";
       }
     }
     function resetFilters() {
@@ -316,7 +384,16 @@
       savePrefs();
       rerender();
     };
-    $("historyFind").onclick = function () { load(true); };
+    $("historyFind").onclick = function () { showDeleteMessage("", false); load(true); };
+    $("historyDelete").onclick = deleteSelected;
+    $("selAll").addEventListener("change", function () {
+      var on = $("selAll").checked;
+      document.querySelectorAll("#rows input.pick").forEach(function (box) { box.checked = on; });
+      syncSelection();
+    });
+    $("rows").addEventListener("change", function (event) {
+      if (event.target && event.target.classList.contains("pick")) syncSelection();
+    });
     $("historyReset").onclick = function () { resetFilters(); load(false); };
     $("filters").addEventListener("submit", function (event) { event.preventDefault(); load(true); });
     $("fText").addEventListener("keydown", function (event) {
@@ -330,5 +407,6 @@
     });
     boot();
   </script>
+  <script src="/assets/jcs-ui/poc-keepalive.js"></script>
 </body>
 </html>

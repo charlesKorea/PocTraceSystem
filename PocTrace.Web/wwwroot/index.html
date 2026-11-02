@@ -23,7 +23,7 @@
       <a class="headlink" href="/history.html" data-i18n="historyLink">검수 기록</a>
       <div class="theme" role="group" aria-label="theme">
         <button type="button" id="themeBtn" aria-pressed="false">다크</button>
-        <button type="button" id="helpBtn" aria-haspopup="dialog" aria-label="도움말" title="도움말"></button>
+        <button type="button" id="helpBtn" aria-haspopup="dialog" aria-label="도움말" title="도움말"><span data-i18n="helpOpen">도움말</span></button>
       </div>
       <div class="lang" role="group" aria-label="language">
         <button type="button" data-lang="ko">한국어</button>
@@ -583,9 +583,10 @@
         { id: "history", title: "검수 기록", html: `
           <h3>검수 기록</h3>
           <ol>
-            <li>상단 <b>검수 기록</b>을 누르면 모든 사용자의 기록이 나옵니다. 기록은 개인 PC와 공용 폴더(<code>Y:\\sds\\999. data</code>)에 함께 남습니다.</li>
+            <li>상단 <b>검수 기록</b>을 누르면 모든 사용자의 기록이 나옵니다. 기록은 개인 PC와 모든 사용자가 함께 보는 공용 폴더에 함께 남습니다.</li>
             <li><b>사용자, 검수 방식, 라인, 기간, 대상</b>을 골라 <b>조회</b>합니다.</li>
             <li><b>Excel 다운로드</b>는 지금 조회한 조건 그대로 내려받습니다.</li>
+            <li>Admin 권한이면 행 왼쪽 체크박스로 여러 행을 골라 <b>선택 삭제</b>할 수 있습니다. 삭제하면 모든 사용자의 기록에서 지워집니다.</li>
           </ol>
           <p class="tip">공용 폴더에 연결되지 않으면 이 PC의 기록만 보이고 화면에 안내가 나옵니다.</p>` },
         { id: "faq", title: "문제 해결", html: `
@@ -594,6 +595,7 @@
             <li><b>라인이 회색이라 선택이 안 돼요</b> — 캐시가 없거나 48시간이 지났습니다. Admin에서 캐시를 갱신해야 합니다.</li>
             <li><b>이미 실행 중인 작업이 있다고 나와요</b> — 한 번에 하나만 가능합니다. 끝나길 기다리거나 취소하세요.</li>
             <li><b>메모리 표시가 주황/빨강이에요</b> — 다른 프로그램을 닫고 실행하세요. 예상값은 캐시 크기 기준 추정입니다.</li>
+            <li><b>Web.exe 가 이미 떠 있다는 안내가 나와요</b> — 한 사용자 세션에는 하나만 실행됩니다. 안내 후 기존 화면이 열립니다. 브라우저 화면을 모두 닫으면 Web.exe 도 자동으로 종료됩니다(작업 중이면 끝난 뒤).</li>
             <li><b>화면을 새로 열었는데 작업이 보여요</b> — 최근 작업 버튼으로 12시간 안의 작업을 다시 열 수 있습니다.</li>
           </ul>` }
       ],
@@ -646,9 +648,10 @@
         { id: "history", title: "检查记录", html: `
           <h3>检查记录</h3>
           <ol>
-            <li>点击顶部<b>检查记录</b>可查看所有用户的记录。记录同时保存在本机和公用文件夹（<code>Y:\\sds\\999. data</code>）。</li>
+            <li>点击顶部<b>检查记录</b>可查看所有用户的记录。记录同时保存在本机和所有用户共用的公用文件夹中。</li>
             <li>选择<b>用户、检查方式、线路、期间、对象</b>后点击<b>查询</b>。</li>
             <li><b>下载 Excel</b>会按当前查询条件导出。</li>
+            <li>Admin 权限可勾选行左侧的复选框，批量<b>删除所选</b>。删除后所有用户的记录中都会消失。</li>
           </ol>
           <p class="tip">若未连接公用文件夹，只显示本机记录，画面上会有提示。</p>` },
         { id: "faq", title: "常见问题", html: `
@@ -657,6 +660,7 @@
             <li><b>线路是灰色无法选择</b> — 没有缓存或已超过 48 小时，需要 Admin 更新缓存。</li>
             <li><b>提示已有作业在运行</b> — 同一时间只能运行一个。请等待结束或取消。</li>
             <li><b>内存显示为橙色/红色</b> — 请关闭其他程序后再执行。预计值是根据缓存大小估算的。</li>
+            <li><b>提示 Web.exe 已在运行</b> — 每个用户会话只能运行一个。提示后会打开现有页面。关闭所有浏览器页面后 Web.exe 会自动退出（有作业时等作业结束）。</li>
             <li><b>重新打开画面后看到作业</b> — 可用“最近作业”按钮重新打开 12 小时内的作业。</li>
           </ul>` }
       ]
@@ -845,13 +849,40 @@
       }
       if (!busy) cacheReady = cacheMatchesSelection();
       syncInputs();
-      if (!busy && !lastJob) {
-        var text = (data.details || []).join("\n");
-        if (data.loadedDb) text += "\n" + t("loadedPrefix") + data.loadedDb;
-        if (!cacheReady) text = (text ? text + "\n" : "") + t("pickLineFirst");
-        $("status").textContent = text || t("pickLineFirst");
-        setStatusState(cacheReady ? "done" : "", cacheReady ? 100 : 0);
+      if (!busy && !lastJob) paintIdleStatus();
+    }
+
+    function paintIdleStatus() {
+      var data = lastLines || {};
+      var text = (data.details || []).join("\n");
+      if (data.loadedDb) text += "\n" + t("loadedPrefix") + data.loadedDb;
+      if (!cacheReady) text = (text ? text + "\n" : "") + t("pickLineFirst");
+      $("status").textContent = text || t("pickLineFirst");
+      setStatusState(cacheReady ? "done" : "", cacheReady ? 100 : 0);
+      anim.shown = anim.floor;
+      animPaint();
+    }
+
+    function clearJobView() {
+      animReset();
+      lastJob = null;
+      $("jobCard").hidden = true;
+      $("excel").hidden = true;
+    }
+
+    /* 검수 방식 탭을 바꾸면 이전 작업의 진행 표시를 지운다. 캐시 불러오기 표시와 진행 중인 작업은 건드리지 않는다. */
+    function resetProgressForTab(next) {
+      if (busy || !lastJob || lastJob.kind === "load") return;
+      if (JOB_TABS[lastJob.kind] === next) return;
+      var sharedResult = lastJob.kind !== "demolition";
+      clearJobView();
+      if (sharedResult) {
+        $("rows").innerHTML = "";
+        $("nozzleRows").innerHTML = "";
+        $("resultHint").textContent = "";
+        $("kpiRows").textContent = "0";
       }
+      paintIdleStatus();
     }
 
     async function loadLines() {
@@ -1774,7 +1805,9 @@
     function switchTab(name) {
       if ((name === "demolition" && !canUseExtra("demolition")) || (name === "nozzle" && !canUseExtra("nozzle")))
         name = "trace";
-      activeTab = name || "trace";
+      var nextTab = name || "trace";
+      if (nextTab !== activeTab) resetProgressForTab(nextTab);
+      activeTab = nextTab;
       var tabs = document.querySelectorAll(".tabs button");
       for (var i = 0; i < tabs.length; i++) {
         var on = tabs[i].getAttribute("data-tab") === activeTab;
@@ -1865,6 +1898,7 @@
       var input = $("batchFile");
       var file = input.files && input.files[0];
       if (!file) return;
+      if (busy || !cacheReady) { input.value = ""; return; }
       setBatchInfo(t("requestSent"), false);
       try {
         var form = new FormData();
@@ -1882,7 +1916,10 @@
         input.value = "";
       }
     }
-    $("batchFileBtn").onclick = function () { $("batchFile").click(); };
+    $("batchFileBtn").onclick = function () {
+      if (busy || !cacheReady) return;
+      $("batchFile").click();
+    };
     $("batchFile").addEventListener("change", uploadBatchExcel);
 
     var helpOpener = null;
@@ -1952,5 +1989,6 @@
     }
     boot();
   </script>
+  <script src="/assets/jcs-ui/poc-keepalive.js"></script>
 </body>
 </html>
