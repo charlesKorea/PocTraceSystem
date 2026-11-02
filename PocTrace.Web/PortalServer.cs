@@ -20,6 +20,9 @@ namespace PocTrace.Web
         private readonly string _wwwroot;
         private HttpListener _listener;
         private string _prefix;
+        private ManualResetEvent _stop;
+
+        public BrowserWatch Watch { get; set; }
 
         public PortalServer(PortalService portal)
         {
@@ -57,11 +60,27 @@ namespace PocTrace.Web
 
         public void RunUntilEnter()
         {
+            var stop = new ManualResetEvent(false);
+            _stop = stop;
             var thread = new Thread(Loop) { IsBackground = true, Name = "PocTrace.Web" };
             thread.Start();
             Console.WriteLine("종료하려면 Enter.");
-            Console.ReadLine();
+            var reader = new Thread(() =>
+            {
+                try { Console.ReadLine(); }
+                catch { /* 콘솔이 없으면 바로 끝낸다 */ }
+                stop.Set();
+            }) { IsBackground = true, Name = "PocTrace.Web.Console" };
+            reader.Start();
+            stop.WaitOne();
             try { _listener.Stop(); } catch { /* shutting down */ }
+        }
+
+        public void RequestStop()
+        {
+            ManualResetEvent stop = _stop;
+            if (stop != null)
+                stop.Set();
         }
 
         private void Loop()
@@ -129,6 +148,20 @@ namespace PocTrace.Web
                     return;
                 }
 
+                if (method == "POST" && (path == "/api/heartbeat" || path == "/api/bye"))
+                {
+                    string clientId = (context.Request.QueryString["id"] ?? "").Trim();
+                    if (clientId.Length > 64)
+                        clientId = clientId.Substring(0, 64);
+                    if (Watch != null)
+                    {
+                        if (path == "/api/heartbeat") Watch.Touch(clientId);
+                        else Watch.Bye(clientId);
+                    }
+                    WriteJson(context, 200, new { ok = true, busy = _portal.HasRunningJob });
+                    return;
+                }
+
                 if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!_portal.HasLicense)
@@ -171,6 +204,37 @@ namespace PocTrace.Web
                 if (method == "GET" && path == "/api/history")
                 {
                     WriteJson(context, 200, _portal.GetHistory(ParseHistoryQuery(context.Request)));
+                    return;
+                }
+
+                if (method == "POST" && path == "/api/history/delete")
+                {
+                    if (!_portal.IsAdmin)
+                        throw new PortalForbiddenException(DemolitionUiText.Kz("Admin 권한이 있어야 기록을 지울 수 있습니다.", "只有 Admin 权限可以删除记录。"));
+                    if (context.Request.Headers["X-PocTrace"] != "1")
+                        throw new PortalInputException(DemolitionUiText.Kz("요청이 올바르지 않습니다.", "请求无效。"));
+                    var body = ReadJson(context.Request);
+                    var items = new System.Collections.Generic.List<HistoryKey>();
+                    var array = body["items"] as JArray;
+                    if (array != null)
+                    {
+                        foreach (JToken token in array)
+                        {
+                            var row = token as JObject;
+                            if (row == null)
+                                continue;
+                            items.Add(new HistoryKey
+                            {
+                                At = Value(row, "at"),
+                                UserName = Value(row, "userName"),
+                                Method = Value(row, "method"),
+                                Line = Value(row, "line"),
+                                Target = Value(row, "target")
+                            });
+                        }
+                    }
+                    int count = _portal.DeleteHistory(items);
+                    WriteJson(context, 200, new { deleted = count });
                     return;
                 }
 
@@ -335,6 +399,10 @@ namespace PocTrace.Web
             catch (PortalInputException ex)
             {
                 WriteJson(context, 400, new { error = ex.Message });
+            }
+            catch (PortalForbiddenException ex)
+            {
+                WriteJson(context, 403, new { error = ex.Message });
             }
             catch (PortalBusyException ex)
             {
@@ -504,7 +572,7 @@ namespace PocTrace.Web
         {
             try
             {
-                byte[] bytes = Encoding.UTF8.GetBytes(json ?? "{}");
+                byte[] bytes = Encoding.UTF8.GetBytes(PathMask.Clean(json ?? "{}"));
                 context.Response.StatusCode = status;
                 context.Response.ContentType = "application/json; charset=utf-8";
                 context.Response.ContentLength64 = bytes.Length;
@@ -519,7 +587,7 @@ namespace PocTrace.Web
 
         private static void WriteJson(HttpListenerContext context, int status, object payload)
         {
-            byte[] bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload));
+            byte[] bytes = Encoding.UTF8.GetBytes(PathMask.Clean(JsonConvert.SerializeObject(payload)));
             context.Response.StatusCode = status;
             context.Response.ContentType = "application/json; charset=utf-8";
             context.Response.ContentLength64 = bytes.Length;
@@ -542,6 +610,7 @@ namespace PocTrace.Web
             else if (ext == ".png") contentType = "image/png";
             else if (ext == ".ico") contentType = "image/x-icon";
             else if (ext == ".css") contentType = "text/css; charset=utf-8";
+            else if (ext == ".js") contentType = "application/javascript; charset=utf-8";
             else return false;
 
             string root = Path.GetFullPath(Path.Combine(_wwwroot, "assets", "jcs-ui"));

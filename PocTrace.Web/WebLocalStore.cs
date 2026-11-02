@@ -46,6 +46,27 @@ namespace PocTrace.Web
             }
         }
 
+        public static void RemoveRows(HashSet<string> keys, string currentUser)
+        {
+            lock (Gate)
+            {
+                List<HistoryEntry> list = LoadHistory();
+                var next = new List<HistoryEntry>();
+                bool changed = false;
+                foreach (HistoryEntry entry in list)
+                {
+                    HistoryEntry kept;
+                    int removed = InspectionHistory.Prune(entry, keys, currentUser, out kept);
+                    if (removed > 0)
+                        changed = true;
+                    if (kept != null)
+                        next.Add(kept);
+                }
+                if (changed)
+                    File.WriteAllText(HistoryPath(), JsonConvert.SerializeObject(next));
+            }
+        }
+
         public static List<HistoryEntry> LoadAll()
         {
             lock (Gate)

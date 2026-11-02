@@ -35,11 +35,19 @@ namespace PocTrace.Web
 
         private static int RunCore(string[] args)
         {
+            bool openBrowser = !args.Any(a => string.Equals(a, "--no-browser", StringComparison.OrdinalIgnoreCase));
+
+            SingleInstance instance;
+            if (!SingleInstance.TryAcquire(out instance))
+            {
+                SingleInstance.NotifyDuplicate(SingleInstance.RunningUrl(), openBrowser && SettingBool("OpenBrowser", true));
+                return 3;
+            }
+
             ExeUseSession use = null;
             try { use = ExeUseLog.Open(PocTraceLocalPaths.Web); }
             catch { }
 
-            bool openBrowser = !args.Any(a => string.Equals(a, "--no-browser", StringComparison.OrdinalIgnoreCase));
             string logDirectory = Path.Combine(PortalService.WorkRoot, "logs");
             Directory.CreateDirectory(logDirectory);
             MemoryLoadLog.Initialize(logDirectory);
@@ -77,6 +85,24 @@ namespace PocTrace.Web
                 string host = Setting("ListenHost", "127.0.0.1");
                 int port = SettingInt("ListenPort", 5088);
                 string prefix = server.Start(host, port);
+                instance.Publish(prefix);
+
+                BrowserWatch watch = null;
+                if (SettingBool("AutoExitOnBrowserClose", true))
+                {
+                    watch = new BrowserWatch(
+                        TimeSpan.FromSeconds(SettingInt("AutoExitStaleSeconds", 180)),
+                        TimeSpan.FromSeconds(SettingInt("AutoExitGraceSeconds", 12)),
+                        () => portal.HasRunningJob);
+                    watch.IdleExit += () =>
+                    {
+                        Log.Information("브라우저 화면이 모두 닫혀 Web.exe 를 종료합니다.");
+                        Console.WriteLine("브라우저 화면이 닫혀 종료합니다.");
+                        server.RequestStop();
+                    };
+                    server.Watch = watch;
+                    watch.Start();
+                }
 
                 Log.Information("PocTrace.Web listening at {Url}", prefix);
                 Log.Information("SharedCachePath={Path} TargetDatabases={Dbs}",
@@ -89,6 +115,8 @@ namespace PocTrace.Web
 
                 Console.WriteLine("PocTrace.Web " + prefix);
                 Console.WriteLine("이 창을 닫으면 웹 화면도 멈춥니다. Viewer exe는 그대로 사용할 수 있습니다.");
+                if (watch != null)
+                    Console.WriteLine("브라우저 화면을 모두 닫으면 이 프로그램도 자동으로 종료됩니다.");
                 server.RunUntilEnter();
                 return 0;
             }
@@ -100,6 +128,8 @@ namespace PocTrace.Web
             }
             finally
             {
+                try { instance.Dispose(); }
+                catch { }
                 try { if (use != null) use.Dispose(); }
                 catch { }
                 Log.CloseAndFlush();

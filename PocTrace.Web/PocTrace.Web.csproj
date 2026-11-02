@@ -60,10 +60,13 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BrowserWatch.cs" />
     <Compile Include="CacheLoadStages.cs" />
     <Compile Include="InspectionHistory.cs" />
     <Compile Include="PortalServer.cs" />
     <Compile Include="PortalService.cs" />
+    <Compile Include="PathMask.cs" />
+    <Compile Include="SingleInstance.cs" />
     <Compile Include="SystemMemory.cs" />
     <Compile Include="WebExcel.cs" />
     <Compile Include="WebLocalStore.cs" />

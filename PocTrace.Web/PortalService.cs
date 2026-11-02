@@ -54,6 +54,20 @@ namespace PocTrace.Web
             get { return _license != null && _license.Success; }
         }
 
+        public bool HasRunningJob
+        {
+            get
+            {
+                lock (_gate)
+                    return _jobs.Values.Any(j => j.State == "running");
+            }
+        }
+
+        public bool IsAdmin
+        {
+            get { return _license != null && _license.Success && _license.HasGroup("Admin"); }
+        }
+
         public bool CanUseExtraTools
         {
             get { return PocTraceLicense.CanUseExtraTools(_license); }
@@ -84,9 +98,9 @@ namespace PocTrace.Web
                 shared = new
                 {
                     available = result.SharedAvailable,
-                    path = result.SharedPath,
                     error = result.SharedError
                 },
+                canDelete = IsAdmin,
                 truncated = result.Truncated,
                 maxRows = SharedHistoryStore.MaxRows,
                 users = result.Users,
@@ -101,6 +115,37 @@ namespace PocTrace.Web
                     target = r.Target
                 }).ToList()
             };
+        }
+
+        public int DeleteHistory(IList<HistoryKey> items)
+        {
+            if (!IsAdmin)
+                throw new PortalForbiddenException(Msg("Admin 권한이 있어야 기록을 지울 수 있습니다.", "只有 Admin 权限可以删除记录。"));
+            if (items == null || items.Count == 0)
+                throw new PortalInputException(Msg("지울 행을 선택하세요.", "请选择要删除的行。"));
+            if (items.Count > SharedHistoryStore.MaxRows)
+                throw new PortalInputException(Msg("한 번에 지울 수 있는 행 수를 넘었습니다.", "超过一次可删除的行数。"));
+
+            string error;
+            if (!SharedHistoryStore.IsAvailable(out error))
+                throw new PortalInputException(Msg(
+                    "공용 기록 폴더에 연결할 수 없어 지우지 않았습니다. 연결을 확인한 뒤 다시 시도하세요.",
+                    "无法连接公用记录文件夹，未删除任何内容。请检查连接后重试。"));
+
+            string user = CurrentUser();
+            try
+            {
+                int count = InspectionHistory.Delete(items, user, user);
+                Log.Information("[Web] 검수 기록 {Count}행 삭제 by {User}", count, user);
+                return count;
+            }
+            catch (IOException ex)
+            {
+                Log.Warning(ex, "[Web] 검수 기록 삭제 실패");
+                throw new PortalInputException(Msg(
+                    "공용 기록 폴더에 쓰지 못해 지우지 않았습니다. 잠시 뒤 다시 시도하세요.",
+                    "无法写入公用记录文件夹，未删除任何内容。请稍后重试。"));
+            }
         }
 
         public byte[] BuildHistoryExcel(HistoryQuery query, bool zh)
@@ -1552,6 +1597,11 @@ namespace PocTrace.Web
     internal sealed class PortalInputException : Exception
     {
         public PortalInputException(string message) : base(message) { }
+    }
+
+    internal sealed class PortalForbiddenException : Exception
+    {
+        public PortalForbiddenException(string message) : base(message) { }
     }
 
     internal sealed class PortalBusyException : Exception

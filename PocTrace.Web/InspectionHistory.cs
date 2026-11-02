@@ -42,12 +42,20 @@ namespace PocTrace.Web
         public string Target;
     }
 
+    internal sealed class HistoryKey
+    {
+        public string At = "";
+        public string UserName = "";
+        public string Method = "";
+        public string Line = "";
+        public string Target = "";
+    }
+
     internal sealed class HistoryResult
     {
         public List<HistoryRow> Rows = new List<HistoryRow>();
         public bool Truncated;
         public bool SharedAvailable;
-        public string SharedPath = "";
         public string SharedError = "";
         public List<string> Users = new List<string>();
         public List<string> Methods = new List<string>();
@@ -106,15 +114,16 @@ namespace PocTrace.Web
                 string root = RootPath;
                 Task<bool> probe = Task.Run(() => Directory.Exists(root));
                 if (!probe.Wait(TimeSpan.FromSeconds(ProbeSeconds)))
-                    message = "응답이 없습니다 / 无响应: " + root;
+                    message = "응답이 없습니다 / 无响应";
                 else if (!probe.Result)
-                    message = "폴더가 없습니다 / 文件夹不存在: " + root;
+                    message = "폴더가 없습니다 / 文件夹不存在";
                 else
                     ok = true;
             }
             catch (Exception ex)
             {
-                message = ex.Message;
+                Log.Warning(ex, "[Web] 공용 기록 폴더 확인 실패");
+                message = "확인할 수 없습니다 / 无法确认";
             }
 
             lock (Gate)
@@ -202,6 +211,184 @@ namespace PocTrace.Web
             return list;
         }
 
+        public const string TombstoneFile = "deleted.tomb";
+
+        public static string KeyOf(string at, string user, string method, string line, string target)
+        {
+            return (at ?? "") + "\u001f" + (user ?? "") + "\u001f" + (method ?? "") + "\u001f" + (line ?? "") + "\u001f" + (target ?? "");
+        }
+
+        /// <summary>
+        /// 지운 행의 표식. 다른 PC에 남은 개인 로컬 기록이 조회 때 다시 나타나지 않게 한다.
+        /// </summary>
+        public static HashSet<string> ReadTombstones()
+        {
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string error;
+            string file = Path.Combine(FolderPath, TombstoneFile);
+            if (!IsAvailable(out error) || !File.Exists(file))
+                return keys;
+            try
+            {
+                using (var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                {
+                    string text;
+                    while ((text = reader.ReadLine()) != null)
+                    {
+                        if (text.Length == 0)
+                            continue;
+                        try
+                        {
+                            var item = JsonConvert.DeserializeObject<TombstoneLine>(text);
+                            if (item != null && !string.IsNullOrEmpty(item.Key))
+                                keys.Add(item.Key);
+                        }
+                        catch (JsonException)
+                        {
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[Web] 삭제 표식을 읽지 못했습니다.");
+            }
+            return keys;
+        }
+
+        public static void AppendTombstones(IEnumerable<string> keys, string by)
+        {
+            string error;
+            if (!IsAvailable(out error))
+                throw new IOException(error);
+            Directory.CreateDirectory(FolderPath);
+            var text = new StringBuilder();
+            string at = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+            foreach (string key in keys)
+                text.Append(JsonConvert.SerializeObject(new TombstoneLine { Key = key, By = by ?? "", At = at })).Append("\r\n");
+            byte[] bytes = new UTF8Encoding(false).GetBytes(text.ToString());
+            string path = Path.Combine(FolderPath, TombstoneFile);
+
+            Exception last = null;
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                try
+                {
+                    using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+                        stream.Write(bytes, 0, bytes.Length);
+                    return;
+                }
+                catch (IOException ex)
+                {
+                    last = ex;
+                    Thread.Sleep(120 * (attempt + 1));
+                }
+            }
+            throw last ?? new IOException("tombstone");
+        }
+
+        /// <summary>
+        /// 지정한 행(사용자, 월)이 들어 있는 공용 jsonl 에서 해당 대상만 지운다.
+        /// 파일을 독점으로 열고 고쳐 쓰므로, 같은 순간 그 사용자의 기록 추가는 재시도로 이어진다.
+        /// </summary>
+        public static int RemoveRows(IList<HistoryKey> items, HashSet<string> keys, string currentUser)
+        {
+            string error;
+            if (!IsAvailable(out error) || !Directory.Exists(FolderPath))
+                return 0;
+
+            int removed = 0;
+            var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (HistoryKey item in items)
+            {
+                DateTime when = ParseUtc(item.At);
+                if (when == DateTime.MinValue)
+                    continue;
+                files.Add(Path.Combine(
+                    FolderPath,
+                    when.ToString("yyyyMM", CultureInfo.InvariantCulture) + "_" + SafeName(item.UserName) + ".jsonl"));
+            }
+
+            foreach (string path in files)
+            {
+                if (!File.Exists(path))
+                    continue;
+                try
+                {
+                    removed += RewriteWithoutKeys(path, keys, currentUser);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "[Web] 공용 기록 파일을 정리하지 못했습니다: {File}", Path.GetFileName(path));
+                }
+            }
+            return removed;
+        }
+
+        private static int RewriteWithoutKeys(string path, HashSet<string> keys, string currentUser)
+        {
+            Exception last = null;
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        string content;
+                        using (var reader = new StreamReader(stream, new UTF8Encoding(false), true, 4096, true))
+                            content = reader.ReadToEnd();
+
+                        var output = new StringBuilder();
+                        int removed = 0;
+                        foreach (string raw in content.Split(new[] { '\n' }, StringSplitOptions.None))
+                        {
+                            string text = raw.TrimEnd('\r');
+                            if (text.Length == 0)
+                                continue;
+                            HistoryEntry entry = null;
+                            try { entry = JsonConvert.DeserializeObject<HistoryEntry>(text); }
+                            catch (JsonException) { }
+
+                            if (entry == null)
+                            {
+                                output.Append(text).Append("\r\n");
+                                continue;
+                            }
+
+                            HistoryEntry kept;
+                            int count = InspectionHistory.Prune(entry, keys, currentUser, out kept);
+                            removed += count;
+                            if (count == 0)
+                                output.Append(text).Append("\r\n");
+                            else if (kept != null)
+                                output.Append(JsonConvert.SerializeObject(kept)).Append("\r\n");
+                        }
+
+                        if (removed == 0)
+                            return 0;
+                        byte[] bytes = new UTF8Encoding(false).GetBytes(output.ToString());
+                        stream.SetLength(0);
+                        stream.Write(bytes, 0, bytes.Length);
+                        return removed;
+                    }
+                }
+                catch (IOException ex)
+                {
+                    last = ex;
+                    Thread.Sleep(150 * (attempt + 1));
+                }
+            }
+            throw last ?? new IOException("rewrite");
+        }
+
+        private sealed class TombstoneLine
+        {
+            public string Key { get; set; }
+            public string By { get; set; }
+            public string At { get; set; }
+        }
+
         public static DateTime ParseUtc(string value)
         {
             DateTime parsed;
@@ -286,6 +473,65 @@ namespace PocTrace.Web
             }
         }
 
+        /// <summary>
+        /// 한 기록에서 지울 대상만 빼낸다. 반환값은 지운 행 수, kept 는 남길 기록(없으면 null).
+        /// </summary>
+        public static int Prune(HistoryEntry entry, HashSet<string> keys, string currentUser, out HistoryEntry kept)
+        {
+            kept = entry;
+            string user = string.IsNullOrWhiteSpace(entry.UserName) ? (currentUser ?? "") : entry.UserName;
+            bool hadTargets = entry.Targets != null && entry.Targets.Count > 0;
+            List<string> targets = hadTargets ? entry.Targets : new List<string> { "" };
+
+            var remaining = new List<string>();
+            int removed = 0;
+            foreach (string target in targets)
+            {
+                if (keys.Contains(SharedHistoryStore.KeyOf(entry.At, user, entry.Method, entry.Line, target)))
+                    removed++;
+                else
+                    remaining.Add(target);
+            }
+
+            if (removed == 0)
+                return 0;
+            if (remaining.Count == 0)
+            {
+                kept = null;
+                return removed;
+            }
+
+            kept = new HistoryEntry
+            {
+                At = entry.At,
+                UserName = entry.UserName,
+                Method = entry.Method,
+                Line = entry.Line,
+                Targets = remaining,
+                Machine = entry.Machine
+            };
+            return removed;
+        }
+
+        /// <summary>
+        /// 관리자 삭제. 공용 폴더에 삭제 표식을 먼저 남기고, 공용 파일과 이 PC 로컬 기록에서 실제로 지운다.
+        /// 공용 폴더를 쓸 수 없으면 아무것도 지우지 않는다.
+        /// </summary>
+        public static int Delete(IList<HistoryKey> items, string currentUser, string deletedBy)
+        {
+            if (items == null || items.Count == 0)
+                return 0;
+
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (HistoryKey item in items)
+                keys.Add(SharedHistoryStore.KeyOf(item.At, item.UserName, item.Method, item.Line, item.Target));
+
+            SharedHistoryStore.AppendTombstones(keys, deletedBy);
+            SharedHistoryStore.RemoveRows(items, keys, currentUser);
+            WebLocalStore.RemoveRows(keys, currentUser);
+            return keys.Count;
+        }
+
         public static HistoryResult Query(HistoryQuery query, string currentUser)
         {
             if (query == null)
@@ -294,13 +540,16 @@ namespace PocTrace.Web
             var result = new HistoryResult();
             string error;
             result.SharedAvailable = SharedHistoryStore.IsAvailable(out error);
-            result.SharedPath = SharedHistoryStore.FolderPath;
             result.SharedError = error ?? "";
 
             var entries = new List<HistoryEntry>();
             entries.AddRange(WebLocalStore.LoadAll());
+            HashSet<string> deleted = null;
             if (result.SharedAvailable)
+            {
                 entries.AddRange(SharedHistoryStore.ReadAll(query));
+                deleted = SharedHistoryStore.ReadTombstones();
+            }
 
             var all = new List<HistoryRow>();
             var dedupe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -320,6 +569,9 @@ namespace PocTrace.Web
 
                 foreach (string target in targets)
                 {
+                    if (deleted != null && deleted.Count > 0 &&
+                        deleted.Contains(SharedHistoryStore.KeyOf(entry.At, user, entry.Method, entry.Line, target)))
+                        continue;
                     all.Add(new HistoryRow
                     {
                         At = entry.At,
