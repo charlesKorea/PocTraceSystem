@@ -74,23 +74,109 @@ namespace PocTrace.Web
             WebLocalStore.WritePrefs(lang, theme);
         }
 
-        public object GetHistory()
+        public object GetHistory(HistoryQuery query)
         {
-            string user = _license == null ? "" : (_license.UserName ?? "");
-            return WebLocalStore.Recent(user);
+            string user = CurrentUser();
+            HistoryResult result = InspectionHistory.Query(query, user);
+            return new
+            {
+                userName = user,
+                shared = new
+                {
+                    available = result.SharedAvailable,
+                    path = result.SharedPath,
+                    error = result.SharedError
+                },
+                truncated = result.Truncated,
+                maxRows = SharedHistoryStore.MaxRows,
+                users = result.Users,
+                methods = result.Methods,
+                lines = result.Lines,
+                rows = result.Rows.Select(r => new
+                {
+                    at = r.At,
+                    userName = r.UserName,
+                    method = r.Method,
+                    line = r.Line,
+                    target = r.Target
+                }).ToList()
+            };
+        }
+
+        public byte[] BuildHistoryExcel(HistoryQuery query, bool zh)
+        {
+            HistoryResult result = InspectionHistory.Query(query, CurrentUser());
+            return WebExcel.BuildHistory(result.Rows, zh, method => MethodTitle(method, zh));
+        }
+
+        private static string MethodTitle(string method, bool zh)
+        {
+            switch ((method ?? "").ToLowerInvariant())
+            {
+                case "trace": return zh ? "Pipe Trace" : "배관 Trace";
+                case "batch": return zh ? "Batch Trace" : "배치 Trace";
+                case "demolition": return zh ? "拆除检验" : "철거검수";
+                case "nozzle": return zh ? "Nozzle Trace" : "노즐추적";
+                default: return method ?? "";
+            }
+        }
+
+        private string CurrentUser()
+        {
+            return _license == null ? "" : (_license.UserName ?? "");
         }
 
         private void RememberInspection(string method, string line, IEnumerable<string> targets)
         {
             try
             {
-                string user = _license == null ? "" : (_license.UserName ?? "");
-                WebLocalStore.Append(user, method, line, targets);
+                InspectionHistory.Record(CurrentUser(), method, line, targets);
             }
             catch (Exception ex)
             {
                 Log.Warning(ex, "[Web] inspection history");
             }
+        }
+
+        public object PreviewBatchUpload(byte[] bytes, string fileName)
+        {
+            if (bytes == null || bytes.Length == 0)
+                throw new PortalInputException(Msg("파일이 비어 있습니다.", "文件为空。"));
+
+            string ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
+            if (ext != ".xlsx" && ext != ".xlsm")
+                throw new PortalInputException(Msg(
+                    "Excel 파일만 올릴 수 있습니다. (xlsx, xlsm)",
+                    "只能上传 Excel 文件。(xlsx, xlsm)"));
+
+            WebExcel.ColumnAResult read;
+            try
+            {
+                read = WebExcel.ReadColumnA(bytes);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[Web] batch excel");
+                throw new PortalInputException(Msg(
+                    "Excel 파일을 읽지 못했습니다. 암호가 걸려 있거나 손상된 파일일 수 있습니다.",
+                    "无法读取 Excel 文件。文件可能有密码或已损坏。"));
+            }
+
+            if (read.Values.Count == 0)
+                throw new PortalInputException(Msg(
+                    "A열 2행부터 EQPID가 있어야 합니다. (1행은 제목으로 건너뜁니다)",
+                    "A 列第 2 行起需要有 EQPID。（第 1 行作为标题跳过）"));
+
+            return new
+            {
+                fileName = Path.GetFileName(fileName ?? ""),
+                sheet = read.SheetName,
+                count = read.Values.Count,
+                nonBlank = read.NonBlank,
+                duplicates = read.Duplicates,
+                max = MaxBatchTags,
+                text = string.Join("\n", read.Values)
+            };
         }
 
         public static string WorkRoot =>
@@ -100,6 +186,7 @@ namespace PocTrace.Web
         {
             var gate = CacheFreshnessGuard.EvaluateViewerStartup();
             var lines = new List<object>();
+            double factor = MemoryFactor();
             foreach (string db in GlobalConfig.TargetDatabases)
             {
                 DateTime savedAt;
@@ -107,11 +194,15 @@ namespace PocTrace.Web
                 string source;
                 bool found = CacheFreshnessGuard.TryGetSavedAt(db, out savedAt, out version, out source);
                 double age = found ? (DateTime.Now - savedAt).TotalHours : -1;
+                double cacheMb = found ? Math.Round(SystemMemory.CacheFolderMb(GlobalConfig.GetLiveCacheDirectory(db)), 0) : 0;
                 lines.Add(new
                 {
                     db,
                     found,
                     savedAt = found ? savedAt.ToString("yyyy-MM-dd HH:mm") : null,
+                    syncDate = found ? savedAt.ToString("yyyy-MM-dd") : null,
+                    cacheMb = cacheMb,
+                    estimateMb = SystemMemory.EstimateMb(cacheMb, factor),
                     ageHours = found ? Math.Round(age, 1) : (double?)null,
                     version = found ? version : (int?)null,
                     allowed = found && age <= GlobalConfig.CacheMaxAgeHours,
@@ -127,6 +218,7 @@ namespace PocTrace.Web
                 dailyReportPath = GlobalConfig.DailyReportPath,
                 cacheMaxAgeHours = GlobalConfig.CacheMaxAgeHours,
                 loadedDb = _loadedDb,
+                memory = MemoryView(factor),
                 lines,
                 details = gate.Details,
                 limits = new
@@ -137,6 +229,31 @@ namespace PocTrace.Web
                     maxSummaryRows = MaxSummaryRows,
                     maxIssueRows = MaxIssueRows
                 }
+            };
+        }
+
+        private static double MemoryFactor()
+        {
+            double parsed;
+            string raw = System.Configuration.ConfigurationManager.AppSettings["MemoryEstimateFactor"];
+            if (double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out parsed)
+                && parsed >= 0.5 && parsed <= 20)
+                return parsed;
+            return 3.0;
+        }
+
+        private static object MemoryView(double factor)
+        {
+            double total;
+            double available;
+            bool ok = SystemMemory.TryReadPhysical(out total, out available);
+            return new
+            {
+                known = ok,
+                totalMb = ok ? Math.Round(total, 0) : 0,
+                availableMb = ok ? Math.Round(available, 0) : 0,
+                processMb = Math.Round(SystemMemory.ProcessPrivateMb(), 0),
+                factor
             };
         }
 
@@ -160,7 +277,7 @@ namespace PocTrace.Web
                     job.Percent = 100;
                     job.Message = Msg(
                         db + " 캐시가 이미 메모리에 있습니다. 태그를 입력하세요.",
-                        db + " 缓存已在内存中。请输入标签。");
+                        db + " 缓存已在内存中。请输入 Tag。");
                 }
                 return job.Id;
             }
@@ -174,9 +291,9 @@ namespace PocTrace.Web
             db = RequireDb(db);
             tag = (tag ?? "").Trim();
             if (tag.Length == 0)
-                throw new PortalInputException(Msg("태그를 입력하세요.", "请输入标签。"));
+                throw new PortalInputException(Msg("태그를 입력하세요.", "请输入 Tag。"));
             if (tag.Length > 200)
-                throw new PortalInputException(Msg("태그가 너무 깁니다.", "标签过长。"));
+                throw new PortalInputException(Msg("태그가 너무 깁니다.", "Tag 过长。"));
 
             JobRecord job = BeginJob("trace", db, tag);
             Task.Run(() => RunSingle(job, tag));
@@ -188,7 +305,7 @@ namespace PocTrace.Web
             db = RequireDb(db);
             var tags = SplitTags(text);
             if (tags.Count == 0)
-                throw new PortalInputException(Msg("배치 태그를 입력하세요.", "请输入批量标签。"));
+                throw new PortalInputException(Msg("배치 태그를 입력하세요.", "请输入批量 Tag。"));
             if (tags.Count > MaxBatchTags)
                 throw new PortalInputException(Msg(
                     "배치는 한 번에 " + MaxBatchTags + "개까지입니다. 지금은 " + tags.Count + "개입니다.",
@@ -215,18 +332,16 @@ namespace PocTrace.Web
             try
             {
                 var token = TokenOf(job);
-                EnsureLoaded(job.Db, job);
+                EnsureLoaded(job.Db, job, 0, 50);
                 token.ThrowIfCancellationRequested();
-                job.Message = Msg("Trace 중: ", "追踪中: ") + tag;
-                job.Percent = 40;
+                SetPhase(job, "trace", 50, 86, Msg("Trace 중: ", "Trace 中: ") + tag);
 
                 var engine = _services.CreateTraceEngine();
                 var results = engine.RunTrace(tag, 0, GlobalConfig.EnableDetailedDebug, token, includePartialTagMatch: true)
                     ?? new List<TraceResult>();
 
                 token.ThrowIfCancellationRequested();
-                job.Message = Msg("Excel 저장 중", "正在保存 Excel");
-                job.Percent = 80;
+                SetPhase(job, "excel", 88, 98, Msg("Excel 저장 중", "正在保存 Excel"));
                 var summaries = EquipmentSummaryBuilder.Build(results);
                 var issues = new List<TraceIssueView>();
                 bool truncated = false;
@@ -270,15 +385,26 @@ namespace PocTrace.Web
             try
             {
                 var token = TokenOf(job);
-                EnsureLoaded(job.Db, job);
+                EnsureLoaded(job.Db, job, 0, 20);
                 outputDir = JobDirectory(job);
                 int done = 0;
+                lock (_gate)
+                {
+                    job.ItemsTotal = tags.Count;
+                }
 
                 foreach (string tag in tags)
                 {
                     token.ThrowIfCancellationRequested();
-                    job.Message = Msg("Trace ", "追踪 ") + (done + 1) + "/" + tags.Count + " " + tag;
-                    job.Percent = 10 + (int)(70.0 * done / tags.Count);
+                    int from = 20 + (int)(72.0 * done / tags.Count);
+                    int to = 20 + (int)(72.0 * (done + 1) / tags.Count);
+                    SetPhase(job, "trace", from, to - 1,
+                        Msg("Trace ", "Trace ") + (done + 1) + "/" + tags.Count + " " + tag);
+                    lock (_gate)
+                    {
+                        job.ItemsDone = done;
+                        job.CurrentItem = tag;
+                    }
                     try
                     {
                         var engine = _services.CreateTraceEngine();
@@ -313,13 +439,17 @@ namespace PocTrace.Web
                     }
 
                     done++;
+                    lock (_gate)
+                    {
+                        job.ItemsDone = done;
+                    }
                 }
 
                 token.ThrowIfCancellationRequested();
                 string summaryPath = null;
                 if (summaries.Count > 0)
                 {
-                    job.Message = Msg("요약 Excel 저장 중", "正在保存汇总 Excel");
+                    SetPhase(job, "summary", 93, 98, Msg("요약 Excel 저장 중", "正在保存汇总 Excel"));
                     summaryPath = Path.Combine(outputDir, "Summary.xlsx");
                     _services.ExcelReport.SaveBatchSummaryReport(summaryPath, summaries);
                 }
@@ -362,7 +492,7 @@ namespace PocTrace.Web
             }
         }
 
-        private void EnsureLoaded(string db, JobRecord job)
+        private void EnsureLoaded(string db, JobRecord job, int lo = 0, int hi = 100)
         {
             string block = FreshnessBlock(db);
             if (block != null)
@@ -380,15 +510,20 @@ namespace PocTrace.Web
             if (same)
                 return;
 
-            job.Message = Msg(db + " 캐시를 메모리에 올리는 중", "正在把 " + db + " 缓存载入内存");
-            job.Percent = 10;
-            var progress = new Progress<string>(msg => job.Message = msg);
+            SetStage(job, CacheLoadStages.Open, lo, hi);
+            var progress = new Progress<string>(msg =>
+            {
+                CacheLoadStages.Stage stage = CacheLoadStages.Match(msg);
+                if (stage != null)
+                    SetStage(job, stage, lo, hi);
+            });
             var loaded = _services.GraphLoader.LoadGraphDataAsync(db, progress).GetAwaiter().GetResult();
             if (loaded.Nodes == null)
                 throw new InvalidOperationException(Msg(
                     db + " 캐시를 읽지 못했습니다. Admin 캐시 갱신 여부를 확인하세요.",
                     "未能读取 " + db + " 缓存。请确认 Admin 是否已更新缓存。"));
 
+            SetStage(job, CacheLoadStages.UtMapping, lo, hi);
             var utMaps = _services.GraphLoader.LoadUtMapping();
             var nodes = loaded.Nodes;
             var pocs = loaded.Pocs;
@@ -408,6 +543,31 @@ namespace PocTrace.Web
             _loadedDb = db;
             _loadedSavedAt = savedAt;
             Log.Information("[Web] cache loaded {Db} savedAt={SavedAt:yyyy-MM-dd HH:mm} v{Version}", db, savedAt, version);
+        }
+
+        private void SetPhase(JobRecord job, string stage, int percent, int creepTo, string message)
+        {
+            lock (_gate)
+            {
+                job.Stage = stage;
+                job.Percent = Math.Max(job.Percent, Math.Min(99, percent));
+                job.CreepTo = Math.Min(99, Math.Max(job.Percent, creepTo));
+                job.Message = message;
+            }
+        }
+
+        private void SetStage(JobRecord job, CacheLoadStages.Stage stage, int lo, int hi)
+        {
+            int percent = CacheLoadStages.Scale(stage.Percent, lo, hi);
+            lock (_gate)
+            {
+                if (percent < job.Percent && job.Stage != null && job.Stage.StartsWith("cache:", StringComparison.Ordinal))
+                    percent = job.Percent;
+                job.Percent = Math.Max(1, Math.Min(99, percent));
+                job.Stage = "cache:" + stage.Key;
+                job.CreepTo = Math.Min(99, job.Percent + Math.Max(2, (hi - lo) / 12));
+                job.Message = Msg(stage.Ko, stage.Zh);
+            }
         }
 
         private void RunCacheLoad(JobRecord job)
@@ -538,6 +698,12 @@ namespace PocTrace.Web
                     title = job.Title,
                     state = job.State,
                     percent = job.Percent,
+                    creepTo = job.CreepTo,
+                    stage = job.Stage,
+                    itemsDone = job.ItemsDone,
+                    itemsTotal = job.ItemsTotal,
+                    currentItem = job.CurrentItem,
+                    runSeconds = Math.Round(((job.EndedUtc ?? DateTime.UtcNow) - job.CreatedUtc).TotalSeconds, 1),
                     message = job.Message,
                     error = job.Error,
                     resultCount = job.ResultCount,
@@ -602,7 +768,7 @@ namespace PocTrace.Web
             var kind = ParseNozzleKind(keyKind);
             var keys = SplitTags(text);
             if (keys.Count == 0)
-                throw new PortalInputException(Msg("노즐 키를 입력하세요.", "请输入喷嘴键。"));
+                throw new PortalInputException(Msg("노즐 키를 입력하세요.", "请输入 Nozzle Key。"));
             if (keys.Count > MaxBatchTags)
                 throw new PortalInputException(Msg(
                     "한 번에 " + MaxBatchTags + "개까지입니다.",
@@ -755,9 +921,9 @@ namespace PocTrace.Web
                 });
                 var result = new NozzleTraceJob().RunAsync(rows, progress, token).GetAwaiter().GetResult();
                 if (result == null)
-                    throw new InvalidOperationException(Msg("노즐 추적 결과가 없습니다.", "没有喷嘴追踪结果。"));
+                    throw new InvalidOperationException(Msg("노즐 추적 결과가 없습니다.", "没有 Nozzle Trace 结果。"));
                 if (!result.Success && string.IsNullOrEmpty(result.OutputExcelPath))
-                    throw new InvalidOperationException(result.ErrorMessage ?? Msg("노즐 추적 실패", "喷嘴追踪失败"));
+                    throw new InvalidOperationException(result.ErrorMessage ?? Msg("노즐 추적 실패", "Nozzle Trace 失败"));
 
                 string excel = result.OutputExcelPath;
                 if (!string.IsNullOrEmpty(excel) && File.Exists(excel))
@@ -780,8 +946,8 @@ namespace PocTrace.Web
                     job.Message = result.Success
                         ? Msg(
                             "노즐 추적 완료. 경로 " + result.TracePathCount + "건",
-                            "喷嘴追踪完成。路径 " + result.TracePathCount + " 条")
-                        : (result.ErrorMessage ?? Msg("노즐 추적 실패", "喷嘴追踪失败"));
+                            "Nozzle Trace 完成。路径 " + result.TracePathCount + " 条")
+                        : (result.ErrorMessage ?? Msg("노즐 추적 실패", "Nozzle Trace 失败"));
                     job.Error = result.Success ? null : job.Message;
                 }
                 if (result.Success)
@@ -1296,8 +1462,24 @@ namespace PocTrace.Web
         public string Kind { get; set; }
         public string Db { get; set; }
         public string Title { get; set; }
-        public string State { get; set; }
+        private string _state;
+        public string State
+        {
+            get { return _state; }
+            set
+            {
+                _state = value;
+                if (value != "running" && EndedUtc == null)
+                    EndedUtc = DateTime.UtcNow;
+            }
+        }
+        public DateTime? EndedUtc { get; set; }
         public int Percent { get; set; }
+        public int CreepTo { get; set; }
+        public string Stage { get; set; }
+        public int ItemsDone { get; set; }
+        public int ItemsTotal { get; set; }
+        public string CurrentItem { get; set; }
         public string Message { get; set; }
         public string Error { get; set; }
         public int ResultCount { get; set; }

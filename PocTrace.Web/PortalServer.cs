@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -142,7 +143,7 @@ namespace PocTrace.Web
                     {
                         WriteJson(context, 403, Err(
                             "철거검수와 노즐추적은 2차 권한에서 사용할 수 없습니다.",
-                            "拆除检验和喷嘴追踪不能在二次权限下使用。"));
+                            "拆除检验和 Nozzle Trace 不能在二次权限下使用。"));
                         return;
                     }
                 }
@@ -169,7 +170,29 @@ namespace PocTrace.Web
 
                 if (method == "GET" && path == "/api/history")
                 {
-                    WriteJson(context, 200, _portal.GetHistory());
+                    WriteJson(context, 200, _portal.GetHistory(ParseHistoryQuery(context.Request)));
+                    return;
+                }
+
+                if (method == "GET" && path == "/api/history/excel")
+                {
+                    bool zh = string.Equals(context.Request.QueryString["lang"], "zh", StringComparison.OrdinalIgnoreCase);
+                    byte[] book = _portal.BuildHistoryExcel(ParseHistoryQuery(context.Request), zh);
+                    WriteBytes(
+                        context,
+                        book,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "PocTrace_history_" + DateTime.Now.ToString("yyyyMMdd_HHmm") + ".xlsx");
+                    return;
+                }
+
+                if (method == "POST" && path == "/api/batches/preview")
+                {
+                    if (!IsMultipart(context.Request))
+                        throw new PortalInputException(DemolitionUiText.Kz("Excel 파일을 올려 주세요.", "请上传 Excel 文件。"));
+                    string uploadName;
+                    byte[] upload = ReadUpload(context.Request, out uploadName);
+                    WriteJson(context, 200, _portal.PreviewBatchUpload(upload, uploadName));
                     return;
                 }
 
@@ -321,6 +344,35 @@ namespace PocTrace.Web
             {
                 WriteRaw(context, 500, "{\"error\":" + Quote(ex.Message) + "}");
             }
+        }
+
+        private static HistoryQuery ParseHistoryQuery(HttpListenerRequest request)
+        {
+            var query = new HistoryQuery();
+            var args = request.QueryString;
+            query.User = (args["user"] ?? "").Trim();
+            query.Method = (args["method"] ?? "").Trim();
+            query.Line = (args["line"] ?? "").Trim();
+            query.Text = (args["q"] ?? "").Trim();
+
+            DateTime from;
+            if (DateTime.TryParseExact(args["from"] ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out from))
+                query.FromUtc = DateTime.SpecifyKind(from.Date, DateTimeKind.Local).ToUniversalTime();
+            DateTime to;
+            if (DateTime.TryParseExact(args["to"] ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out to))
+                query.ToUtc = DateTime.SpecifyKind(to.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Local).ToUniversalTime();
+            return query;
+        }
+
+        private static void WriteBytes(HttpListenerContext context, byte[] bytes, string contentType, string downloadName)
+        {
+            context.Response.StatusCode = 200;
+            context.Response.ContentType = contentType;
+            context.Response.ContentLength64 = bytes.Length;
+            if (!string.IsNullOrEmpty(downloadName))
+                context.Response.AddHeader("Content-Disposition", "attachment; filename=\"" + downloadName + "\"");
+            context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            context.Response.OutputStream.Close();
         }
 
         private static object Err(string korean, string chinese)

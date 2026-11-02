@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
-using System.Linq;
 using Newtonsoft.Json;
 
 namespace PocTrace.Web
@@ -36,79 +34,23 @@ namespace PocTrace.Web
             }
         }
 
-        public static void Append(string userName, string method, string line, IEnumerable<string> targets)
+        public static void Append(HistoryEntry entry)
         {
-            var clean = new List<string>();
-            if (targets != null)
-            {
-                foreach (string target in targets)
-                {
-                    if (string.IsNullOrWhiteSpace(target))
-                        continue;
-                    string trimmed = target.Trim();
-                    bool exists = false;
-                    for (int i = 0; i < clean.Count; i++)
-                    {
-                        if (string.Equals(clean[i], trimmed, StringComparison.OrdinalIgnoreCase))
-                        {
-                            exists = true;
-                            break;
-                        }
-                    }
-                    if (!exists)
-                        clean.Add(trimmed);
-                }
-            }
-
             lock (Gate)
             {
                 List<HistoryEntry> list = LoadHistory();
                 DateTime cutoff = DateTime.UtcNow.AddDays(-40);
-                list.RemoveAll(item => ParseUtc(item.At) < cutoff);
-                list.Add(new HistoryEntry
-                {
-                    At = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
-                    UserName = userName ?? "",
-                    Method = method ?? "",
-                    Line = line ?? "",
-                    Targets = clean
-                });
+                list.RemoveAll(item => SharedHistoryStore.ParseUtc(item.At) < cutoff);
+                list.Add(entry);
                 File.WriteAllText(HistoryPath(), JsonConvert.SerializeObject(list));
             }
         }
 
-        public static object Recent(string currentUser)
+        public static List<HistoryEntry> LoadAll()
         {
             lock (Gate)
             {
-                List<HistoryEntry> list = LoadHistory();
-                DateTime cutoff = DateTime.UtcNow.AddDays(-31);
-                var rows = new List<object>();
-                foreach (HistoryEntry entry in list.OrderByDescending(item => ParseUtc(item.At)))
-                {
-                    if (ParseUtc(entry.At) < cutoff)
-                        continue;
-                    var targets = entry.Targets == null || entry.Targets.Count == 0
-                        ? new List<string> { "" }
-                        : entry.Targets;
-                    foreach (string target in targets)
-                    {
-                        rows.Add(new
-                        {
-                            at = entry.At,
-                            userName = string.IsNullOrWhiteSpace(entry.UserName) ? (currentUser ?? "") : entry.UserName,
-                            method = entry.Method ?? "",
-                            line = entry.Line ?? "",
-                            target = target ?? ""
-                        });
-                    }
-                }
-                return new
-                {
-                    days = 31,
-                    userName = currentUser ?? "",
-                    rows
-                };
+                return LoadHistory();
             }
         }
 
@@ -158,18 +100,6 @@ namespace PocTrace.Web
             }
         }
 
-        private static DateTime ParseUtc(string value)
-        {
-            DateTime parsed;
-            if (DateTime.TryParse(
-                value,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-                out parsed))
-                return parsed.ToUniversalTime();
-            return DateTime.MinValue;
-        }
-
         private sealed class PrefsFile
         {
             public string Lang { get; set; }
@@ -180,15 +110,6 @@ namespace PocTrace.Web
                 Lang = "ko";
                 Theme = "light";
             }
-        }
-
-        private sealed class HistoryEntry
-        {
-            public string At { get; set; }
-            public string UserName { get; set; }
-            public string Method { get; set; }
-            public string Line { get; set; }
-            public List<string> Targets { get; set; }
         }
     }
 }
