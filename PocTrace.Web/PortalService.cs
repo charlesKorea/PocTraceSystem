@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -427,6 +428,7 @@ namespace PocTrace.Web
             var summaries = new List<EquipmentTraceSummary>();
             var issues = new List<TraceIssueView>();
             bool truncated = false;
+            int savedFiles = 0;
             try
             {
                 var token = TokenOf(job);
@@ -457,6 +459,7 @@ namespace PocTrace.Web
                         if (results == null || results.Count == 0)
                         {
                             Log.Warning("[WebBatch] 결과 없음: {Tag}", tag);
+                            job.Warnings.Add(tag + ": " + Msg("결과가 없어 개별 파일을 만들지 않았습니다.", "没有结果，未生成单独文件。"));
                         }
                         else
                         {
@@ -468,9 +471,10 @@ namespace PocTrace.Web
                                 + "_" + (first == null ? 0 : first.EquipmentCount)
                                 + "_" + (first == null ? 0 : first.TotalPocCount));
                             _services.ExcelReport.SaveSingleFileReport(
-                                Path.Combine(outputDir, name + ".xlsx"),
+                                Path.Combine(outputDir, UniqueFileName(outputDir, name, ".xlsx")),
                                 results,
                                 _services.CacheManager);
+                            savedFiles++;
                         }
                     }
                     catch (Exception ex) when (IsCancelled(ex))
@@ -499,6 +503,13 @@ namespace PocTrace.Web
                     _services.ExcelReport.SaveBatchSummaryReport(summaryPath, summaries);
                 }
 
+                string zipPath = null;
+                if (summaryPath != null)
+                {
+                    SetPhase(job, "summary", 98, 99, Msg("ZIP 묶는 중", "正在打包 ZIP"));
+                    zipPath = ZipOutputFolder(outputDir, job.Db);
+                }
+
                 lock (_gate)
                 {
                     job.Summaries = summaries.OrderBy(s => s.EquipmentTag).ToList();
@@ -507,13 +518,14 @@ namespace PocTrace.Web
                     if (truncated)
                         job.Warnings.Add(IssueCapWarning());
                     job.ExcelPath = summaryPath;
+                    job.ZipPath = zipPath;
                     job.OutputDirectory = outputDir;
                     job.ResultCount = summaries.Count;
                     job.Percent = 100;
                     job.State = "done";
                     job.Message = Msg(
-                        "배치 완료. 요약 " + summaries.Count + "건",
-                        "批量完成。摘要 " + summaries.Count + " 项");
+                        "배치 완료. 개별 파일 " + savedFiles + "개 + Summary 1개 (ZIP으로 받기)",
+                        "批量完成。单独文件 " + savedFiles + " 个 + Summary 1 个（可下载 ZIP）");
                 }
                 RememberInspection("batch", job.Db, tags);
             }
@@ -753,6 +765,7 @@ namespace PocTrace.Web
                     error = job.Error,
                     resultCount = job.ResultCount,
                     excelReady = !string.IsNullOrEmpty(job.ExcelPath) && File.Exists(job.ExcelPath),
+                    zipReady = !string.IsNullOrEmpty(job.ZipPath) && File.Exists(job.ZipPath),
                     htmlReady = !string.IsNullOrEmpty(job.HtmlPath) && File.Exists(job.HtmlPath),
                     outputDirectory = job.OutputDirectory,
                     warnings = job.Warnings.ToList(),
@@ -1317,6 +1330,29 @@ namespace PocTrace.Web
                 _jobs.Remove(id);
         }
 
+        private static string UniqueFileName(string dir, string name, string ext)
+        {
+            string candidate = name + ext;
+            int n = 2;
+            while (File.Exists(Path.Combine(dir, candidate)))
+                candidate = name + "_" + (n++) + ext;
+            return candidate;
+        }
+
+        private static string ZipOutputFolder(string dir, string db)
+        {
+            string[] files = Directory.GetFiles(dir, "*.xlsx");
+            if (files.Length == 0)
+                return null;
+            string zipPath = Path.Combine(dir, SafeFile(db + "_batch_" + DateTime.Now.ToString("yyyyMMdd_HHmmss")) + ".zip");
+            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                foreach (string file in files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                    zip.CreateEntryFromFile(file, Path.GetFileName(file), CompressionLevel.Fastest);
+            }
+            return zipPath;
+        }
+
         private static string JobDirectory(JobRecord job)
         {
             string path = Path.Combine(WorkRoot, "jobs", job.Id);
@@ -1529,6 +1565,7 @@ namespace PocTrace.Web
         public string Error { get; set; }
         public int ResultCount { get; set; }
         public string ExcelPath { get; set; }
+        public string ZipPath { get; set; }
         public string HtmlPath { get; set; }
         public string OutputDirectory { get; set; }
         public DateTime CreatedUtc { get; set; }

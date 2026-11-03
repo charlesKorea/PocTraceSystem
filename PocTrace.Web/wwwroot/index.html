@@ -221,6 +221,7 @@
       <p class="hint" id="resultHint"></p>
       <div class="actions">
         <a id="excel" class="primary" href="#" hidden data-i18n="excel">Excel 받기</a>
+        <a id="excelZip" class="primary" href="#" hidden data-i18n="excelZip">전체 ZIP 받기</a>
       </div>
       <table id="traceTable">
         <thead>
@@ -300,6 +301,7 @@
         batchPh: "줄바꿈, 쉼표, 공백으로 구분",
         batchBtn: "배치 Trace",
         excel: "Excel 받기",
+        excelZip: "전체 ZIP 받기 (개별 + Summary)",
         hEq: "설비",
         hRes: "검수결과",
         hBranch: "분기",
@@ -434,6 +436,7 @@
         batchPh: "可用换行、逗号或空格分隔",
         batchBtn: "Batch Trace",
         excel: "下载 Excel",
+        excelZip: "下载全部 ZIP（单独 + Summary）",
         hEq: "设备",
         hRes: "检验结果",
         hBranch: "分支",
@@ -562,7 +565,7 @@
             <li><b>Excel에서 불러오기</b>로 파일(xlsx, xlsm)을 고르면 입력칸에 EQPID가 채워집니다. 중복과 빈 칸은 빠집니다.</li>
             <li>내용을 확인하고 <b>배치 Trace</b>를 누릅니다. 진행 표시에 Tag n/m 과 현재 Tag가 나옵니다.</li>
           </ol>
-          <p class="tip">결과는 Tag마다 Excel 한 개와 Summary.xlsx 한 개로 저장되고, Summary.xlsx를 화면에서 받을 수 있습니다.</p>` },
+          <p class="tip">결과는 Tag마다 Excel 한 개와 Summary.xlsx 한 개로 저장됩니다. <b>전체 ZIP 받기</b>로 개별 파일 전부와 Summary.xlsx를 한 번에 받고, <b>Excel 받기</b>는 Summary.xlsx만 받습니다.</p>` },
         { id: "demolition", title: "철거검수", html: `
           <h3>철거검수</h3>
           <ol>
@@ -627,7 +630,7 @@
             <li>点击<b>从 Excel 导入</b>选择文件（xlsx、xlsm），EQPID 会填入输入框。重复和空白会被排除。</li>
             <li>确认内容后点击 <b>Batch Trace</b>。进度中会显示 Tag n/m 和当前 Tag。</li>
           </ol>
-          <p class="tip">结果为每个 Tag 一个 Excel 加一个 Summary.xlsx，可在画面上下载 Summary.xlsx。</p>` },
+          <p class="tip">结果为每个 Tag 一个 Excel 加一个 Summary.xlsx。点击<b>下载全部 ZIP</b>可一次下载所有单独文件和 Summary.xlsx，<b>下载 Excel</b>仅下载 Summary.xlsx。</p>` },
         { id: "demolition", title: "拆除检验", html: `
           <h3>拆除检验</h3>
           <ol>
@@ -868,6 +871,7 @@
       lastJob = null;
       $("jobCard").hidden = true;
       $("excel").hidden = true;
+      $("excelZip").hidden = true;
     }
 
     /* 검수 방식 탭을 바꾸면 이전 작업의 진행 표시를 지운다. 캐시 불러오기 표시와 진행 중인 작업은 건드리지 않는다. */
@@ -1421,6 +1425,13 @@
       } else {
         link.hidden = true;
       }
+      var zipLink = $("excelZip");
+      if (job.kind === "batch" && job.zipReady) {
+        zipLink.hidden = false;
+        zipLink.href = "/api/jobs/" + encodeURIComponent(job.id) + "/zip";
+      } else {
+        zipLink.hidden = true;
+      }
       syncInputs();
     }
     setInterval(paintJobFacts, 1000);
@@ -1489,6 +1500,7 @@
       $("rows").innerHTML = "";
       $("nozzleRows").innerHTML = "";
       $("excel").hidden = true;
+      $("excelZip").hidden = true;
       $("resultHint").textContent = "";
       $("kpiRows").textContent = "0";
       $("status").textContent = t("requestSent");

@@ -328,10 +328,12 @@ namespace PocTrace.Web
                     string rest = path.Substring("/api/jobs/".Length);
                     bool excel = rest.EndsWith("/excel", StringComparison.OrdinalIgnoreCase);
                     bool html = rest.EndsWith("/html", StringComparison.OrdinalIgnoreCase);
+                    bool zip = rest.EndsWith("/zip", StringComparison.OrdinalIgnoreCase);
                     bool cancel = rest.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase);
                     string id = rest;
                     if (excel) id = rest.Substring(0, rest.Length - "/excel".Length);
                     else if (html) id = rest.Substring(0, rest.Length - "/html".Length);
+                    else if (zip) id = rest.Substring(0, rest.Length - "/zip".Length);
                     else if (cancel) id = rest.Substring(0, rest.Length - "/cancel".Length);
 
                     if (method == "POST" && cancel)
@@ -369,6 +371,18 @@ namespace PocTrace.Web
 
                         WriteFile(context, job.ExcelPath, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             Path.GetFileName(job.ExcelPath));
+                        return;
+                    }
+
+                    if (zip)
+                    {
+                        if (string.IsNullOrEmpty(job.ZipPath) || !File.Exists(job.ZipPath))
+                        {
+                            WriteJson(context, 404, Err("ZIP 파일이 아직 없습니다.", "ZIP 文件还不存在。"));
+                            return;
+                        }
+
+                        WriteFile(context, job.ZipPath, "application/zip", Path.GetFileName(job.ZipPath));
                         return;
                     }
 
