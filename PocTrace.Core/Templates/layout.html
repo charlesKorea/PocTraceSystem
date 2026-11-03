@@ -6,11 +6,83 @@
     <title>{{TITLE}}</title>
     <script>
         (function () {
+            var LANGS = { ko: 1, en: 1, zh: 1 };
             var theme = 'light';
-            try { theme = localStorage.getItem('poc_theme') || 'light'; } catch (e) {}
-            if (theme !== 'dark') theme = 'light';
+            var lang = 'ko';
+            var storageOk = false;
+            function readStore(key) {
+                try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+            }
+            function writeStore(key, value) {
+                try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+            }
+            function queryMap() {
+                var map = {};
+                var raw = (location.search || '').replace(/^\?/, '');
+                if (!raw) return map;
+                raw.split('&').forEach(function (pair) {
+                    if (!pair) return;
+                    var cut = pair.indexOf('=');
+                    var key = decodeURIComponent(cut < 0 ? pair : pair.slice(0, cut));
+                    var value = decodeURIComponent(cut < 0 ? '' : pair.slice(cut + 1).replace(/\+/g, ' '));
+                    map[key] = value;
+                });
+                return map;
+            }
+            var query = queryMap();
+            if (LANGS[query.lang]) lang = query.lang;
+            else if (LANGS[readStore('poc_lang')]) lang = readStore('poc_lang');
+            if (query.theme === 'dark' || query.theme === 'light') theme = query.theme;
+            else if (readStore('poc_theme') === 'dark') theme = 'dark';
+            storageOk = writeStore('poc_lang', lang) && writeStore('poc_theme', theme);
+            if (storageOk) {
+                try {
+                    if (localStorage.getItem('poc_lang') !== lang || localStorage.getItem('poc_theme') !== theme) storageOk = false;
+                } catch (e) { storageOk = false; }
+            }
+            if (storageOk && (query.lang || query.theme)) {
+                try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+            }
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : (lang === 'en' ? 'en' : 'ko');
+            document.documentElement.setAttribute('data-lang', lang);
             document.documentElement.setAttribute('data-theme', theme);
             document.documentElement.setAttribute('data-bs-theme', theme);
+            window.PocTracePrefs = {
+                storageOk: storageOk,
+                getLang: function () { return lang; },
+                getTheme: function () { return theme; },
+                setLang: function (next) { if (LANGS[next]) lang = next; },
+                setTheme: function (next) { theme = next === 'dark' ? 'dark' : 'light'; },
+                href: function (url) {
+                    if (storageOk || !url) return url;
+                    if (/^(https?:|mailto:|data:|blob:|javascript:)/i.test(url)) return url;
+                    if (/\.(xlsx|xls|csv|json|js)(\?|#|$)/i.test(url)) return url;
+                    var hash = '';
+                    var base = url;
+                    var hashAt = url.indexOf('#');
+                    if (hashAt >= 0) { hash = url.slice(hashAt); base = url.slice(0, hashAt); }
+                    var queryAt = base.indexOf('?');
+                    var path = queryAt >= 0 ? base.slice(0, queryAt) : base;
+                    var params = [];
+                    if (queryAt >= 0) {
+                        base.slice(queryAt + 1).split('&').forEach(function (pair) {
+                            if (!pair || pair.indexOf('lang=') === 0 || pair.indexOf('theme=') === 0) return;
+                            params.push(pair);
+                        });
+                    }
+                    params.push('lang=' + encodeURIComponent(lang));
+                    params.push('theme=' + encodeURIComponent(theme));
+                    return path + '?' + params.join('&') + hash;
+                },
+                commit: function () {
+                    storageOk = writeStore('poc_lang', lang) && writeStore('poc_theme', theme);
+                    window.PocTracePrefs.storageOk = storageOk;
+                    if (storageOk) { location.reload(); return; }
+                    var path = location.pathname || '';
+                    if (!path) path = String(location.href || '').split('#')[0].split('?')[0];
+                    location.href = path + '?lang=' + encodeURIComponent(lang) + '&theme=' + encodeURIComponent(theme) + (location.hash || '');
+                }
+            };
         })();
     </script>
 
@@ -50,6 +122,12 @@
                     <option value="ko" selected>한국어</option>
                     <option value="zh">中文</option>
                 </select>
+                <script>
+                    (function () {
+                        var sel = document.getElementById('lang-selector');
+                        if (sel && window.PocTracePrefs) sel.value = window.PocTracePrefs.getLang();
+                    })();
+                </script>
                 <span class="meta-date" id="meta-date"></span>
             </div>
         </header>

@@ -212,7 +212,12 @@ PT.mountCommandBar = function() {
         const item = items[idx];
         if (!item) return;
         closeBar();
-        if (item.href) window.location.href = item.href;
+        if (item.href) {
+            const href = (window.PocTracePrefs && typeof PocTracePrefs.href === 'function')
+                ? PocTracePrefs.href(item.href)
+                : item.href;
+            window.location.href = href;
+        }
         else if (typeof item.run === 'function') item.run();
     }
 

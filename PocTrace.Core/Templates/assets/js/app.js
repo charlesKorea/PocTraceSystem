@@ -20,7 +20,9 @@ const formatNum = (n) => n ? n.toLocaleString() : '0';
 $(document).ready(function () {
     console.log("PocTrace App V2.3 Started.");
     // 1. Language Init
-    const savedLang = localStorage.getItem('poc_lang') || 'ko';
+    const savedLang = (window.PocTracePrefs && typeof PocTracePrefs.getLang === 'function')
+        ? PocTracePrefs.getLang()
+        : 'ko';
     $('#lang-selector').val(savedLang);
     // lang.js가 window에 등록한 함수 사용
     if (typeof window.applyLanguage === 'function') {
@@ -31,12 +33,23 @@ $(document).ready(function () {
     $('#theme-toggle').attr('aria-pressed', themeDark ? 'true' : 'false');
     $('#theme-toggle').on('click', function () {
         const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('poc_theme', next);
+        if (window.PocTracePrefs) {
+            PocTracePrefs.setTheme(next);
+            PocTracePrefs.commit();
+            return;
+        }
+        try { localStorage.setItem('poc_theme', next); } catch (e) {}
         location.reload();
     });
 
     $('#lang-selector').on('change', function() {
-        localStorage.setItem('poc_lang', $(this).val());
+        const next = $(this).val();
+        if (window.PocTracePrefs) {
+            PocTracePrefs.setLang(next);
+            PocTracePrefs.commit();
+            return;
+        }
+        try { localStorage.setItem('poc_lang', next); } catch (e) {}
         location.reload();
     });
 
@@ -60,6 +73,13 @@ $(document).ready(function () {
     }
 
     if (typeof PT.rebuildLineNav === 'function') PT.rebuildLineNav();
+    if (window.PocTracePrefs && !PocTracePrefs.storageOk && typeof PocTracePrefs.href === 'function') {
+        $('a[href]').each(function () {
+            const href = $(this).attr('href');
+            const next = PocTracePrefs.href(href);
+            if (next && next !== href) $(this).attr('href', next);
+        });
+    }
     if (typeof PT.mountCommandBar === 'function') PT.mountCommandBar();
     applyNavAlias();
 

@@ -17,6 +17,8 @@ namespace PocTrace.Web
             lock (Gate)
             {
                 PrefsFile file = LoadPrefs();
+                if (file == null)
+                    return new { lang = (string)null, theme = (string)null };
                 return new { lang = file.Lang, theme = file.Theme };
             }
         }
@@ -90,10 +92,10 @@ namespace PocTrace.Web
             try
             {
                 if (!File.Exists(PrefsPath()))
-                    return new PrefsFile();
+                    return null;
                 PrefsFile file = JsonConvert.DeserializeObject<PrefsFile>(File.ReadAllText(PrefsPath()));
                 if (file == null)
-                    return new PrefsFile();
+                    return null;
                 if (file.Lang != "zh")
                     file.Lang = "ko";
                 if (file.Theme != "dark")
@@ -102,7 +104,7 @@ namespace PocTrace.Web
             }
             catch
             {
-                return new PrefsFile();
+                return null;
             }
         }
 

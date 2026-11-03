@@ -417,7 +417,14 @@ const TRANSLATIONS = {
 
 // 현재 언어 가져오기 Helper
 function getLang() {
-    return localStorage.getItem('poc_lang') || 'ko';
+    if (window.PocTracePrefs && typeof window.PocTracePrefs.getLang === 'function') {
+        return window.PocTracePrefs.getLang();
+    }
+    try {
+        var saved = localStorage.getItem('poc_lang');
+        if (saved === 'en' || saved === 'zh' || saved === 'ko') return saved;
+    } catch (e) { /* 이 브라우저가 파일 페이지 저장을 막으면 주소의 lang 을 쓴다 */ }
+    return 'ko';
 }
 
 // 텍스트 반환 Helper (JS 템플릿 리터럴용)
