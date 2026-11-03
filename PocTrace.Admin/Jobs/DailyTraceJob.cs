@@ -698,8 +698,6 @@ namespace PocTrace.Admin.Jobs
                         HookupPass = hookupOK,
                         HookupPassRate = Math.Round(hookupPassRate, 1),
                         AvgPassRate = Math.Round(avgPassRate, 1),
-                        HookupPassRate = Math.Round(hookupPassRate, 1),
-                        HookupTotal = reportDto.HookupStats?.TotalObjects ?? 0,
                         CheckRulesCount = checkRulesCount
                     });
 
