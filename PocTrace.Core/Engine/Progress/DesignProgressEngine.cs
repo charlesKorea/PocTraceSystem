@@ -23,7 +23,8 @@ namespace PocTrace.Core.Engine.Progress
       IGraphCache cache,
       IList<TraceResult> pathResults,
       DesignProgressOptions options = null,
-      IFrmEquipmentMaster frmMaster = null)
+      IFrmEquipmentMaster frmMaster = null,
+      IPipeDesignDateSource pipeDateSource = null)
     {
       options = options ?? DesignProgressOptionsFactory.FromGlobalConfig();
       if (!options.Enabled)
@@ -51,8 +52,15 @@ namespace PocTrace.Core.Engine.Progress
       }
 
       // FRM ModelKey로 MainName 보강 (비어 있을 때)
+      // 최근 설계일은 배관 길이가 바뀐 기록 기준. 이력을 못 읽으면 Pipe.OpTime으로 대신한다.
+      pipeDateSource = pipeDateSource ?? PipeDesignDateRepository.CreateFromConfig(_log);
+      var pipeIds = DesignFootprintBuilder.CollectPipeIds(pathResults);
+      var pipeDates = pipeIds.Count > 0 ? pipeDateSource.Load(dbName, pipeIds) : null;
+      if (pipeDates == null && pipeIds.Count > 0)
+        _log.Information("[DesignProgress] {Db}: 길이 변경 이력 없음 — Pipe.OpTime 기준", dbName);
+
       var builder = new DesignFootprintBuilder(cache);
-      var footprints = builder.Build(pathResults);
+      var footprints = builder.Build(pathResults, pipeDates);
       foreach (var fp in footprints)
       {
         if (string.IsNullOrWhiteSpace(fp.MainName) && frmByTag.TryGetValue(fp.Tag, out var frm)

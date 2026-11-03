@@ -557,6 +557,8 @@ namespace PocTrace.Admin.Jobs
                         IssuePocCount = allResults.Sum(r => r.IssueList.Count),
                         HookupErrorCount = hookupErrorCount,
                         AvgPassRate = Math.Round(avgPassRate, 1),
+                        HookupPassRate = Math.Round(hookupPassRate, 1),
+                        HookupTotal = reportDto.HookupStats?.TotalObjects ?? 0,
                         CheckRulesCount = checkRulesCount
                     };
 
@@ -696,6 +698,8 @@ namespace PocTrace.Admin.Jobs
                         HookupPass = hookupOK,
                         HookupPassRate = Math.Round(hookupPassRate, 1),
                         AvgPassRate = Math.Round(avgPassRate, 1),
+                        HookupPassRate = Math.Round(hookupPassRate, 1),
+                        HookupTotal = reportDto.HookupStats?.TotalObjects ?? 0,
                         CheckRulesCount = checkRulesCount
                     });
 
@@ -967,6 +971,10 @@ namespace PocTrace.Admin.Jobs
         // [신규] Hookup 관련
         public int HookupErrorCount { get; set; }
         public double AvgPassRate { get; set; }
+        /// <summary>H/U(Hookup) Pass Rate(%). 구버전 History에는 없으므로 null 허용.</summary>
+        public double? HookupPassRate { get; set; }
+        /// <summary>H/U 검수 대상 수. 0이면 그래프에서 H/U 선을 그리지 않는다.</summary>
+        public int? HookupTotal { get; set; }
         /// <summary>등록된 Check Rules(IValidationRule) 수량.</summary>
         public int CheckRulesCount { get; set; }
     }

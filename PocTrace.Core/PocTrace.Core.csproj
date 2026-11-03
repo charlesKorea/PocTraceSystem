@@ -149,6 +149,7 @@
     <Compile Include="Engine\Progress\DesignProgressModels.cs" />
     <Compile Include="Engine\Progress\IFrmEquipmentMaster.cs" />
     <Compile Include="Engine\Progress\FrmEquipmentMasterRepository.cs" />
+    <Compile Include="Engine\Progress\PipeDesignDateSource.cs" />
     <Compile Include="Engine\Progress\DesignFootprintBuilder.cs" />
     <Compile Include="Engine\Progress\DesignCohortService.cs" />
     <Compile Include="Engine\Progress\DesignProgressCalculator.cs" />

@@ -21,7 +21,7 @@
 | 5 | Utility 버튼 삭제, Tag 클릭 펼침 + 복귀 | Tag 링크 → 패널 스크롤, `표로 돌아가기` |
 | 6 | N 의미 | VOC 패널 + 열 툴팁 (`CohortN`) |
 | 7 | No · 공정 열 | `_rowNo`, `Process` |
-| 8 | 최근설계일 · `-` · 기본 내림차순 | Pipe OpTime max; 없으면 `-`; `order: LastDesign desc` |
+| 8 | 최근설계일 · `-` · 기본 내림차순 | 배관(Pipe) Length가 마지막으로 바뀐 날(S5D PipeLog 기준, 조회 불가 시 OpTime max); 없으면 `-`; `order: LastDesign desc`; 한 페이지 10행 |
 | 9 | 설계시작일 · 설계진행일 | Pipe OpTime min; `DesignDays = Last − First` |
 | 10 | UX v4: 설계기간 한 열 · 진행% 미니바 · sticky 표 | `poc-progress.js` + `style.css` |
 

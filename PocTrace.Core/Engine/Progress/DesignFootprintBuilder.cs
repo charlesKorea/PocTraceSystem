@@ -8,7 +8,8 @@ namespace PocTrace.Core.Engine.Progress
 {
   /// <summary>
   /// Trace pathResults Steps에서 설비별 Pipe/Fitting union footprint 구축.
-  /// 배관만 OpTime 반영 (설비·노즐 node 무시 — 설계 날짜 정의).
+  /// 배관만 설계 날짜에 반영 (설비·노즐 node 무시). 날짜는 배관 길이가 바뀐 기록 기준(PipeDesignDates),
+  /// 이력을 못 쓰면 Pipe.OpTime.
   /// </summary>
   public sealed class DesignFootprintBuilder
   {
@@ -19,7 +20,31 @@ namespace PocTrace.Core.Engine.Progress
       _cache = cache;
     }
 
-    public List<EquipmentFootprint> Build(IEnumerable<TraceResult> pathResults)
+    /// <summary>Trace 경로에 나온 배관 Guid (설계 날짜 이력 조회용).</summary>
+    public static List<Guid> CollectPipeIds(IEnumerable<TraceResult> pathResults)
+    {
+      var seen = new HashSet<Guid>();
+      if (pathResults == null) return new List<Guid>();
+      foreach (var tr in pathResults)
+      {
+        if (tr?.Steps == null) continue;
+        foreach (var step in tr.Steps)
+        {
+          if (step == null || step.NodeId == Guid.Empty) continue;
+          if (IsPipeStep(step.NodeType ?? string.Empty))
+            seen.Add(step.NodeId);
+        }
+      }
+      return seen.ToList();
+    }
+
+    /// <param name="pipeDates">
+    /// 배관별 설계 날짜(길이가 바뀐 기록 기준). null이면 Pipe.OpTime을 쓴다.
+    /// 값이 있으면 거기 없는 배관은 날짜 없음으로 둔다.
+    /// </param>
+    public List<EquipmentFootprint> Build(
+      IEnumerable<TraceResult> pathResults,
+      IReadOnlyDictionary<Guid, PipeDesignDates> pipeDates = null)
     {
       var list = new List<EquipmentFootprint>();
       if (pathResults == null) return list;
@@ -27,13 +52,16 @@ namespace PocTrace.Core.Engine.Progress
       foreach (var group in pathResults.GroupBy(r => r.StartEquipmentTag ?? string.Empty))
       {
         if (string.IsNullOrWhiteSpace(group.Key)) continue;
-        var fp = BuildOne(group.Key, group.ToList());
+        var fp = BuildOne(group.Key, group.ToList(), pipeDates);
         if (fp != null) list.Add(fp);
       }
       return list;
     }
 
-    private EquipmentFootprint BuildOne(string tag, List<TraceResult> results)
+    private EquipmentFootprint BuildOne(
+      string tag,
+      List<TraceResult> results,
+      IReadOnlyDictionary<Guid, PipeDesignDates> pipeDates)
     {
       var mainTr = results.FirstOrDefault(p =>
           !string.IsNullOrEmpty(p.StartNodeSubDivision1) &&
@@ -76,13 +104,28 @@ namespace PocTrace.Core.Engine.Progress
 
             lastPipeUtil = util;
             totalLen += len;
-            if (op.HasValue)
+
+            DateTime? opFirst = op;
+            DateTime? opLast = op;
+            if (pipeDates != null)
             {
-              if (!firstPipe.HasValue || op.Value < firstPipe.Value)
-                firstPipe = op;
-              if (!lastPipe.HasValue || op.Value > lastPipe.Value)
-                lastPipe = op;
+              PipeDesignDates dates;
+              if (pipeDates.TryGetValue(step.NodeId, out dates) && dates != null)
+              {
+                opFirst = dates.FirstAt;
+                opLast = dates.LastLengthChangeAt;
+              }
+              else
+              {
+                opFirst = null;
+                opLast = null;
+              }
             }
+
+            if (opFirst.HasValue && (!firstPipe.HasValue || opFirst.Value < firstPipe.Value))
+              firstPipe = opFirst;
+            if (opLast.HasValue && (!lastPipe.HasValue || opLast.Value > lastPipe.Value))
+              lastPipe = opLast;
 
             if (!byUt.TryGetValue(util, out var acc))
             {
@@ -90,13 +133,10 @@ namespace PocTrace.Core.Engine.Progress
               byUt[util] = acc;
             }
             acc.Length += len;
-            if (op.HasValue)
-            {
-              if (!acc.First.HasValue || op.Value < acc.First.Value)
-                acc.First = op;
-              if (!acc.Last.HasValue || op.Value > acc.Last.Value)
-                acc.Last = op;
-            }
+            if (opFirst.HasValue && (!acc.First.HasValue || opFirst.Value < acc.First.Value))
+              acc.First = opFirst;
+            if (opLast.HasValue && (!acc.Last.HasValue || opLast.Value > acc.Last.Value))
+              acc.Last = opLast;
           }
           else if (IsFittingStep(nt))
           {
