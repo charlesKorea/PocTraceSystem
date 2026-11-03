@@ -5,45 +5,151 @@ window.PocTrace = window.PocTrace || {};
   const dayjs = window.dayjs;
   const T = window.T;
 
+PT.isDark = function () {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+};
+
+const toNum = function (v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const clampPct = function (v) {
+  return v == null ? null : Math.max(0, Math.min(100, v));
+};
+
+/** 일별 History 한 행에서 POC / H/U / Quality Point(%) 추출. 없으면 null. */
+PT.historyRates = function (row) {
+  const poc = clampPct(toNum(row && row.RatePoc));
+  let qp = clampPct(toNum(row && row.AvgPassRate));
+  if (qp == null) qp = poc;
+
+  let hu = null;
+  const huSaved = toNum(row && row.HookupPassRate);
+  if (huSaved != null && toNum(row && row.HookupTotal) !== 0) {
+    hu = clampPct(huSaved);
+  } else if (toNum(row && row.HookupTotal) === 0) {
+    hu = null;
+  } else if (poc != null && qp != null) {
+    // 구버전 History: Quality Point = (POC + H/U) / 2 에서 역산
+    hu = clampPct(qp * 2 - poc);
+  }
+  return { poc: poc, hu: hu, qp: qp };
+};
+
+/** ISO 8601 주차 키 (예: 2026-W45). dayjs 주차 플러그인에 의존하지 않는다. */
+PT.weekKey = function (dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''));
+  if (!m) return '';
+  const t = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = Date.UTC(t.getUTCFullYear(), 0, 1);
+  const week = Math.ceil(((t.getTime() - yearStart) / 86400000 + 1) / 7);
+  return t.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+};
+
+PT.monthKey = function (dateStr) {
+  const m = /^(\d{4})-(\d{2})/.exec(String(dateStr || ''));
+  return m ? m[1] + '-' + m[2] : '';
+};
+
+/**
+ * 일별 History → day / week / month 단위. 구간 안의 일별 비율은 평균내고 정수(%)로 반올림한다.
+ * 반환: [{ Date, poc, hu, qp }]  (값 없으면 null)
+ */
+PT.aggregateHistory = function (rows, mode) {
+  const sorted = (rows || []).filter(function (r) { return r && r.Date; })
+    .slice().sort(function (a, b) { return String(a.Date).localeCompare(String(b.Date)); });
+  const keyOf = mode === 'week' ? PT.weekKey : (mode === 'month' ? PT.monthKey : function (d) { return String(d).slice(0, 10); });
+  const order = [];
+  const groups = {};
+  sorted.forEach(function (r) {
+    const k = keyOf(r.Date);
+    if (!k) return;
+    if (!groups[k]) { groups[k] = []; order.push(k); }
+    groups[k].push(PT.historyRates(r));
+  });
+  const avg = function (list, field) {
+    const vals = list.map(function (x) { return x[field]; }).filter(function (v) { return v != null; });
+    if (!vals.length) return null;
+    return Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+  };
+  return order.map(function (k) {
+    return { Date: k, poc: avg(groups[k], 'poc'), hu: avg(groups[k], 'hu'), qp: avg(groups[k], 'qp') };
+  });
+};
+
+PT.trendPctAxis = function () {
+  return {
+    type: 'value', max: 100,
+    min: function (v) { return Math.max(0, Math.floor((v.min - 5) / 5) * 5); },
+    axisLabel: { formatter: '{value}%' }
+  };
+};
+
+PT.updateSummaryTrend = function (mode) {
+  mode = mode || 'day';
+  $('#comp-trend-buttons .btn').removeClass('active');
+  $('#comp-trend-buttons .btn[data-mode="' + mode + '"]').addClass('active');
+
+  const historyMap = PT.state.summaryHistory || {};
+  const dom = document.getElementById('compLineChart');
+  if (!dom) return;
+  if (PT.state.compChart) { try { PT.state.compChart.dispose(); } catch (e) { /* ignore */ } }
+  const compChart = echarts.init(dom);
+  PT.state.compChart = compChart;
+  PT.state.charts.push(compChart);
+
+  const dbNames = Object.keys(historyMap);
+  const perLine = {};
+  let allDates = [];
+  dbNames.forEach(function (db) {
+    perLine[db] = PT.aggregateHistory(historyMap[db], mode);
+    allDates = _.union(allDates, perLine[db].map(function (d) { return d.Date; }));
+  });
+  allDates.sort();
+
+  const seriesList = dbNames.map(function (db) {
+    const byDate = {};
+    perLine[db].forEach(function (d) { byDate[d.Date] = d.qp; });
+    return {
+      name: PT.getLineName(db),
+      type: 'line', smooth: true, symbolSize: 8,
+      connectNulls: true,
+      data: allDates.map(function (date) { return byDate[date] != null ? byDate[date] : null; }),
+      label: { show: true, position: 'top', formatter: '{c}%' },
+      labelLayout: { hideOverlap: true }
+    };
+  });
+
+  compChart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: function (v) { return v == null ? '-' : v + '%'; }
+    },
+    legend: { bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: allDates, boundaryGap: false },
+    yAxis: PT.trendPctAxis(),
+    series: seriesList.map(function (s) {
+      return Object.assign({}, s, {
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: s.color || '#0071e3' },
+            { offset: 1, color: (s.color || '#0071e3') + '20' }
+          ])
+        }
+      });
+    })
+  });
+};
+
 PT.initSummaryCharts = function(historyMap) {
-        // 1. Comparative Trend (Line) - [수정] AvgPassRate 사용
-    const compChart = echarts.init(document.getElementById('compLineChart'));
-    PT.state.charts.push(compChart);
-
-    const dbNames = Object.keys(historyMap);
-    // 날짜 집합구하기 (X축)
-    let allDates = [];
-    dbNames.forEach(db => allDates = _.union(allDates, historyMap[db].map(d => d.Date)));
-    allDates.sort();
-
-    // [수정] AvgPassRate (POC% + Hookup% 평균) 사용
-    const seriesList = dbNames.map(db => ({
-        name: PT.getLineName(db),
-        type: 'line', smooth: true, symbolSize: 8,
-        data: allDates.map(date => {
-            const day = historyMap[db].find(d => d.Date === date);
-            // AvgPassRate가 있으면 사용, 없으면 기존 RatePoc
-            return day ? (day.AvgPassRate || day.RatePoc) : null;
-        }),
-        label: { show: true, position: 'top', formatter: '{c}%' }
-    }));
-
-        compChart.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { bottom: 0 },
-        grid: { left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: allDates, boundaryGap: false },
-        yAxis: { type: 'value', max: 100, name: 'Avg Pass Rate (%)' },
-        series: seriesList.map(s => ({
-            ...s,
-            areaStyle: {
-                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                    { offset: 0, color: s.color || '#0071e3' },
-                    { offset: 1, color: (s.color || '#0071e3') + '20' }
-                ])
-            }
-        }))
-    });
+    PT.state.summaryHistory = historyMap || {};
+    PT.updateSummaryTrend('day');
+    const dbNames = Object.keys(historyMap || {});
 
         // 2. Throughput Chart (Bar) - [수정] POC + H/U No, 색상 변경
     const tpChart = echarts.init(document.getElementById('throughputChart'));
@@ -99,6 +205,13 @@ PT.initSummaryCharts = function(historyMap) {
     });
 }
 
+// 파이 차트: 상단 범례와 도넛/바깥 라벨이 겹치지 않도록 범례는 맨 위, 도넛은 아래로 내리고 작게 둔다.
+PT.PIE_RADIUS = ['30%', '50%'];
+PT.PIE_CENTER = ['50%', '60%'];
+PT.pieLegend = function () {
+  return { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 10, textStyle: { fontSize: 11 } };
+};
+
 PT.initDetailCharts = function(dto, history) {
     // ----------------------------
     // A. Error Type Pie (Left)
@@ -127,11 +240,12 @@ PT.initDetailCharts = function(dto, history) {
             PT.state.charts.push(hookupChart);
             hookupChart.setOption({
                 tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-                legend: { top: '5%', left: 'center', type: 'scroll' },
+                legend: PT.pieLegend(),
                 series: [{
-                    type: 'pie', radius: ['40%', '65%'], center: ['50%', '60%'],
+                    type: 'pie', radius: PT.PIE_RADIUS, center: PT.PIE_CENTER, avoidLabelOverlap: true,
                     data: hookupData,
                     label: { show: true, formatter: '{b}\n{c} ({d}%)', fontSize: 10 },
+                    labelLine: { length: 8, length2: 8 },
                     itemStyle: {
                         color: function(params) {
                             const colors = {
@@ -189,80 +303,28 @@ PT.initDetailCharts = function(dto, history) {
             // ----------------------------
     // B. Bar Chart (Process Stats — ProcessStats DTO 직접 사용, 0도 숫자 표기)
     // ----------------------------
-    const procMap = dto.ProcessStats || {};
-    const num = (v) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : 0;
-    };
-    const pct = (pass, fail) => {
-        const t = pass + fail;
-        return t > 0 ? +(100 * pass / t).toFixed(1) : 0;
-    };
-
+    // 공정별 검수 현황: POC 기준 검수 설비 총 수량 / Fail 설비 수량 / Fail Rate
+    const dark = PT.isDark();
     const procStats = {};
-    Object.keys(procMap).forEach(k => {
-        const s = procMap[k] || {};
-        let pocPass = num(s.PassPoc);
-        let pocFail = num(s.FailPoc);
-        let hookupPass = num(s.HookupPass);
-        let hookupFail = num(s.HookupFail);
-        let eqpCount = num(s.EqpCount);
-        if (eqpCount <= 0) eqpCount = num(s.Pass) + num(s.Fail);
-
-        // 하위 호환: PassPoc 미포함 구 data_*.js → Equipments에서 집계
-        if (pocPass === 0 && pocFail === 0 && Array.isArray(dto.Equipments)) {
-            dto.Equipments.filter(e => (e.Process || '-') === k).forEach(e => {
-                pocPass += num(e.PassPoc);
-                pocFail += num(e.FailPoc);
-            });
-        }
-        if (hookupPass === 0 && hookupFail === 0) {
-            const hookupTotal = num(dto.HookupStats && dto.HookupStats.TotalObjects);
-            const hookupOK = num(dto.HookupStats && dto.HookupStats.OK);
-            const rate = hookupTotal > 0 ? hookupOK / hookupTotal : 0;
-            const totalPoc = pocPass + pocFail;
-            hookupPass = Math.round(totalPoc * rate);
-            hookupFail = Math.max(0, totalPoc - hookupPass);
-        }
-
-        procStats[k] = {
-            pocPass, pocFail, hookupPass, hookupFail, eqpCount,
-            pocPassPct: pct(pocPass, pocFail),
-            hookupPassPct: pct(hookupPass, hookupFail)
-        };
+    (dto.Equipments || []).forEach(function (e) {
+        const k = e.Process || '-';
+        const a = procStats[k] || (procStats[k] = { total: 0, fail: 0 });
+        a.total++;
+        if (e.Result === 'FAIL') a.fail++;
+    });
+    const failRateOf = function (k) {
+        const d = procStats[k];
+        return d && d.total > 0 ? d.fail / d.total * 100 : 0;
+    };
+    const categories = Object.keys(procStats).sort(function (a, b) {
+        return (failRateOf(b) - failRateOf(a)) || (procStats[b].total - procStats[a].total);
     });
 
-    // Equipments에만 있고 ProcessStats에 없는 공정 보정
-    if (Array.isArray(dto.Equipments)) {
-        dto.Equipments.forEach(e => {
-            const k = e.Process || '-';
-            if (procStats[k]) return;
-            procStats[k] = {
-                pocPass: num(e.PassPoc), pocFail: num(e.FailPoc),
-                hookupPass: 0, hookupFail: 0, eqpCount: 1,
-                pocPassPct: 0, hookupPassPct: 0
-            };
-            procStats[k].pocPassPct = pct(procStats[k].pocPass, procStats[k].pocFail);
-        });
-    }
-
-    const categories = Object.keys(procStats).sort((a, b) => {
-        const d1 = procStats[a], d2 = procStats[b];
-        const fr1 = (() => {
-            const t = d1.pocPass + d1.pocFail + d1.hookupPass + d1.hookupFail;
-            return t > 0 ? (d1.pocFail + d1.hookupFail) / t : 0;
-        })();
-        const fr2 = (() => {
-            const t = d2.pocPass + d2.pocFail + d2.hookupPass + d2.hookupFail;
-            return t > 0 ? (d2.pocFail + d2.hookupFail) / t : 0;
-        })();
-        return fr2 - fr1;
-    });
-
-    const categoryLabels = categories.map(k => {
-        const n = procStats[k] ? procStats[k].eqpCount : 0;
-        return k + ' (n=' + n + ')';
-    });
+    const nameTotal = T('proc_eqp_total');
+    const nameFail = T('proc_eqp_fail');
+    const nameRate = T('proc_fail_rate');
+    const rateColor = dark ? '#ffb703' : '#c1121f';
+    const countLabelColor = dark ? '#e5e5ea' : '#343a40';
 
     const barChart = echarts.init(document.getElementById('barChart'));
     PT.state.charts.push(barChart);
@@ -270,93 +332,49 @@ PT.initDetailCharts = function(dto, history) {
         tooltip: {
             trigger: 'axis', axisPointer: { type: 'shadow' },
             formatter: function(params) {
-                const idx = params[0].dataIndex;
-                const key = categories[idx];
-                const d = procStats[key] || {};
-                let html = `<strong>${params[0].name}</strong><br/>`;
-                html += `검수 수량: <b>${PT.formatNum(d.eqpCount || 0)}</b><br/>`;
-                params.forEach(p => {
-                    if (String(p.seriesName).indexOf('%') >= 0) {
-                        html += `${p.marker} ${p.seriesName}: <b>${p.value}%</b><br/>`;
-                    } else {
-                        html += `${p.marker} ${p.seriesName}: <b>${PT.formatNum(p.value)}</b><br/>`;
-                    }
-                });
-                return html;
+                const key = categories[params[0].dataIndex];
+                const d = procStats[key] || { total: 0, fail: 0 };
+                return '<strong>' + key + '</strong><br/>' +
+                    nameTotal + ': <b>' + PT.formatNum(d.total) + '</b><br/>' +
+                    nameFail + ': <b>' + PT.formatNum(d.fail) + '</b><br/>' +
+                    nameRate + ': <b>' + Math.round(failRateOf(key)) + '%</b>';
             }
         },
-        legend: { bottom: 0, type: 'scroll' },
-        grid: { left: '3%', right: '4%', bottom: '18%', top: '12%', containLabel: true },
-        xAxis: {
-            type: 'category',
-            data: categoryLabels,
-            axisLabel: { rotate: 30, interval: 0, fontSize: 10 }
-        },
+        legend: { bottom: 0 },
+        grid: { left: '3%', right: '4%', bottom: '14%', top: '12%', containLabel: true },
+        xAxis: { type: 'category', data: categories, axisLabel: { interval: 0, rotate: categories.length > 6 ? 30 : 0 } },
         yAxis: [
-            { type: 'value', name: 'Count' },
-            { type: 'value', name: '%', min: 0, max: 100, splitLine: { show: false } }
+            { type: 'value', name: 'Count', minInterval: 1 },
+            { type: 'value', name: '%', min: 0, max: 100, splitLine: { show: false }, axisLabel: { formatter: '{value}%' } }
         ],
         series: [
             {
-                name: 'POC Pass', type: 'bar', stack: 'poc', color: '#34c759',
-                data: categories.map(k => procStats[k].pocPass),
+                name: nameTotal, type: 'bar', color: dark ? '#5b8def' : '#4895ef', barMaxWidth: 36,
+                data: categories.map(function (k) { return procStats[k].total; }),
+                label: { show: true, position: 'top', color: countLabelColor, fontWeight: 'bold', fontSize: 11, formatter: function (p) { return PT.formatNum(p.value); } }
+            },
+            {
+                name: nameFail, type: 'bar', color: '#e63946', barMaxWidth: 36,
+                data: categories.map(function (k) { return procStats[k].fail; }),
+                label: { show: true, position: 'top', color: countLabelColor, fontWeight: 'bold', fontSize: 11, formatter: function (p) { return PT.formatNum(p.value); } }
+            },
+            {
+                name: nameRate, type: 'line', yAxisIndex: 1, color: rateColor,
+                symbol: 'circle', symbolSize: 9, z: 10,
+                lineStyle: { width: 2, type: 'dashed' },
+                itemStyle: { color: rateColor, borderColor: dark ? '#1c1c1e' : '#ffffff', borderWidth: 2 },
+                data: categories.map(function (k) { return Math.round(failRateOf(k)); }),
                 label: {
-                    show: true, position: 'inside',
-                    formatter: (p) => PT.formatNum(p.value),
-                    color: '#ffffff', fontWeight: 'bold', fontSize: 10
+                    show: true, position: 'top', offset: [0, -6], formatter: '{c}%', fontWeight: 'bold', fontSize: 12,
+                    color: dark ? '#1c1c1e' : rateColor,
+                    backgroundColor: dark ? '#ffb703' : 'rgba(193,18,31,0.08)',
+                    borderRadius: 4, padding: [2, 6]
                 }
-            },
-            {
-                name: 'POC Fail', type: 'bar', stack: 'poc', color: '#e63946',
-                data: categories.map(k => procStats[k].pocFail),
-                label: {
-                    show: true, position: 'inside',
-                    formatter: (p) => PT.formatNum(p.value),
-                    color: '#ffffff', fontWeight: 'bold', fontSize: 10
-                }
-            },
-            {
-                name: 'H/U No Pass', type: 'bar', stack: 'hookup', color: '#4895ef',
-                data: categories.map(k => procStats[k].hookupPass),
-                label: {
-                    show: true, position: 'inside',
-                    formatter: (p) => PT.formatNum(p.value),
-                    color: '#ffffff', fontWeight: 'bold', fontSize: 10
-                }
-            },
-            {
-                name: 'H/U No Fail', type: 'bar', stack: 'hookup', color: '#d62828',
-                data: categories.map(k => procStats[k].hookupFail),
-                label: {
-                    show: true, position: 'inside',
-                    formatter: (p) => PT.formatNum(p.value),
-                    color: '#ffffff', fontWeight: 'bold', fontSize: 10
-                }
-            },
-            {
-                name: '검수 수량', type: 'bar', color: '#6c757d',
-                data: categories.map(k => procStats[k].eqpCount),
-                label: {
-                    show: true, position: 'top',
-                    formatter: (p) => PT.formatNum(p.value),
-                    color: '#343a40', fontWeight: 'bold', fontSize: 10
-                }
-            },
-            {
-                name: 'POC Pass %', type: 'line', yAxisIndex: 1, color: '#1d7874',
-                data: categories.map(k => procStats[k].pocPassPct),
-                label: { show: true, formatter: '{c}%', color: '#1d7874', position: 'top', fontSize: 10 }
-            },
-            {
-                name: 'H/U Pass %', type: 'line', yAxisIndex: 1, color: '#3a86ff',
-                data: categories.map(k => procStats[k].hookupPassPct),
-                label: { show: true, formatter: '{c}%', color: '#3a86ff', position: 'top', fontSize: 10 }
             }
         ]
     });
     barChart.on('click', (params) => {
-        const key = categories[params.dataIndex] || params.name;
-        const searchKey = String(key).replace(/\s*\(n=\d+\)\s*$/, '');
+        const searchKey = categories[params.dataIndex] || params.name;
         if (PT.state.dataTableInstance) {
             PT.state.dataTableInstance.search(searchKey).draw();
             if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
@@ -402,11 +420,12 @@ PT.initPieChart = function(domId, dataMap, emptyLabel) {
     PT.state.charts.push(chart);
     chart.setOption({
         tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-        legend: { top: '5%', left: 'center', type: 'scroll' },
+        legend: PT.pieLegend(),
         series: [{
-            type: 'pie', radius: ['40%', '65%'], center: ['50%', '60%'],
+            type: 'pie', radius: PT.PIE_RADIUS, center: PT.PIE_CENTER, avoidLabelOverlap: true,
             data: data.length ? data : [{value:0, name:emptyLabel}],
-            label: { show: true, formatter: '{b}\n{c} ({d}%)', fontSize: 10 }
+            label: { show: true, formatter: '{b}\n{c} ({d}%)', fontSize: 10 },
+            labelLine: { length: 8, length2: 8 }
         }]
     });
 
@@ -428,78 +447,23 @@ PT.initPieChart = function(domId, dataMap, emptyLabel) {
     });
 }
 
-// [Change 3] Trend Chart Update Logic
+// Trend Chart Update Logic (Daily / Weekly / Monthly)
 PT.updateTrend = function(mode) {
-    // Button Active State Toggle
+    mode = (mode === 'week' || mode === 'month') ? mode : 'day';
     $('#trend-buttons .btn').removeClass('active');
     $(`#trend-buttons .btn[data-mode="${mode}"]`).addClass('active');
 
-    const rawHistory = window.currentHistory;
-    // 1. Filter: Year to Date (Assuming format yyyy-MM-dd)
+    const rawHistory = window.currentHistory || [];
     const currentYear = new Date().getFullYear().toString();
-    const yearData = rawHistory.filter(d => d.Date.startsWith(currentYear));
+    const yearData = rawHistory.filter(d => String(d.Date || '').startsWith(currentYear));
+    const source = yearData.length ? yearData : rawHistory;
 
-    let processedData = [];
-
-    // 2. Aggregate Data based on Mode
-    if (mode === 'day') {
-        processedData = yearData;
-    } else if (mode === 'week') {
-        processedData = PT.groupByTime(yearData, 'week');
-    } else if (mode === 'month') {
-        processedData = PT.groupByTime(yearData, 'month');
-    }
-
-    // 3. Render Chart
-    PT.renderTrendChart(processedData);
+    PT.renderTrendChart(PT.aggregateHistory(source, mode));
 };
 
-// Helper: Group By Week/Month
 PT.groupByTime = function(data, unit) {
-    const toWeekKey = function (dateStr) {
-        const d = new Date(dateStr + 'T00:00:00');
-        if (!Number.isFinite(d.getTime())) return '';
-        const day = d.getDay(); // 0:Sun ~ 6:Sat
-        const diffToMonday = (day + 6) % 7;
-        const monday = new Date(d);
-        monday.setDate(d.getDate() - diffToMonday);
-        const yearStart = new Date(monday.getFullYear(), 0, 1);
-        const yearStartDay = yearStart.getDay();
-        const yearStartDiff = (yearStartDay + 6) % 7;
-        const firstMonday = new Date(yearStart);
-        firstMonday.setDate(yearStart.getDate() - yearStartDiff);
-        const weekNo = Math.floor((monday - firstMonday) / 604800000) + 1;
-        return monday.getFullYear() + '-W' + String(weekNo).padStart(2, '0');
-    };
-
-    const grouped = _.groupBy(data, function (d) {
-        if (unit === 'week') return toWeekKey(d.Date);
-        const dt = new Date(String(d.Date) + 'T00:00:00');
-        if (!Number.isFinite(dt.getTime())) return '';
-        return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
-    });
-
-    return Object.keys(grouped).filter(function (k) { return !!k; }).sort().map(key => {
-        const group = grouped[key];
-        // 합산: Total, Pass, IssueCount, HookupErrorCount
-        const totalPoc = _.sumBy(group, 'TotalPoc');
-        const passPoc = _.sumBy(group, 'PassPoc');
-        const issueCnt = _.sumBy(group, 'IssuePocCount');
-        const hookupErrorCnt = _.sumBy(group, 'HookupErrorCount') || 0;
-        // 비율 계산
-        const rate = totalPoc > 0 ? ((passPoc / totalPoc) * 100).toFixed(1) : 0;
-        // AvgPassRate 계산 (History에 있으면 사용, 없으면 RatePoc)
-        const avgPassRate = _.meanBy(group, d => d.AvgPassRate || d.RatePoc) || rate;
-        
-        return {
-            Date: key,
-            RatePoc: Number(rate),
-            AvgPassRate: parseFloat(avgPassRate.toFixed(1)),
-            IssuePocCount: issueCnt,
-            HookupErrorCount: hookupErrorCnt
-        };
-    });
-}
+    return PT.aggregateHistory(data, unit);
+};
 
 PT.showErrorTrendForType = function(issueType, history) {
     const dom = document.getElementById('errorTrendChart');
@@ -581,47 +545,25 @@ PT.renderTrendChart = function(data) {
     PT.state.lineChartInstance = echarts.init(dom);
     PT.state.charts.push(PT.state.lineChartInstance);
 
-    // [수정] Hookup 데이터도 함께 표시 (RatePoc + AvgPassRate + IssuePocCount)
-    // AvgPassRate가 있으면 사용, 없으면 RatePoc
-        PT.state.lineChartInstance.setOption({
-        tooltip: { trigger: 'axis' },
+    const fmt = function (v) { return v == null ? '-' : v + '%'; };
+    PT.state.lineChartInstance.setOption({
+        tooltip: { trigger: 'axis', valueFormatter: fmt },
         legend: { bottom: 0 },
         grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
         xAxis: { type: 'category', data: data.map(d => d.Date) },
-        yAxis: [
-            { type: 'value', name: 'Pass Rate (%)', max: 100 },
-            { type: 'value', name: 'Count', splitLine: { show: false } }
-        ],
+        yAxis: PT.trendPctAxis(),
         series: [
-            // POC Pass Rate (숫자 표시)
-            { 
-                name: 'POC Pass(%)', type: 'line', data: data.map(d => d.RatePoc), 
-                smooth: true, color: '#0071e3', symbol: 'circle', symbolSize: 8,
-                label: { show: true, formatter: '{c}%', position: 'top' }
-            },
-            // H/U Pass Rate (숫자 표시)
             {
-                name: 'H/U Pass(%)', type: 'line', data: data.map(d => {
-                    if (d.AvgPassRate && d.RatePoc) {
-                        let huRate = d.AvgPassRate * 2 - d.RatePoc;
-                        return Math.max(0, Math.min(100, huRate)).toFixed(1);
-                    }
-                    return null;
-                }), 
-                smooth: true, color: '#4895ef', symbol: 'diamond', symbolSize: 8,
-                label: { show: true, formatter: '{c}%', position: 'top' }
+                name: 'POC Pass(%)', type: 'line', data: data.map(d => d.poc),
+                smooth: true, connectNulls: true, color: '#0071e3', symbol: 'circle', symbolSize: 7,
+                label: { show: true, formatter: '{c}%', position: 'top' },
+                labelLayout: { hideOverlap: true }
             },
-            // Issue POC Count
             {
-                name: T('lbl_issue_poc'), type: 'line', yAxisIndex: 1, data: data.map(d => d.IssuePocCount || 0), 
-                smooth: true, color: '#f72585', symbol: 'triangle', symbolSize: 8,
-                lineStyle: { type: 'dashed' }
-            },
-            // H/U Error Count
-            {
-                name: T('label_hookup_error'), type: 'line', yAxisIndex: 1, data: data.map(d => d.HookupErrorCount || 0), 
-                smooth: true, color: '#d62828', symbol: 'rect', symbolSize: 8,
-                lineStyle: { type: 'dashed' }
+                name: 'H/U Pass(%)', type: 'line', data: data.map(d => d.hu),
+                smooth: true, connectNulls: true, color: '#2a9d8f', symbol: 'diamond', symbolSize: 7,
+                label: { show: true, formatter: '{c}%', position: 'bottom' },
+                labelLayout: { hideOverlap: true }
             }
         ]
     });

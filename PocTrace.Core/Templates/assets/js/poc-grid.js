@@ -246,6 +246,7 @@ PT.openErrorModal = function(guid) {
         </div>
     `;
 
+    $('#detailModal .modal-title').html(`<i class="bi bi-search" aria-hidden="true"></i> ${T('title_view_detail')}`);
     $('#detailModal .modal-body').html(bodyHtml);
     $('#btn-modal-export').off('click').on('click', () => exportModalData(rowData.Tag));
     new bootstrap.Modal(document.getElementById('detailModal')).show();

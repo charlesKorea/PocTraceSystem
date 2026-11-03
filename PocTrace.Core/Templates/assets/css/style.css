@@ -722,3 +722,9 @@ table.dataTable tbody td {
     .cmdk-trigger { min-width: 0; }
     .meta-date { display: none; }
 }
+
+/* 설계 진척: 설계 기간 셀 (날짜 범위 + 일수) */
+.design-period { display: flex; flex-direction: column; line-height: 1.25; }
+.design-period-dates { font-variant-numeric: tabular-nums; }
+.design-period-days { font-size: 0.75rem; color: var(--text-muted); }
+.table-sticky-wrap { overflow-x: auto; }

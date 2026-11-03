@@ -216,7 +216,7 @@ window.PocTrace = window.PocTrace || {};
     columns.push({
       name: 'DesignPeriod', title: t('progress_col_period'), data: null, className: 'design-date-group text-nowrap',
       render: function (d, type, row) {
-        if (type === 'sort' || type === 'type') return row.LastDesignAt || row.FirstDesignAt || '';
+        if (type === 'sort' || type === 'type') return row.LastDesignAt || '';
         return designPeriodCell(row);
       }
     });
@@ -272,11 +272,10 @@ window.PocTrace = window.PocTrace || {};
     PT.state.progressTable = $('#progressTable').DataTable({
       data: data,
       columns: columns,
-      pageLength: 20,
+      pageLength: 10,
       lengthMenu: [10, 20, 50, 100],
       order: [[lastDesignColIdx, 'desc']],
       deferRender: true,
-      scrollX: true,
       dom: '<"dt-top-container" <"dt-left-group" <"dt-custom-title"> l > <"dt-right-group" f <"dt-col-picker"> B > >rtip',
       buttons: [
         {
@@ -289,6 +288,7 @@ window.PocTrace = window.PocTrace || {};
       initComplete: function () {
         const api = this.api();
         PT.state.progressTable = api;
+        setTimeout(function () { try { api.columns.adjust(); } catch (e) { /* ignore */ } }, 0);
         if (typeof PT.applyColumnPrefs === 'function') {
           PT.applyColumnPrefs(api, colKey);
         }
