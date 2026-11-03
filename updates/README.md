@@ -4,6 +4,7 @@
 
 | 폴더 | 내용 | 변경 파일 목록 |
 |---|---|---|
+| `2026-11-03_report-progress/` | Web 배치 ZIP 다운로드, Admin 일일 리포트 그래프/표 개선, 설계 진척 10행 페이징과 배관 Length 변화 기준 최근 날짜. `web-voc2` 적용 후에 받는다 | [CHANGED-FILES.md](2026-11-03_report-progress/CHANGED-FILES.md) |
 | `2026-11-02_web-voc2/` | Web.exe 추가 VOC 7건(기록 삭제, 경로 비노출, 탭 초기화, 중복 실행 방지 등). 위 `web-voc` 적용 후에 받는다 | [CHANGED-FILES.md](2026-11-02_web-voc2/CHANGED-FILES.md) |
 | `2026-11-02_web-voc/` | Web.exe VOC 11건 반영 | [CHANGED-FILES.md](2026-11-02_web-voc/CHANGED-FILES.md) |
 
