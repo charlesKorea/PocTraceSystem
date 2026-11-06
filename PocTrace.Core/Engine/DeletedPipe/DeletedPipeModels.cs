@@ -55,6 +55,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
         public double LengthMeters { get; set; }
         public double LengthMillimeters { get; set; }
         public DateTime? PipeDeletedAt { get; set; }
+        public int PipeOperationType { get; set; }
         public int Order { get; set; }
         public bool Shared { get; set; }
         public string UserName { get; set; }

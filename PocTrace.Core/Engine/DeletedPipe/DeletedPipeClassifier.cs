@@ -45,10 +45,14 @@ namespace PocTrace.Core.Engine.DeletedPipe
             return operationType == 1 && ConstructionCodeMarksDelete(constructionCode);
         }
 
+        /// <summary>
+        /// 건설코드 Delete 설비(StillPresent)는 남아 있는 요소(op&lt;2)와 기준일 이후 삭제된 요소(op=2)를 모두 따라간다.
+        /// 완전 삭제 설비(DeletedSinceCutover)는 기준일 이후 삭제된 요소만 따라간다.
+        /// </summary>
         public static bool Accepts(DeletedWalkMode mode, int operationType, DateTime? opTime, DateTime cutover)
         {
             if (mode == DeletedWalkMode.StillPresent)
-                return operationType < 2;
+                return operationType < 2 || IsDeletedInWindow(operationType, opTime, cutover);
             return IsDeletedInWindow(operationType, opTime, cutover);
         }
 

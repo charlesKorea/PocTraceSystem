@@ -8,9 +8,10 @@ namespace PocTrace.Core.Engine.DeletedPipe
 {
     /// <summary>
     /// EQPID 목록의 철거 설비에서 배관 길이를 합산한다.
-    /// OperationType 2(기준일 이후)는 삭제된 객체만 따라간다.
-    /// OperationType 1이면서 건설코드에 Delete가 있으면 5D에 남은 설비로 보고,
-    /// OperationType 2 미만인 배관 길이와 피팅(이름·QCode) 수량을 낸다.
+    /// 같은 EQPID에서 OperationType 2(기준일 이후)와 건설코드 Delete(OperationType 1) 설비를 함께 추적한다.
+    /// OperationType 2 설비는 기준일 이후 삭제된 객체만 따라간다.
+    /// 건설코드 Delete 설비는 남아 있는 객체(op 2 미만)와 기준일 이후 삭제된 객체(op 2)를 모두 따라가,
+    /// 배관 길이와 피팅(이름·QCode) 수량을 낸다.
     /// 다른 설비, 노즐, 캡에서 멈춘다. 노즐 너머 1차 훅업 배관은 넣지 않는다.
     /// 피팅 인스턴스 목록은 쓰지 않는다.
     /// </summary>
@@ -71,10 +72,11 @@ namespace PocTrace.Core.Engine.DeletedPipe
                         dbName, i + 1, requested.Count, eqpId));
 
                     var matched = new List<DeletedEquipmentRow>();
+                    var skipped = new List<DeletedEquipmentRow>();
                     bool tagHit = false;
-                    CollectMatches(equipment, eqpId, matched, ref tagHit);
+                    CollectMatches(equipment, eqpId, matched, skipped, ref tagHit);
                     int deletedCount = matched.Count;
-                    CollectMatches(pending, eqpId, matched, ref tagHit);
+                    CollectMatches(pending, eqpId, matched, skipped, ref tagHit);
 
                     if (matched.Count == 0)
                     {
@@ -102,6 +104,17 @@ namespace PocTrace.Core.Engine.DeletedPipe
                         EquipmentCount = matched.Count,
                         Kind = KindLabel(deletedCount, matched.Count - deletedCount)
                     };
+                    for (int k = 0; k < skipped.Count; k++)
+                    {
+                        report.Unmatched.Add(new DeletedPipeUnmatchedRow
+                        {
+                            DbName = dbName,
+                            EqpId = eqpId,
+                            Reason = "설비 판정 제외 " + DescribeEquipment(skipped[k])
+                                + " (Division 0이 아니거나 Subdivision1이 설비 계열이 아님)"
+                        });
+                    }
+
                     var pipesOnEqp = new Dictionary<Guid, DeletedPipeDetailRow>();
                     var fittingsOnEqp = new Dictionary<Guid, DeletedNodeRow>();
                     int pocCount = 0;
@@ -129,10 +142,26 @@ namespace PocTrace.Core.Engine.DeletedPipe
                             report.Warnings.Add(eqpId + " / " + equip.InstanceId + " 탐색 상한 도달");
                         }
 
+                        int newPipes = 0;
                         foreach (var detail in state.Details)
                         {
                             if (!pipesOnEqp.ContainsKey(detail.PipeId))
+                            {
                                 pipesOnEqp.Add(detail.PipeId, detail);
+                                newPipes++;
+                            }
+                        }
+                        if (newPipes == 0)
+                        {
+                            report.Unmatched.Add(new DeletedPipeUnmatchedRow
+                            {
+                                DbName = dbName,
+                                EqpId = eqpId,
+                                Reason = "배관 행 없음 " + DescribeEquipment(equip)
+                                    + (state.Details.Count == 0
+                                        ? " (연결 배관이 없거나 기준일 이후 삭제·잔존 조건에 맞지 않음)"
+                                        : " (배관이 같은 EQPID의 앞선 설비에 이미 기록됨)")
+                            });
                         }
                         for (int f = 0; f < state.Fittings.Count; f++)
                         {
@@ -233,6 +262,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
             IList<DeletedEquipmentRow> source,
             string eqpId,
             List<DeletedEquipmentRow> matched,
+            List<DeletedEquipmentRow> skipped,
             ref bool tagHit)
         {
             if (source == null)
@@ -243,7 +273,10 @@ namespace PocTrace.Core.Engine.DeletedPipe
                     continue;
                 tagHit = true;
                 if (!DeletedPipeClassifier.IsEquipment(DeletedPipeClassifier.ToNode(source[e])))
+                {
+                    skipped.Add(source[e]);
                     continue;
+                }
                 bool already = false;
                 for (int m = 0; m < matched.Count; m++)
                 {
@@ -256,6 +289,17 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 if (!already)
                     matched.Add(source[e]);
             }
+        }
+
+        private static string DescribeEquipment(DeletedEquipmentRow equip)
+        {
+            return string.Format(
+                "[{0} / {1} / op={2} / Sub1={3} / 건설코드={4}]",
+                equip.Name ?? string.Empty,
+                equip.InstanceId,
+                equip.OperationType,
+                equip.Sub1Name ?? string.Empty,
+                equip.ConstructionCode ?? string.Empty);
         }
 
         private static string KindLabel(int deletedCount, int pendingCount)

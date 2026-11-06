@@ -83,7 +83,7 @@ namespace PocTrace.DeletedPipeLength.Export
             string[] headers =
             {
                 "DB", "EQPID", "설비InstanceName", "설비InstanceId", "설비Tag", "설비삭제시각", "시작POC",
-                "배관ID", "Utility", "길이_m", "길이_mm", "배관삭제시각", "순서", "공유", "작업자", "회사"
+                "배관ID", "Utility", "길이_m", "길이_mm", "배관삭제시각", "순서", "공유", "작업자", "회사", "배관상태"
             };
             WriteHeaders(ws, headers);
             int row = 2;
@@ -109,6 +109,7 @@ namespace PocTrace.DeletedPipeLength.Export
                     ws.Cells[row, 14].Value = item.Shared ? "Y" : "";
                     ws.Cells[row, 15].Value = item.UserName;
                     ws.Cells[row, 16].Value = item.CompanyName;
+                    ws.Cells[row, 17].Value = item.PipeOperationType >= 2 ? "삭제" : "잔존";
                     row++;
                 }
             }

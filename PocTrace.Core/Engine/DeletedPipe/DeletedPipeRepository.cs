@@ -12,6 +12,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// S5D 로그에서 Instance/Pipe/POC 별 최신 행만 읽는다.
     /// 최신 행의 OperationType이 2이고 OPTIME이 기준일 이상이면 완전 삭제다.
     /// OperationType이 1이고 건설코드에 Delete가 있으면 5D에 남아 있는 철거 설비다.
+    /// 후자는 연결 배관이 이미 op 2로 삭제됐어도 기준일 이후 삭제분은 함께 따라간다.
     /// 구간마다 로그를 다시 읽지 않는다. 최신 행은 스냅샷으로 한 번 읽고 exe 옆 파일에 둔다.
     /// 공유 GraphCache에는 넣지 않는다.
     /// </summary>

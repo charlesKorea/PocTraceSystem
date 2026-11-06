@@ -214,7 +214,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 return;
             if (state.Mode == DeletedWalkMode.StillPresent)
             {
-                if (takeoff.OperationType >= 2)
+                if (!DeletedPipeClassifier.Accepts(state.Mode, takeoff.OperationType, takeoff.OpTime, cutover))
                     return;
             }
             else if (takeoff.OperationType != 2)
@@ -335,6 +335,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 LengthMeters = pipe.Length <= 0 ? 0 : pipe.Length,
                 LengthMillimeters = DeletedPipeClassifier.Millimeters(pipe.Length),
                 PipeDeletedAt = pipe.OpTime,
+                PipeOperationType = pipe.OperationType,
                 Order = state.Details.Count + 1,
                 UserName = pipe.UserName ?? string.Empty,
                 CompanyName = pipe.CompanyName ?? string.Empty
