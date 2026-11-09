@@ -6,6 +6,23 @@ namespace PocTrace.Core.Engine.DeletedPipe
     /// <summary>
     /// 삭제 배관 길이 VOC. 공유 GraphCache는 쓰지 않는다. 최신 로그는 exe 옆 스냅샷으로 읽는다.
     /// </summary>
+    /// <summary>
+    /// 어떤 설비를 추적 대상으로 삼을지. 기본은 삭제 배관 추적(OperationType 2)만이다.
+    /// </summary>
+    public sealed class DeletedPipeSearchOptions
+    {
+        /// <summary>기준일 이후 OperationType 2로 삭제된 설비에서 배관을 추적한다.</summary>
+        public bool TrackDeletedPipes { get; set; } = true;
+
+        /// <summary>OperationType 1이면서 건설코드에 Delete가 표기된 설비에서 배관을 추적한다.</summary>
+        public bool TrackDeleteMarkedEquipment { get; set; }
+
+        public bool AnySelected
+        {
+            get { return TrackDeletedPipes || TrackDeleteMarkedEquipment; }
+        }
+    }
+
     public sealed class DeletedPipeReport
     {
         public string DbName { get; set; }

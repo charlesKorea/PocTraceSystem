@@ -18,6 +18,8 @@ namespace PocTrace.DeletedPipeLength
         private readonly ComboBox _db = new ComboBox();
         private readonly TextBox _excel = new TextBox();
         private readonly DateTimePicker _cutover = new DateTimePicker();
+        private readonly CheckBox _trackDeleted = new CheckBox();
+        private readonly CheckBox _trackMarked = new CheckBox();
         private readonly Button _browse = new Button();
         private readonly Button _run = new Button();
         private readonly Button _cancel = new Button();
@@ -66,20 +68,34 @@ namespace PocTrace.DeletedPipeLength
             _cutover.Value = new DateTime(2026, 1, 1);
             Controls.Add(_cutover);
 
-            var note = LabelAt("EQPID 기준. Op2(기준일 이후)와 Op1+건설코드 Delete를 삭제 설비로 봅니다. BOM은 피팅 이름·QCode 수량입니다. 배관 연결은 exe 옆 cache\\deleted-pipe 스냅샷으로 따라갑니다.", 16, 112);
+            Controls.Add(LabelAt("추적 대상", 16, 112));
+            _trackDeleted.Text = "1. 삭제 배관 추적 (Op2, 기준일 이후 삭제된 설비)";
+            _trackDeleted.AutoSize = true;
+            _trackDeleted.Left = 120;
+            _trackDeleted.Top = 108;
+            _trackDeleted.Checked = true;
+            Controls.Add(_trackDeleted);
+            _trackMarked.Text = "2. delete 표기 설비 추적 (Op1 + 건설코드 Delete)";
+            _trackMarked.AutoSize = true;
+            _trackMarked.Left = 120;
+            _trackMarked.Top = 132;
+            _trackMarked.Checked = false;
+            Controls.Add(_trackMarked);
+
+            var note = LabelAt("EQPID 기준. 체크한 대상만 탐색합니다. BOM은 피팅 이름·QCode 수량입니다. 배관 연결은 exe 옆 cache\\deleted-pipe 스냅샷으로 따라갑니다.", 16, 160);
             note.MaximumSize = new System.Drawing.Size(860, 0);
             Controls.Add(note);
 
             _run.Text = "실행";
             _run.Left = 120;
-            _run.Top = 148;
+            _run.Top = 200;
             _run.Width = 100;
             _run.Click += OnRun;
             Controls.Add(_run);
 
             _cancel.Text = "취소";
             _cancel.Left = 230;
-            _cancel.Top = 148;
+            _cancel.Top = 200;
             _cancel.Width = 100;
             _cancel.Enabled = false;
             _cancel.Click += delegate { _runCts?.Cancel(); };
@@ -89,9 +105,9 @@ namespace PocTrace.DeletedPipeLength
             _log.ReadOnly = true;
             _log.ScrollBars = ScrollBars.Both;
             _log.Left = 12;
-            _log.Top = 188;
+            _log.Top = 240;
             _log.Width = 880;
-            _log.Height = 434;
+            _log.Height = 382;
             _log.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             _log.Font = new System.Drawing.Font("Consolas", 9f);
             Controls.Add(_log);
@@ -117,6 +133,17 @@ namespace PocTrace.DeletedPipeLength
 
         private async void OnRun(object sender, EventArgs e)
         {
+            if (!_trackDeleted.Checked && !_trackMarked.Checked)
+            {
+                MessageBox.Show(this, "추적 대상을 하나 이상 선택하세요.");
+                return;
+            }
+            var options = new DeletedPipeSearchOptions
+            {
+                TrackDeletedPipes = _trackDeleted.Checked,
+                TrackDeleteMarkedEquipment = _trackMarked.Checked
+            };
+
             string fallback = _db.SelectedItem as string;
             if (string.IsNullOrWhiteSpace(fallback))
             {
@@ -150,16 +177,20 @@ namespace PocTrace.DeletedPipeLength
             }
 
             _run.Enabled = false;
+            _trackDeleted.Enabled = false;
+            _trackMarked.Enabled = false;
             _cancel.Enabled = true;
             _runCts = new CancellationTokenSource();
             WriteLog("실행 DB=" + fallback
                 + " 기준일=" + _cutover.Value.ToString("yyyy-MM-dd")
+                + " 삭제배관추적=" + (options.TrackDeletedPipes ? "ON" : "OFF")
+                + " delete표기설비추적=" + (options.TrackDeleteMarkedEquipment ? "ON" : "OFF")
                 + " 엑셀=" + _excel.Text);
             var progress = new Progress<string>(WriteLog);
             try
             {
                 var reports = await Task.Run(
-                    () => RunAll(connectionString, loaded.Rows, _cutover.Value.Date, progress, _runCts.Token),
+                    () => RunAll(connectionString, loaded.Rows, _cutover.Value.Date, options, progress, _runCts.Token),
                     _runCts.Token).ConfigureAwait(true);
 
                 DeletedPipeExcelWriter.Write(outputPath, reports);
@@ -179,6 +210,8 @@ namespace PocTrace.DeletedPipeLength
             finally
             {
                 _run.Enabled = true;
+                _trackDeleted.Enabled = true;
+                _trackMarked.Enabled = true;
                 _cancel.Enabled = false;
                 _runCts.Dispose();
                 _runCts = null;
@@ -189,6 +222,7 @@ namespace PocTrace.DeletedPipeLength
             string connectionString,
             IList<DeletedPipeInputRow> rows,
             DateTime cutover,
+            DeletedPipeSearchOptions options,
             IProgress<string> progress,
             CancellationToken cancellation)
         {
@@ -225,7 +259,7 @@ namespace PocTrace.DeletedPipeLength
             foreach (var pair in groups.OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
             {
                 cancellation.ThrowIfCancellationRequested();
-                var report = service.Run(connectionString, pair.Key, pair.Value, cutover, progress, cancellation);
+                var report = service.Run(connectionString, pair.Key, pair.Value, cutover, options, progress, cancellation);
                 reports.Add(report);
                 for (int w = 0; w < report.Warnings.Count; w++)
                     progress?.Report(report.Warnings[w]);

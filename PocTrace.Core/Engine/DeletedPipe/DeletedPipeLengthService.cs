@@ -25,6 +25,22 @@ namespace PocTrace.Core.Engine.DeletedPipe
             IProgress<string> progress,
             CancellationToken cancellation)
         {
+            return Run(connectionString, dbName, eqpIds, cutover, null, progress, cancellation);
+        }
+
+        public DeletedPipeReport Run(
+            string connectionString,
+            string dbName,
+            IReadOnlyList<string> eqpIds,
+            DateTime cutover,
+            DeletedPipeSearchOptions options,
+            IProgress<string> progress,
+            CancellationToken cancellation)
+        {
+            options = options ?? new DeletedPipeSearchOptions();
+            if (!options.AnySelected)
+                throw new ArgumentException("추적 대상이 선택되지 않았습니다.", nameof(options));
+
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new InvalidOperationException("SourceDb 연결 문자열이 없습니다.");
             if (string.IsNullOrWhiteSpace(dbName))
@@ -52,12 +68,18 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 UseSnapshot(dbName, report.Cutover, repo, session, progress);
 
                 progress?.Report(dbName + " 삭제 설비 조회");
-                var equipment = repo.LoadDeletedEquipment();
-                var pending = repo.LoadPendingDeleteEquipment();
+                var equipment = options.TrackDeletedPipes
+                    ? repo.LoadDeletedEquipment()
+                    : new List<DeletedEquipmentRow>();
+                var pending = options.TrackDeleteMarkedEquipment
+                    ? repo.LoadPendingDeleteEquipment()
+                    : new List<DeletedEquipmentRow>();
                 session.RememberEquipment(equipment);
                 session.RememberEquipment(pending);
-                progress?.Report(dbName + " 완전삭제 " + equipment.Count.ToString("N0")
-                    + "건, 건설코드 Delete " + pending.Count.ToString("N0") + "건");
+                progress?.Report(dbName + " 삭제 배관 추적 "
+                    + (options.TrackDeletedPipes ? "ON 완전삭제 " + equipment.Count.ToString("N0") + "건" : "OFF")
+                    + ", delete 표기 설비 추적 "
+                    + (options.TrackDeleteMarkedEquipment ? "ON 건설코드 Delete " + pending.Count.ToString("N0") + "건" : "OFF"));
 
                 var allPipes = new Dictionary<Guid, DeletedPipeDetailRow>();
                 var allEquipment = new HashSet<Guid>();
@@ -86,7 +108,7 @@ namespace PocTrace.Core.Engine.DeletedPipe
                             EqpId = eqpId,
                             Reason = tagHit
                                 ? "Tag는 있으나 설비 Subdivision이 아닙니다."
-                                : "기준일 이후 삭제 설비도, 건설코드 Delete 설비도 없습니다."
+                                : NoEquipmentReason(options)
                         });
                         report.Summaries.Add(new DeletedPipeSummaryRow
                         {
@@ -289,6 +311,15 @@ namespace PocTrace.Core.Engine.DeletedPipe
                 if (!already)
                     matched.Add(source[e]);
             }
+        }
+
+        private static string NoEquipmentReason(DeletedPipeSearchOptions options)
+        {
+            if (options.TrackDeletedPipes && options.TrackDeleteMarkedEquipment)
+                return "기준일 이후 삭제 설비도, 건설코드 Delete 설비도 없습니다.";
+            if (options.TrackDeleteMarkedEquipment)
+                return "건설코드 Delete 설비가 없습니다.";
+            return "기준일 이후 삭제 설비가 없습니다.";
         }
 
         private static string DescribeEquipment(DeletedEquipmentRow equip)
