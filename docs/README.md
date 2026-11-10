@@ -23,5 +23,7 @@
 | `PocTrace.DeletedPipeLength/가이드.md` | 한국어 | **삭제 배관 길이 Excel** 열 뜻, 순서 열, 탐색 상한 |
 | `BinaryCache_Easy_Guide_KO.md` | 한국어 | **공유 캐시 쉬운 설명**（비개발자·동료 공유） |
 | `BinaryCache_Easy_Guide_ZH.md` | 中文 | **共享缓存简明说明**（非开发同事共享） |
+| `DDW_Cache_Strategy_KO.md` | 한국어 | **DDW DB로 같은 공유 캐시를 만드는 전략**. S5D 캐시는 유지하고 폴더 키를 분리한다. 12절이 SVDI 조회 순서 |
+| `ddw-svdi-queries/` | SQL | **remote_monami 조회 팩**. `DDW-SVDI-Queries.zip`과 같은 내용 |
 
 CSV는 UTF-8 BOM이라 Excel에서 한글/중국어가 깨지지 않습니다.
