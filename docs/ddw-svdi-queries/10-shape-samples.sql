@@ -1,6 +1,6 @@
 -- 10 행의 모양 샘플. 빠름. TOP 이라 분포가 아니다.
 -- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
--- model 의 version_sequence 만 확인된 열이다. poc, pipe 는 01B 로 열이 있는 것을 확인한 뒤 더한다.
+-- 모든 tb_* 에 version_sequence 가 있다(2026-11-11 담당자 확인).
 -- GUID 전문, Tag 전문, 사람 이름은 내지 않는다.
 -- 결과 그리드를 모두 복사한다.
 SET NOCOUNT ON;
@@ -48,7 +48,8 @@ SELECT TOP 8
         WHEN connected_poc_id IS NULL THEN 'null'
         WHEN connected_poc_id = '00000000-0000-0000-0000-000000000000' THEN 'zero'
         ELSE 'set'
-    END AS connected
+    END AS connected,
+    version_sequence
 FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK);
 
 SELECT TOP 8
@@ -57,7 +58,8 @@ SELECT TOP 8
     CASE WHEN length1 IS NULL THEN NULL ELSE ROUND(length1, 3) END AS length1,
     CASE WHEN diameter1 IS NULL THEN NULL ELSE ROUND(diameter1, 3) END AS diameter1,
     CASE WHEN utility_id IS NULL OR utility_id = '00000000-0000-0000-0000-000000000000' THEN 0 ELSE 1 END AS has_utility,
-    ROUND(posz, 1) AS posz
+    ROUND(posz, 1) AS posz,
+    version_sequence
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
 
 SELECT TOP 8

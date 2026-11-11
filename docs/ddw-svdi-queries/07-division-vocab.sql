@@ -1,4 +1,4 @@
--- 07 Division 어휘. 빠름. tb_division 은 수백 행이다.
+-- 07 Division 어휘. 빠름. tb_division 은 770행이다(02 결과).
 -- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 설비 분류(1-%, 3-%, 6-%, TAKE-OFF, Damper, BIM, electrical)가 이 값으로 있는지 본다.
 -- 결과 두 그리드를 모두 복사한다.

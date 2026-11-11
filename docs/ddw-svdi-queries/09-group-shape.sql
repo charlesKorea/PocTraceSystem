@@ -1,4 +1,4 @@
--- 09 BIM Group 모양. 보통. tb_instancegroups 는 약 9만 행.
+-- 09 BIM Group 모양. 보통. tb_instancegroups 는 8,057행(02 결과, 2026-11-11).
 -- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- capa 제외와 부모 열이 sidecar 에 필요한지 확인한다.
 -- 그룹 이름은 앞 24자만.
