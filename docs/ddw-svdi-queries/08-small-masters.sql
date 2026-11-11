@@ -1,4 +1,5 @@
 -- 08 작은 마스터의 모양. 빠름.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 사람 이름, 로그인, 비밀번호, 전화, 메일은 읽지 않는다.
 -- 회사명은 값 대신 채워진 행수만 센다.
 -- 결과 그리드를 모두 복사한다.
@@ -6,27 +7,22 @@ SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
-    COUNT(*) AS utility_rows,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS utility_live
+    COUNT(*) AS utility_rows
 FROM remote_monami.monami.dbo.tb_utilities WITH (NOLOCK);
 
 SELECT TOP 20
     LEFT(utility_nm, 24) AS utility24,
-    utility_type,
-    operationtype
+    utility_type
 FROM remote_monami.monami.dbo.tb_utilities WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY utility_nm;
 
 SELECT
-    COUNT(*) AS group_rows,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS group_live
+    COUNT(*) AS group_rows
 FROM remote_monami.monami.dbo.tb_utility_groups WITH (NOLOCK);
 
 SELECT TOP 20
     LEFT(utility_group_nm, 24) AS group24
 FROM remote_monami.monami.dbo.tb_utility_groups WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY utility_group_nm;
 
 SELECT TOP 15
@@ -36,14 +32,12 @@ SELECT TOP 15
     ROUND(width, 3) AS width,
     ROUND(height, 3) AS height
 FROM remote_monami.monami.dbo.tb_pipesize WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY pipesize_nm;
 
 SELECT
     poc_type,
     LEFT(poc_type_value, 40) AS value40
 FROM remote_monami.monami.dbo.tb_poctypes WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY poc_type;
 
 SELECT

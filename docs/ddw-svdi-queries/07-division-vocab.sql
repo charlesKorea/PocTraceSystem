@@ -1,4 +1,5 @@
 -- 07 Division 어휘. 빠름. tb_division 은 수백 행이다.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 설비 분류(1-%, 3-%, 6-%, TAKE-OFF, Damper, BIM, electrical)가 이 값으로 있는지 본다.
 -- 결과 두 그리드를 모두 복사한다.
 SET NOCOUNT ON;
@@ -8,7 +9,6 @@ SELECT
     division_type,
     COUNT(*) AS n
 FROM remote_monami.monami.dbo.tb_division WITH (NOLOCK)
-WHERE operationtype < 2
 GROUP BY division_type
 ORDER BY division_type;
 
@@ -17,8 +17,7 @@ SELECT
     LEFT(division_value, 80) AS value80,
     COUNT(*) AS n
 FROM remote_monami.monami.dbo.tb_division WITH (NOLOCK)
-WHERE operationtype < 2
-  AND (
+WHERE (
         division_value LIKE '1-%'
         OR division_value LIKE '3-%'
         OR division_value LIKE '5-%'

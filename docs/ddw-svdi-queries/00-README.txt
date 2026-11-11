@@ -22,8 +22,13 @@ Q=파일번호
 
 에러면 결과 대신 메시지 앞 300자.
 
-첫 방문: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10
+첫 방문: 01, 01B, 02, 03, 04, 05, 06, 07, 08, 09, 10
 다음: 11, SLOW-01, SLOW-02, SLOW-03, SLOW-04, SLOW-05, SLOW-06, SLOW-08
 마지막: SLOW-07
+
+rev2 (2026-11-11): 이 DDW에는 operationtype 열이 없다. 삭제 판정은 version_sequence 로 한다.
+01B 가 tb_* 별로 operationtype, version_sequence 열이 있는지 먼저 알려 준다.
+live 필터 없이 전체 행을 본 쿼리가 많다. 삭제 행도 세어진다.
+결과는 docs/DDW_SVDI_Results_KO.md 에 쌓인다. 회신마다 Q 번호와 날짜를 적는다.
 
 이 팩은 캐시 작성 SQL이 아니다. 명세와 분포를 확인한 뒤 캐시 쿼리를 고정한다.

@@ -1,5 +1,6 @@
 -- 01 연결 확인. 빠름.
 -- 결과 그리드를 모두 복사한다. 행은 몇 줄이다.
+-- rev2: operationtype 열이 없는 DDW라 모든 operationtype 선택을 뺐다(2026-11-11 실행 결과 반영).
 -- 01-B 가 30초를 넘으면 취소하고 01-A 만 보낸다.
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
@@ -17,15 +18,13 @@ FROM remote_monami.monami.INFORMATION_SCHEMA.TABLES;
 -- 01-C 핵심 테이블이 한 행이라도 읽히는지. 분포가 아니다.
 SELECT TOP 1
     'tb_instancegroups' AS src,
-    CASE WHEN instance_group_id IS NULL THEN 0 ELSE 1 END AS has_id,
-    operationtype
+    CASE WHEN instance_group_id IS NULL THEN 0 ELSE 1 END AS has_id
 FROM remote_monami.monami.dbo.tb_instancegroups WITH (NOLOCK);
 
 SELECT TOP 1
     'tb_modelinstances' AS src,
     model_type,
     composite_yn,
-    operationtype,
     version_sequence,
     ROUND(posz, 1) AS posz
 FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK);
@@ -34,7 +33,6 @@ SELECT TOP 1
     'tb_pocinstances' AS src,
     owner_type,
     connection_order,
-    operationtype,
     CASE
         WHEN connected_poc_id IS NULL THEN 'null'
         WHEN connected_poc_id = '00000000-0000-0000-0000-000000000000' THEN 'zero'
@@ -45,13 +43,11 @@ FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK);
 SELECT TOP 1
     'tb_pipeinstances' AS src,
     pipe_type,
-    operationtype,
     CASE WHEN length1 IS NULL THEN NULL ELSE ROUND(length1, 3) END AS length1
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
 
 SELECT TOP 1
     'tb_attributes' AS src,
     LEFT(attribute_nm, 40) AS attribute_nm,
-    owner_type,
-    operationtype
+    owner_type
 FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK);

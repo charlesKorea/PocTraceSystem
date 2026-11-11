@@ -2,6 +2,8 @@
 
 작성일: 2026-11-10. 기준 코드는 PocTrace `main` `9cc3202`이다. 이 문서는 캐시를 어떻게 만들지 정한다. 이 단계에서는 C#을 바꾸지 않는다.
 
+2026-11-11 개정: SVDI 01 결과를 반영했다. 이 사이트(카탈로그 `monami`)에는 `operationtype` 열이 없고, 삭제 판정은 `version_sequence`다. 결과 기록은 `DDW_SVDI_Results_KO.md`에 쌓는다.
+
 독자는 Admin으로 공유 캐시를 만드는 쪽이다. Viewer, Web, 철거, 노즐추적은 그 캐시만 읽는다. DDW를 읽어도 지금 S5D 캐시와 같은 파일 종류, 같은 DTO, 같은 추적 규칙이 나와야 한다.
 
 ## 1. 자료와 우선순위
@@ -63,7 +65,7 @@ JSearchMK가 보여주는 원격 조회는 **대화형 일부 추출**이다. Po
 
 | 조회 | 조건 |
 |---|---|
-| 모델 | `TB_MODELINSTANCES` ⋈ 템플릿 ⋈ `TB_DIVISION`. `OPERATIONTYPE < 2` |
+| 모델 | `TB_MODELINSTANCES` ⋈ 템플릿 ⋈ `TB_DIVISION`. `OPERATIONTYPE < 2` (이 사이트에는 열이 없다. 5절) |
 | 모델 POC | `TB_POCINSTANCES.OWNER_TYPE = 768` |
 | 배관 POC | `OWNER_TYPE = 256`. PocData로 내보내지 않고 배관 끝점 입력만 된다. |
 | 배관 | `TB_PIPEINSTANCES`. `PIPE_TYPE = 17301768`은 Takeoff만. 일반 `PipeData`에서 뺀다. |
@@ -71,7 +73,7 @@ JSearchMK가 보여주는 원격 조회는 **대화형 일부 추출**이다. Po
 
 정규화 규칙(계약 1.2.0과 같다):
 
-- live는 `OPERATIONTYPE < 2`. `TB_VERSIONS` 조인으로 live를 가르지 않는다. 역방향 `TOP 1`은 없다.
+- live는 `OPERATIONTYPE < 2`(계약 1.2.0 기준). `monami`에는 이 열이 없어서 5절의 구멍이다. `TB_VERSIONS` 조인으로 live를 가르지 않는다. 역방향 `TOP 1`은 없다.
 - `CONNECTED_POC_ID`가 비거나 zero GUID면 미연결. live POC에 직접 붙고, 상대가 768이면 POC id, 256이면 소유 인스턴스 id. 조인 실패는 dangling으로 세고 간선만 생략한다.
 - 배관 끝점은 `CONNECTION_ORDER`, 같으면 POC id 순으로 전부 남긴다. 빈 칸을 앞으로 당기지 않는다. 4개 이상 약 18,316, 유형별 최대 99와 115가 관측돼 있다.
 - 길이·좌표 SQL에 ×1000을 넣지 않는다. `LENGTH1 <= 0`이면 0, 아니면 소수 1자리. S5D만 미터 저장분을 쿼리에서 ×1000 한다.
@@ -96,6 +98,7 @@ Admin의 전체 추적과 캐시만 갱신(`RunCacheOnlyAsync`) 모두 이 provi
 | 일배치 설비 | `GetSelectAllEquipments`도 S5D 로그. Sub1 `1-%`/`6-%`, Tag 필수, 건설코드 Delete 제외 | DDW 그래프를 만들어도 추적 대상 목록은 S5D다. |
 | TbStar Tag | 모델 SQL의 Tag가 `NULL`. `Element ID_Number`는 BimId로만 간다 | 노드가 캐시에 있어도 Tag가 비면 `FindStartPocs`와 일배치가 설비를 못 찾는다. WebDdw가 Tag를 채우는 프로파일이다. |
 | Hookup | dynprops가 빈 채 v10으로 저장된다 | Hookup 시트·ConnectorUse 검수는 이 캐시에서 나오지 않는다. 빈 ConnectorUse는 조회 시 Y라서, 빈 목록은 "전부 Y"로 보일 수 있다. |
+| live 판정 열 | `DdwSql`의 모든 SELECT가 `OPERATIONTYPE < 2`로 거르고, `DdwGraphMapping`도 `OperationType >= 2`를 버린다. `DdwAcceptance`는 그 문자열을 검사한다 | 2026-11-11 SVDI 01에서 `tb_instancegroups`에 `operationtype`이 없다는 오류가 났고, 담당자는 이 DDW 전체에 그 열이 없다고 확인했다. 그대로 돌리면 `monami`에서는 쿼리 오류로 그래프를 못 만든다. 01B로 테이블별 열 유무를 확정한 뒤 live 문을 `version_sequence`로 바꾼다(코드 변경은 별도 단계). |
 | 삭제 배관 도구 | `SchemaKind != S5d`이면 시작을 거부한다 | DDW 캐시와 무관한 S5D 로그 스냅샷이다. DDW 캐시 범위에 넣지 않는다. |
 | 증분 | `VERSIONS`는 워터마크 후보이나 미구현 | 캐시는 DB 전체 SQL 후 섹션 전체 저장이 기본이다. |
 
@@ -109,7 +112,7 @@ X2-M은 FRM 서버에 접속한 뒤 Linked Server `remote_monami.monami.dbo.tb_*
 
 - 접속 카탈로그는 데이터가 있는 DB가 아니라 `master`일 수 있다. 데이터 위치는 4-part 이름이다.
 - 원격 테이블을 로컬 임시 테이블과 조인하면 원격 전체가 넘어와 수 분이 걸린다. 그룹명, `attribute_nm`, 삭제 조건은 원격 `WHERE`의 리터럴로 둔다.
-- 삭제 행은 그 사이트에서 `version_sequence < 1000000000`으로 거른다. 주석은 이것이 `operationtype < 2`와 같은 뜻이라고 한다.
+- 삭제 행은 그 사이트에서 `version_sequence < 1000000000`으로 거른다. 주석은 이것이 `operationtype < 2`와 같은 뜻이라고 한다. SVDI 담당 설명은 "`version_sequence`가 10000000 이상이면 삭제"라서 임계가 1e9인지 1e7인지 다르다. SLOW-01의 분포로 가른다.
 - `instance_id`를 `nvarchar`로 바꾸면 글자가 깨진다. 다시 필터할 때는 `0x` 16진 리터럴을 쓰고, 한 번에 200개 단위다.
 - 속성 필터(`Element ID_Number`, `ConnectionTag`, `BIM_DESIGN_INFO`, `S5_LATERAL NUMBER`, `ConvertDate`)는 필요한 이름만 건다.
 - 노즐 번호 끝 3자리 `000`은 SQL에서 자르지 않는다. 원격 `WHERE`에 함수 필터를 더하면 느려져서, 조회 후 프로그램이 뺀다.
@@ -121,7 +124,7 @@ X2-M은 FRM 서버에 접속한 뒤 Linked Server `remote_monami.monami.dbo.tb_*
 1. 전체 스냅샷은 **DDW 카탈로그에 직접** 붙는다. `DdwSql`은 `{db}.dbo.TB_*`이다. `master`에 붙고 4-part로 읽는 형태가 아니다.
 2. 그 카탈로그에 직접 붙을 수 있으면 그 경로만 쓴다. Linked Server는 대화형 점검과, 직접 접속이 없을 때의 예외 추출이다.
 3. 예외 추출을 만들더라도 원격 `WHERE`에 필터를 두고, 로컬 임시 테이블과 조인하지 않는다. 노즐 쿼리를 그래프 쿼리로 재사용하지 않는다. 노즐 쿼리는 BIM Group 일부와 노즐 템플릿만 가져온다.
-4. `version_sequence < 1000000000`과 `OPERATIONTYPE < 2`를 한 문장에 섞지 않는다. PocTrace 캐시의 live 문은 `OPERATIONTYPE < 2`이다. 어떤 사이트가 전자만 믿을 수 있으면, 그 카탈로그에서 두 조건의 행수가 같은지 확인한 뒤에만 그 사이트의 삭제 문으로 바꾼다. `TB_VERSIONS`를 live 판정에 조인하지 않는다.
+4. 2026-11-11 SVDI 01 결과 이 사이트에는 `OPERATIONTYPE` 열이 없고 `version_sequence`가 그 역할이다(`tb_modelinstances`에서 열 확인, 샘플 값 2682). 다른 테이블의 `version_sequence` 유무는 01B로 확정한다. 삭제 임계는 SLOW-01 분포로 1e9와 1e7 중 하나로 고정한다. 확정 전에는 live 문을 캐시 SQL에 넣지 않는다. 두 열이 모두 있는 사이트에서는 한 문장에 섞지 않고 행수가 같은지 먼저 본다. `TB_VERSIONS`를 live 판정에 조인하지 않는다.
 5. `TB_ATTRIBUTES`는 약 1.8억 행이다. 캐시 SQL은 지금처럼 이름 목록만 읽는다. 이름을 늘릴 때도 한 번의 `IN`이다. OWNER별 상관 서브쿼리를 만들지 않는다.
 6. GUID를 문자열 키로 왕복하지 않는다. 캐시 안의 키는 `uniqueidentifier`에서 온 `Guid`이다.
 
@@ -168,7 +171,7 @@ Admin은 `D:\PocAdmin`에서만 실행한다. 비밀번호는 그 폴더의 `con
 쿼리 형태는 지금 `DdwSql`을 유지한다.
 
 - 카탈로그 이름은 허용 목록을 통과한 뒤 괄호로 인용한다.
-- live는 `OPERATIONTYPE < 2`.
+- live는 `OPERATIONTYPE < 2`. 단 `monami`에서는 열이 없어 `version_sequence` 임계로 바꿔야 한다(5절). 바꾸기 전에는 이 절의 SQL이 이 사이트에서 오류가 난다.
 - 속성은 두 이름으로 제한한다. `__MODULE_INFO`는 배치로 읽어 `ModuleName=`만 파싱한다. 행이 불어나면 그 속성만 분리한다.
 - 명령 제한 시간은 전체 추출이라 0(무제한)이다. 대화형 프로브(JSearchMK 15초)와 같지 않다.
 - 로드 끝 로그의 모델 POC, 배관 POC, 연결, 미연결, dangling, 4끝점 이상, 최대 끝점, 순번 중복, 미분류 어휘를 보관한다. 원문 Tag와 GUID는 로그에 넣지 않는다.
@@ -251,9 +254,9 @@ WebDdw가 이 조건을 만족하기 전에는 일배치 추적 산출(Excel, HT
 
 캐시 착수 전에 C1에서 닫을 것:
 
-- D-01. 실행 DB가 TbStar인지 WebDdw인지.
-- 직접 카탈로그 접속이 있는지, `remote_monami`뿐인지.
-- 그 사이트에서 `version_sequence < 1000000000`과 `OPERATIONTYPE < 2`가 같은 행집합인지. 확인 전에는 후자만 쓴다.
+- D-01. 실행 DB가 TbStar인지 WebDdw인지. (05 결과 대기)
+- 직접 카탈로그 접속이 있는지, `remote_monami`뿐인지. (01로는 링크 `remote_monami`와 카탈로그 `monami`까지 확인. 직접 접속 여부는 미확인)
+- D-10. 삭제 판정. 확정: `operationtype` 열 없음, `version_sequence`가 역할을 한다. 미확정: 임계(1e9 vs 1e7)와 `version_sequence`가 있는 테이블 범위. (01B, SLOW-01 결과 대기)
 
 캐시 이후에도 코드에서 추측하지 않을 것:
 
@@ -273,6 +276,8 @@ D-07(캐시 writer가 v9 3슬롯만 쓴다)은 현재 코드 기준으로 닫혀
 
 한 번에 파일 하나. 비밀번호, 로그인, 전화, 메일, BLOB는 읽지 않는다. GUID와 설비 이름은 앞자리나 길이만 나온다. 결과에 그런 전문이 보이면 지우고 보낸다. 링크 이름이 `remote_monami`가 아니면 01의 `linked_server`만 보고, 그 이름으로 4-part의 첫 조각만 바꾼다. 테이블 이름은 에러가 나도 추측해서 바꾸지 않는다. 에러는 앞 300자만 보낸다. SLOW 파일은 10분이 넘으면 취소하고 `TIMEOUT`이라고 보낸다.
 
+결과는 받을 때마다 `docs/DDW_SVDI_Results_KO.md`에 날짜와 함께 쌓고, 결정과 코드 영향은 거기서 갱신한다. 이 문서는 전략과 쿼리 본문만 유지한다.
+
 회신 예:
 
 ```
@@ -284,7 +289,8 @@ Q=07
 
 | 순서 | 파일 | 속도 | 이 결과로 닫는 것 |
 |---|---|---|---|
-| 1 | `01-probe.sql` | 빠름 | 링크 이름, 카탈로그, 핵심 테이블이 한 행이라도 읽히는지 |
+| 1 | `01-probe.sql` | 빠름 | 링크 이름, 카탈로그, 핵심 테이블이 한 행이라도 읽히는지. 2026-11-11 완료 |
+| 1B | `01B-live-columns.sql` | 빠름 | tb_* 별 `operationtype`, `version_sequence` 열 유무. 삭제 판정 확정 |
 | 2 | `02-tables-and-rows.sql` | 빠름 | 모든 테이블 이름과 대략 행수 |
 | 3 | `03-columns-core.sql` | 빠름 | 캐시 대상 테이블의 열, 타입, NULL |
 | 4 | `04-columns-other.sql` | 빠름 | 나머지 테이블의 열 명세 |
@@ -295,7 +301,7 @@ Q=07
 | 9 | `09-group-shape.sql` | 보통 | 그룹 부모 열, capa 건수. sidecar |
 | 10 | `10-shape-samples.sql` | 빠름 | 모델, 템플릿, POC, 배관, POC 템플릿의 행 모양. 분포 아님 |
 | 11 | `11-template-sub-top.sql` | 보통 | Sub1 상위 40개. 노드 분류 어휘 |
-| 12 | `SLOW-01-live-gate.sql` | 느림 | `OPERATIONTYPE < 2`와 `version_sequence < 1000000000`이 같은 행인지 |
+| 12 | `SLOW-01-live-gate.sql` | 느림 | `version_sequence` 분포. 삭제 임계가 1e9인지 1e7인지 |
 | 13 | `SLOW-02-pipe-type.sql` | 느림 | `PIPE_TYPE`별 건수. 17301768 |
 | 14 | `SLOW-03-poc-ends.sql` | 느림 | owner 768/256, 끝점 1·2·3·4개 이상, 최댓값 |
 | 15 | `SLOW-04-connect-order.sql` | 느림 | 미연결, zero GUID, 순번 중복, dangling |
@@ -304,13 +310,13 @@ Q=07
 | 18 | `SLOW-08-takeoff-flags.sql` | 느림 | `TAKEOFF_YN` 건수와 17301768 건수를 따로 |
 | 19 | `SLOW-07-attributes.sql` | 가장 느림 | 필요한 속성 이름만. Element ID, 모듈, Hookup, ConnectorUse |
 
-첫 방문은 01부터 10까지다. 11과 SLOW는 그 다음이다. SLOW-07은 항상 마지막이다.
+첫 방문은 01, 01B, 02부터 10까지다. 11과 SLOW는 그 다음이다. SLOW-07은 항상 마지막이다.
 
 빈 칸은 `RESULT-TEMPLATE.txt`에 맞춰 채운다. 그리드가 길면(02, 03, 04) 사진이어도 된다. 집계 쿼리는 숫자 행이라 타이핑으로 충분하다.
 
 ## 13. 쿼리 본문
 
-아래 본문은 `docs/ddw-svdi-queries` 와 `docs/DDW-SVDI-Queries.zip` 과 같다. SSMS에는 zip 안의 파일을 연다.
+아래 본문은 `docs/ddw-svdi-queries` 와 `docs/DDW-SVDI-Queries.zip` 과 같다(rev2, 2026-11-11). SSMS에는 zip 안의 파일을 연다.
 
 ### 00-README.txt
 
@@ -339,9 +345,14 @@ Q=파일번호
 
 에러면 결과 대신 메시지 앞 300자.
 
-첫 방문: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10
+첫 방문: 01, 01B, 02, 03, 04, 05, 06, 07, 08, 09, 10
 다음: 11, SLOW-01, SLOW-02, SLOW-03, SLOW-04, SLOW-05, SLOW-06, SLOW-08
 마지막: SLOW-07
+
+rev2 (2026-11-11): 이 DDW에는 operationtype 열이 없다. 삭제 판정은 version_sequence 로 한다.
+01B 가 tb_* 별로 operationtype, version_sequence 열이 있는지 먼저 알려 준다.
+live 필터 없이 전체 행을 본 쿼리가 많다. 삭제 행도 세어진다.
+결과는 docs/DDW_SVDI_Results_KO.md 에 쌓인다. 회신마다 Q 번호와 날짜를 적는다.
 
 이 팩은 캐시 작성 SQL이 아니다. 명세와 분포를 확인한 뒤 캐시 쿼리를 고정한다.
 ```
@@ -354,6 +365,10 @@ SSMS 서버: FRM (링크가 있는 쪽)
 링크 이름:
 
 [01]
+분=
+결과=
+
+[01B]
 분=
 결과=
 
@@ -435,6 +450,7 @@ SSMS 서버: FRM (링크가 있는 쪽)
 ```sql
 -- 01 연결 확인. 빠름.
 -- 결과 그리드를 모두 복사한다. 행은 몇 줄이다.
+-- rev2: operationtype 열이 없는 DDW라 모든 operationtype 선택을 뺐다(2026-11-11 실행 결과 반영).
 -- 01-B 가 30초를 넘으면 취소하고 01-A 만 보낸다.
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
@@ -452,15 +468,13 @@ FROM remote_monami.monami.INFORMATION_SCHEMA.TABLES;
 -- 01-C 핵심 테이블이 한 행이라도 읽히는지. 분포가 아니다.
 SELECT TOP 1
     'tb_instancegroups' AS src,
-    CASE WHEN instance_group_id IS NULL THEN 0 ELSE 1 END AS has_id,
-    operationtype
+    CASE WHEN instance_group_id IS NULL THEN 0 ELSE 1 END AS has_id
 FROM remote_monami.monami.dbo.tb_instancegroups WITH (NOLOCK);
 
 SELECT TOP 1
     'tb_modelinstances' AS src,
     model_type,
     composite_yn,
-    operationtype,
     version_sequence,
     ROUND(posz, 1) AS posz
 FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK);
@@ -469,7 +483,6 @@ SELECT TOP 1
     'tb_pocinstances' AS src,
     owner_type,
     connection_order,
-    operationtype,
     CASE
         WHEN connected_poc_id IS NULL THEN 'null'
         WHEN connected_poc_id = '00000000-0000-0000-0000-000000000000' THEN 'zero'
@@ -480,16 +493,34 @@ FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK);
 SELECT TOP 1
     'tb_pipeinstances' AS src,
     pipe_type,
-    operationtype,
     CASE WHEN length1 IS NULL THEN NULL ELSE ROUND(length1, 3) END AS length1
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
 
 SELECT TOP 1
     'tb_attributes' AS src,
     LEFT(attribute_nm, 40) AS attribute_nm,
-    owner_type,
-    operationtype
+    owner_type
 FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK);
+```
+
+### 01B-live-columns.sql
+
+```sql
+-- 01B 삭제(live) 판정 열 확인. 빠름. 01 다음, 02 앞에 한 번 실행한다.
+-- 2026-11-11 SVDI 결과: tb_instancegroups 에는 operationtype 이 없다. 다른 tb_* 에도 없는지,
+-- version_sequence 가 어느 테이블에 있는지 열 이름만 본다. 값은 읽지 않는다.
+-- 결과 그리드를 모두 복사한다. 행은 tb_ 테이블 수만큼이다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+SELECT
+    TABLE_NAME,
+    MAX(CASE WHEN LOWER(COLUMN_NAME) = 'operationtype' THEN 1 ELSE 0 END) AS has_operationtype,
+    MAX(CASE WHEN LOWER(COLUMN_NAME) = 'version_sequence' THEN 1 ELSE 0 END) AS has_version_sequence
+FROM remote_monami.monami.INFORMATION_SCHEMA.COLUMNS
+WHERE LOWER(TABLE_NAME) LIKE 'tb[_]%'
+GROUP BY TABLE_NAME
+ORDER BY TABLE_NAME;
 ```
 
 ### 02-tables-and-rows.sql
@@ -684,6 +715,7 @@ ORDER BY o.type_desc, o.name;
 
 ```sql
 -- 07 Division 어휘. 빠름. tb_division 은 수백 행이다.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 설비 분류(1-%, 3-%, 6-%, TAKE-OFF, Damper, BIM, electrical)가 이 값으로 있는지 본다.
 -- 결과 두 그리드를 모두 복사한다.
 SET NOCOUNT ON;
@@ -693,7 +725,6 @@ SELECT
     division_type,
     COUNT(*) AS n
 FROM remote_monami.monami.dbo.tb_division WITH (NOLOCK)
-WHERE operationtype < 2
 GROUP BY division_type
 ORDER BY division_type;
 
@@ -702,8 +733,7 @@ SELECT
     LEFT(division_value, 80) AS value80,
     COUNT(*) AS n
 FROM remote_monami.monami.dbo.tb_division WITH (NOLOCK)
-WHERE operationtype < 2
-  AND (
+WHERE (
         division_value LIKE '1-%'
         OR division_value LIKE '3-%'
         OR division_value LIKE '5-%'
@@ -728,6 +758,7 @@ ORDER BY value80;
 
 ```sql
 -- 08 작은 마스터의 모양. 빠름.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 사람 이름, 로그인, 비밀번호, 전화, 메일은 읽지 않는다.
 -- 회사명은 값 대신 채워진 행수만 센다.
 -- 결과 그리드를 모두 복사한다.
@@ -735,27 +766,22 @@ SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
-    COUNT(*) AS utility_rows,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS utility_live
+    COUNT(*) AS utility_rows
 FROM remote_monami.monami.dbo.tb_utilities WITH (NOLOCK);
 
 SELECT TOP 20
     LEFT(utility_nm, 24) AS utility24,
-    utility_type,
-    operationtype
+    utility_type
 FROM remote_monami.monami.dbo.tb_utilities WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY utility_nm;
 
 SELECT
-    COUNT(*) AS group_rows,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS group_live
+    COUNT(*) AS group_rows
 FROM remote_monami.monami.dbo.tb_utility_groups WITH (NOLOCK);
 
 SELECT TOP 20
     LEFT(utility_group_nm, 24) AS group24
 FROM remote_monami.monami.dbo.tb_utility_groups WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY utility_group_nm;
 
 SELECT TOP 15
@@ -765,14 +791,12 @@ SELECT TOP 15
     ROUND(width, 3) AS width,
     ROUND(height, 3) AS height
 FROM remote_monami.monami.dbo.tb_pipesize WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY pipesize_nm;
 
 SELECT
     poc_type,
     LEFT(poc_type_value, 40) AS value40
 FROM remote_monami.monami.dbo.tb_poctypes WITH (NOLOCK)
-WHERE operationtype < 2
 ORDER BY poc_type;
 
 SELECT
@@ -791,6 +815,7 @@ FROM remote_monami.monami.dbo.tb_new_usergroups WITH (NOLOCK);
 
 ```sql
 -- 09 BIM Group 모양. 보통. tb_instancegroups 는 약 9만 행.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- capa 제외와 부모 열이 sidecar 에 필요한지 확인한다.
 -- 그룹 이름은 앞 24자만.
 SET NOCOUNT ON;
@@ -798,11 +823,10 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
     COUNT(*) AS all_rows,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS live_rows,
-    SUM(CASE WHEN operationtype < 2 AND instance_group_nm LIKE '%capa%' THEN 1 ELSE 0 END) AS live_capa,
-    SUM(CASE WHEN operationtype < 2 AND (instance_group_parent_id IS NULL
-         OR instance_group_parent_id = '00000000-0000-0000-0000-000000000000') THEN 1 ELSE 0 END) AS live_parent_null,
-    SUM(CASE WHEN operationtype < 2 AND (instance_group_nm IS NULL OR LTRIM(RTRIM(instance_group_nm)) = '') THEN 1 ELSE 0 END) AS live_name_blank
+    SUM(CASE WHEN instance_group_nm LIKE '%capa%' THEN 1 ELSE 0 END) AS capa_rows,
+    SUM(CASE WHEN (instance_group_parent_id IS NULL
+         OR instance_group_parent_id = '00000000-0000-0000-0000-000000000000') THEN 1 ELSE 0 END) AS parent_null_rows,
+    SUM(CASE WHEN (instance_group_nm IS NULL OR LTRIM(RTRIM(instance_group_nm)) = '') THEN 1 ELSE 0 END) AS name_blank_rows
 FROM remote_monami.monami.dbo.tb_instancegroups WITH (NOLOCK);
 
 SELECT TOP 15
@@ -814,8 +838,7 @@ SELECT TOP 15
         ELSE 0
     END AS parent_null
 FROM remote_monami.monami.dbo.tb_instancegroups WITH (NOLOCK)
-WHERE operationtype < 2
-  AND instance_group_nm NOT LIKE '%capa%'
+WHERE instance_group_nm NOT LIKE '%capa%'
 ORDER BY instance_group_nm;
 ```
 
@@ -823,6 +846,8 @@ ORDER BY instance_group_nm;
 
 ```sql
 -- 10 행의 모양 샘플. 빠름. TOP 이라 분포가 아니다.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
+-- model 의 version_sequence 만 확인된 열이다. poc, pipe 는 01B 로 열이 있는 것을 확인한 뒤 더한다.
 -- GUID 전문, Tag 전문, 사람 이름은 내지 않는다.
 -- 결과 그리드를 모두 복사한다.
 SET NOCOUNT ON;
@@ -842,10 +867,8 @@ SELECT TOP 8
     ROUND(posx, 1) AS posx,
     ROUND(posy, 1) AS posy,
     ROUND(posz, 1) AS posz,
-    operationtype,
     version_sequence
-FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK)
-WHERE operationtype < 2;
+FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK);
 
 SELECT TOP 8
     'template' AS src,
@@ -856,10 +879,8 @@ SELECT TOP 8
     CASE WHEN subdivision_2_id IS NULL OR LTRIM(RTRIM(subdivision_2_id)) = '' THEN 0 ELSE 1 END AS has_sub2,
     CASE WHEN family_key IS NULL THEN 0 ELSE LEN(family_key) END AS family_len,
     LEFT(ISNULL(display_nm, ''), 16) AS display16,
-    LEFT(ISNULL(model_template_nm, ''), 16) AS template16,
-    operationtype
-FROM remote_monami.monami.dbo.tb_modeltemplates WITH (NOLOCK)
-WHERE operationtype < 2;
+    LEFT(ISNULL(model_template_nm, ''), 16) AS template16
+FROM remote_monami.monami.dbo.tb_modeltemplates WITH (NOLOCK);
 
 SELECT TOP 8
     'poc' AS src,
@@ -874,11 +895,8 @@ SELECT TOP 8
         WHEN connected_poc_id IS NULL THEN 'null'
         WHEN connected_poc_id = '00000000-0000-0000-0000-000000000000' THEN 'zero'
         ELSE 'set'
-    END AS connected,
-    operationtype,
-    version_sequence
-FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
-WHERE operationtype < 2;
+    END AS connected
+FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK);
 
 SELECT TOP 8
     'pipe' AS src,
@@ -886,34 +904,30 @@ SELECT TOP 8
     CASE WHEN length1 IS NULL THEN NULL ELSE ROUND(length1, 3) END AS length1,
     CASE WHEN diameter1 IS NULL THEN NULL ELSE ROUND(diameter1, 3) END AS diameter1,
     CASE WHEN utility_id IS NULL OR utility_id = '00000000-0000-0000-0000-000000000000' THEN 0 ELSE 1 END AS has_utility,
-    ROUND(posz, 1) AS posz,
-    operationtype,
-    version_sequence
-FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
-WHERE operationtype < 2;
+    ROUND(posz, 1) AS posz
+FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
 
 SELECT TOP 8
     'poctemplate' AS src,
     takeoff_yn,
     equipment_yn,
     CASE WHEN memo IS NULL OR LTRIM(RTRIM(memo)) = '' THEN 0 ELSE LEN(memo) END AS memo_len,
-    LEFT(ISNULL(poc_template_nm, ''), 16) AS name16,
-    operationtype
-FROM remote_monami.monami.dbo.tb_poctemplates WITH (NOLOCK)
-WHERE operationtype < 2;
+    LEFT(ISNULL(poc_template_nm, ''), 16) AS name16
+FROM remote_monami.monami.dbo.tb_poctemplates WITH (NOLOCK);
 ```
 
 ### 11-template-sub-top.sql
 
 ```sql
 -- 11 템플릿 Sub1 상위 값. 보통. 템플릿 약 120만과 Division 조인.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 조인은 둘 다 원격이다. 로컬 임시 테이블과 조인하지 않는다.
 -- 노드 분류(Damper, Nozzle, 1-%, 3-%, 6-%)의 실제 문자열을 본다.
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
-    COUNT(*) AS live_templates,
+    COUNT(*) AS template_rows,
     SUM(CASE WHEN bim_yn = 1 THEN 1 ELSE 0 END) AS bim_yn_1,
     SUM(CASE WHEN bim_yn = 0 THEN 1 ELSE 0 END) AS bim_yn_0,
     SUM(CASE WHEN subdivision_1_id IS NULL OR LTRIM(RTRIM(subdivision_1_id)) = '' THEN 1 ELSE 0 END) AS sub1_blank,
@@ -922,8 +936,7 @@ SELECT
              AND TRY_CAST(subdivision_1_id AS uniqueidentifier) IS NULL THEN 1
             ELSE 0
         END) AS sub1_not_guid
-FROM remote_monami.monami.dbo.tb_modeltemplates WITH (NOLOCK)
-WHERE operationtype < 2;
+FROM remote_monami.monami.dbo.tb_modeltemplates WITH (NOLOCK);
 
 SELECT TOP 40
     LEFT(d.division_value, 40) AS sub1,
@@ -932,8 +945,6 @@ SELECT TOP 40
 FROM remote_monami.monami.dbo.tb_modeltemplates AS t WITH (NOLOCK)
 JOIN remote_monami.monami.dbo.tb_division AS d WITH (NOLOCK)
     ON d.division_id = TRY_CAST(t.subdivision_1_id AS uniqueidentifier)
-   AND d.operationtype < 2
-WHERE t.operationtype < 2
 GROUP BY LEFT(d.division_value, 40), d.division_type
 ORDER BY COUNT(*) DESC;
 ```
@@ -941,45 +952,50 @@ ORDER BY COUNT(*) DESC;
 ### SLOW-01-live-gate.sql
 
 ```sql
--- SLOW-01 live 조건 비교. 모델, 배관, POC 를 각각 한 번씩 센다.
--- operationtype < 2 와 version_sequence < 1000000000 이 같은 행인지 본다.
--- 한 결과 집합이 끝난 뒤 다음이 시작된다. 각 블록이 10분을 넘으면 그 블록만 취소하고 TIMEOUT 과 테이블 이름을 보낸다.
--- 분포가 맞는지 확인하기 전까지만 쓰는 조회다. 캐시 SQL에 두 조건을 섞지 않는다.
+-- SLOW-01 version_sequence 분포. 모델 테이블 한 번 집계.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW다. 삭제 판정은 version_sequence 임계로 한다.
+-- 임계가 1000000000(JSearchMK 주석)인지 10000000(SVDI 담당 설명)인지 이 분포로 가른다.
+-- 01B 에서 has_version_sequence=1 인 테이블만 같은 블록을 복사해 테이블 이름을 바꿔 돌린다.
+-- 10분이 넘으면 TIMEOUT 과 테이블 이름을 보낸다.
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
     'tb_modelinstances' AS src,
-    SUM(CASE WHEN operationtype < 2 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS both_live,
-    SUM(CASE WHEN operationtype < 2 AND (version_sequence IS NULL OR version_sequence >= 1000000000) THEN 1 ELSE 0 END) AS ot_live_ver_not,
-    SUM(CASE WHEN operationtype >= 2 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS ot_not_ver_live,
-    SUM(CASE WHEN operationtype >= 2 AND (version_sequence IS NULL OR version_sequence >= 1000000000) THEN 1 ELSE 0 END) AS both_not,
+    SUM(CASE WHEN version_sequence IS NULL THEN 1 ELSE 0 END) AS v_null,
+    SUM(CASE WHEN version_sequence < 10000000 THEN 1 ELSE 0 END) AS v_lt_1e7,
+    SUM(CASE WHEN version_sequence >= 10000000 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS v_1e7_to_1e9,
+    SUM(CASE WHEN version_sequence >= 1000000000 THEN 1 ELSE 0 END) AS v_ge_1e9,
+    MIN(version_sequence) AS v_min,
+    MAX(version_sequence) AS v_max,
     COUNT(*) AS all_rows
 FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK);
 
 SELECT
-    'tb_pipeinstances' AS src,
-    SUM(CASE WHEN operationtype < 2 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS both_live,
-    SUM(CASE WHEN operationtype < 2 AND (version_sequence IS NULL OR version_sequence >= 1000000000) THEN 1 ELSE 0 END) AS ot_live_ver_not,
-    SUM(CASE WHEN operationtype >= 2 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS ot_not_ver_live,
-    SUM(CASE WHEN operationtype >= 2 AND (version_sequence IS NULL OR version_sequence >= 1000000000) THEN 1 ELSE 0 END) AS both_not,
-    COUNT(*) AS all_rows
-FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
-
-SELECT
-    'tb_pocinstances' AS src,
-    SUM(CASE WHEN operationtype < 2 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS both_live,
-    SUM(CASE WHEN operationtype < 2 AND (version_sequence IS NULL OR version_sequence >= 1000000000) THEN 1 ELSE 0 END) AS ot_live_ver_not,
-    SUM(CASE WHEN operationtype >= 2 AND version_sequence < 1000000000 THEN 1 ELSE 0 END) AS ot_not_ver_live,
-    SUM(CASE WHEN operationtype >= 2 AND (version_sequence IS NULL OR version_sequence >= 1000000000) THEN 1 ELSE 0 END) AS both_not,
-    COUNT(*) AS all_rows
-FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK);
+    CASE
+        WHEN version_sequence IS NULL THEN 'null'
+        WHEN version_sequence < 10000000 THEN '<1e7'
+        WHEN version_sequence < 1000000000 THEN '1e7..1e9'
+        WHEN version_sequence < 10000000000 THEN '1e9..1e10'
+        ELSE '>=1e10'
+    END AS bucket,
+    COUNT(*) AS n
+FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK)
+GROUP BY CASE
+        WHEN version_sequence IS NULL THEN 'null'
+        WHEN version_sequence < 10000000 THEN '<1e7'
+        WHEN version_sequence < 1000000000 THEN '1e7..1e9'
+        WHEN version_sequence < 10000000000 THEN '1e9..1e10'
+        ELSE '>=1e10'
+    END
+ORDER BY MIN(version_sequence);
 ```
 
 ### SLOW-02-pipe-type.sql
 
 ```sql
 -- SLOW-02 배관 PIPE_TYPE 분포. 배관 테이블 전체 집계.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 17301768 이 Takeoff 로 몇 건인지, 그 외 유형이 몇 개인지 본다.
 -- 결과는 유형 수만큼이라 짧다. 10분이 넘으면 TIMEOUT.
 SET NOCOUNT ON;
@@ -987,9 +1003,8 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
     pipe_type,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS live_rows,
-    SUM(CASE WHEN operationtype >= 2 THEN 1 ELSE 0 END) AS not_live,
-    SUM(CASE WHEN operationtype < 2 AND (length1 IS NULL OR length1 <= 0) THEN 1 ELSE 0 END) AS live_length_empty
+    COUNT(*) AS rows_all,
+    SUM(CASE WHEN length1 IS NULL OR length1 <= 0 THEN 1 ELSE 0 END) AS length_empty
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
 GROUP BY pipe_type
 ORDER BY pipe_type;
@@ -999,6 +1014,7 @@ ORDER BY pipe_type;
 
 ```sql
 -- SLOW-03 POC owner 와 배관 끝점 개수. POC 테이블 집계.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- owner_type 768 은 모델 POC, 256 은 배관 끝점이다.
 -- 끝점 히스토그램은 1~6개와 90개 이상만 돌려 준다. 4개 이상 합계와 최댓값은 한 줄이다.
 -- 10분이 넘으면 TIMEOUT. 끝점 쿼리가 더 길다. 첫 결과(owner_type)만이라도 보낸다.
@@ -1007,8 +1023,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
     owner_type,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS live_rows,
-    SUM(CASE WHEN operationtype >= 2 THEN 1 ELSE 0 END) AS not_live
+    COUNT(*) AS rows_all
 FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
 GROUP BY owner_type
 ORDER BY owner_type;
@@ -1022,8 +1037,7 @@ SELECT
 FROM (
     SELECT owner_instance_id, COUNT(*) AS n
     FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
-    WHERE operationtype < 2
-      AND owner_type = 256
+    WHERE owner_type = 256
     GROUP BY owner_instance_id
 ) AS s;
 
@@ -1033,8 +1047,7 @@ SELECT
 FROM (
     SELECT owner_instance_id, COUNT(*) AS n
     FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
-    WHERE operationtype < 2
-      AND owner_type = 256
+    WHERE owner_type = 256
     GROUP BY owner_instance_id
 ) AS s
 WHERE n <= 6 OR n >= 90
@@ -1046,6 +1059,7 @@ ORDER BY n;
 
 ```sql
 -- SLOW-04 연결과 순번 품질. POC 집계, 이어서 원격끼리 LEFT JOIN.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- dangling 조인은 가장 길다. 앞의 두 결과가 나온 뒤 10분이 더 넘으면 dangling 만 취소한다.
 -- 역방향 TOP 1 은 만들지 않는다.
 SET NOCOUNT ON;
@@ -1058,8 +1072,7 @@ SELECT
     SUM(CASE WHEN connected_poc_id IS NOT NULL
               AND connected_poc_id <> '00000000-0000-0000-0000-000000000000' THEN 1 ELSE 0 END) AS connected_set
 FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
-WHERE operationtype < 2
-  AND owner_type IN (256, 768)
+WHERE owner_type IN (256, 768)
 GROUP BY owner_type
 ORDER BY owner_type;
 
@@ -1068,8 +1081,7 @@ SELECT
 FROM (
     SELECT owner_instance_id
     FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
-    WHERE operationtype < 2
-      AND owner_type = 256
+    WHERE owner_type = 256
     GROUP BY owner_instance_id, connection_order
     HAVING COUNT(*) > 1
 ) AS d;
@@ -1079,9 +1091,7 @@ SELECT
 FROM remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
 LEFT JOIN remote_monami.monami.dbo.tb_pocinstances AS t WITH (NOLOCK)
     ON t.instance_id = p.connected_poc_id
-   AND t.operationtype < 2
-WHERE p.operationtype < 2
-  AND p.owner_type = 256
+WHERE p.owner_type = 256
   AND p.connected_poc_id IS NOT NULL
   AND p.connected_poc_id <> '00000000-0000-0000-0000-000000000000'
   AND t.instance_id IS NULL;
@@ -1091,6 +1101,7 @@ WHERE p.operationtype < 2
 
 ```sql
 -- SLOW-05 길이, 구경, 좌표의 크기. 단위가 mm 인지 m 인지 본다.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- 값은 최소, 평균, 최대만. 좌표 원문은 행으로 내지 않는다.
 -- 배관과 모델을 각각 집계한다. 10분이 넘으면 TIMEOUT.
 SET NOCOUNT ON;
@@ -1102,8 +1113,7 @@ SELECT
     AVG(length1) AS avg_v,
     MAX(length1) AS max_v
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
-WHERE operationtype < 2
-  AND length1 IS NOT NULL
+WHERE length1 IS NOT NULL
   AND length1 > 0;
 
 SELECT
@@ -1112,8 +1122,7 @@ SELECT
     AVG(diameter1) AS avg_v,
     MAX(diameter1) AS max_v
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
-WHERE operationtype < 2
-  AND diameter1 IS NOT NULL
+WHERE diameter1 IS NOT NULL
   AND diameter1 > 0;
 
 SELECT
@@ -1122,8 +1131,7 @@ SELECT
     AVG(diameter) AS avg_v,
     MAX(diameter) AS max_v
 FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
-WHERE operationtype < 2
-  AND owner_type = 768
+WHERE owner_type = 768
   AND diameter IS NOT NULL
   AND diameter > 0;
 
@@ -1136,15 +1144,15 @@ SELECT
     MAX(posy) AS max_y,
     SUM(CASE WHEN ROUND(posz, 0) < 100000 THEN 1 ELSE 0 END) AS posz_under_100000,
     SUM(CASE WHEN ROUND(posy, 0) < 100000 THEN 1 ELSE 0 END) AS posy_under_100000,
-    COUNT(*) AS live_models
-FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK)
-WHERE operationtype < 2;
+    COUNT(*) AS model_rows
+FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK);
 ```
 
 ### SLOW-06-model-type.sql
 
 ```sql
 -- SLOW-06 모델 유형과 Composite, 부모. 모델 테이블 집계.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- MODEL_TYPE 단독으로 설비를 만들지 않는다. 이 숫자는 후보 필터를 확인할 때 쓴다.
 -- 50594049, 50594048 이 보이면 그 행의 composite, 부모 비율을 같이 본다.
 SET NOCOUNT ON;
@@ -1152,7 +1160,7 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
     model_type,
-    COUNT(*) AS live_rows,
+    COUNT(*) AS rows_all,
     SUM(CASE WHEN composite_yn <> 0 THEN 1 ELSE 0 END) AS composite_on,
     SUM(CASE
             WHEN parent_instance_id IS NULL
@@ -1160,7 +1168,6 @@ SELECT
             ELSE 0
         END) AS parent_null
 FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK)
-WHERE operationtype < 2
 GROUP BY model_type
 ORDER BY COUNT(*) DESC;
 ```
@@ -1169,6 +1176,7 @@ ORDER BY COUNT(*) DESC;
 
 ```sql
 -- SLOW-07 속성 이름 존재. 가장 느릴 수 있다. 마지막에 한 번만.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- TB_ATTRIBUTES 는 1억 행이 넘는다. 필요한 이름만 IN 으로 건다.
 -- 이름 목록 전체를 집계하지 않는다. 로컬 임시 테이블과 조인하지 않는다.
 -- 값은 앞 24자와 길이만. Tag 로 보이는 긴 문자열을 더 복사하지 않는다.
@@ -1179,13 +1187,12 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 SELECT
     attribute_nm,
     owner_type,
-    COUNT(*) AS live_rows,
+    COUNT(*) AS rows_all,
     SUM(CASE WHEN attribute_val IS NULL OR LTRIM(RTRIM(attribute_val)) = '' THEN 1 ELSE 0 END) AS blank_val,
     MIN(LEN(attribute_val)) AS min_len,
     MAX(LEN(attribute_val)) AS max_len
 FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK)
-WHERE operationtype < 2
-  AND attribute_nm IN (
+WHERE attribute_nm IN (
         N'Element ID_Number',
         N'Element ID',
         N'__MODULE_INFO',
@@ -1215,14 +1222,14 @@ SELECT TOP 5
     LEN(attribute_val) AS val_len,
     LEFT(attribute_val, 24) AS val24
 FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK)
-WHERE operationtype < 2
-  AND attribute_nm = N'__MODULE_INFO';
+WHERE attribute_nm = N'__MODULE_INFO';
 ```
 
 ### SLOW-08-takeoff-flags.sql
 
 ```sql
 -- SLOW-08 Takeoff 후보. 템플릿 TAKEOFF_YN 과 배관 유형을 따로 센다.
+-- rev2 2026-11-11: operationtype 열이 없는 DDW라 live 필터 없이 삭제 행을 포함한 전체 행을 본다. live는 version_sequence 임계 확정(01B, SLOW-01) 뒤에 건다.
 -- TAKEOFF_YN 만으로 Takeoff 를 분류하지 않는다. 두 수의 차이를 보기 위한 조회다.
 -- 템플릿과 배관을 한 조인으로 붙이지 않는다.
 SET NOCOUNT ON;
@@ -1230,21 +1237,21 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 SELECT
     takeoff_yn,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS live_templates
+    COUNT(*) AS template_rows
 FROM remote_monami.monami.dbo.tb_poctemplates WITH (NOLOCK)
 GROUP BY takeoff_yn
 ORDER BY takeoff_yn;
 
 SELECT
     equipment_yn,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS live_templates
+    COUNT(*) AS template_rows
 FROM remote_monami.monami.dbo.tb_poctemplates WITH (NOLOCK)
 GROUP BY equipment_yn
 ORDER BY equipment_yn;
 
 SELECT
-    SUM(CASE WHEN operationtype < 2 AND pipe_type = 17301768 THEN 1 ELSE 0 END) AS live_17301768,
-    SUM(CASE WHEN operationtype < 2 AND pipe_type <> 17301768 THEN 1 ELSE 0 END) AS live_other,
-    SUM(CASE WHEN operationtype < 2 THEN 1 ELSE 0 END) AS live_all
+    SUM(CASE WHEN pipe_type = 17301768 THEN 1 ELSE 0 END) AS rows_17301768,
+    SUM(CASE WHEN pipe_type <> 17301768 THEN 1 ELSE 0 END) AS rows_other,
+    COUNT(*) AS rows_all
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
 ```
