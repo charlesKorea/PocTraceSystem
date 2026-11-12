@@ -27,5 +27,6 @@
 | `ddw-svdi-queries/` | SQL | **remote_monami 조회 팩**. `DDW-SVDI-Queries.zip`과 같은 내용 |
 | `DDW_Trace_Flow_KO.md` | 한국어 | **DDW에서 설비 Tag가 배관 길이까지 이어지는 추적 flow**(담당자 설명 2026-11-12), S5D·현재 코드와의 차이, 질문 Q-01~Q-12와 담당자 답변, SVDI 시험 도구 `PocTrace.DdwTraceBench` 설명 |
 | `DDW_SVDI_Results_KO.md` | 한국어 | **SVDI에서 받은 DDW 조회 결과와 결정 기록**. 확정 사실, 진행 표, 코드 영향, 열린 질문을 쌓는다 |
+| `WORKFLOW_KO.md` | 한국어 | **작업 반영 방식**. 별도 요청이 없는 한 코드·문서를 고치면 main에 반영한다(2026-11-12 지시) |
 
 CSV는 UTF-8 BOM이라 Excel에서 한글/중국어가 깨지지 않습니다.

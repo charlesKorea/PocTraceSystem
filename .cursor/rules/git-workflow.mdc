@@ -1,0 +1,12 @@
+---
+description: 코드나 문서를 고치면 별도 요청이 없는 한 main에 반영한다
+alwaysApply: true
+---
+
+# main 반영이 기본
+
+별도 요청이 없는 한 코드나 문서를 고친 뒤 main에 반영한다. 자세한 절차는 `docs/WORKFLOW_KO.md`를 따른다.
+
+- 작업 브랜치에서 커밋, push, PR 갱신을 한 뒤 `git push origin HEAD:main`으로 반영한다. fast-forward일 때만 한다. 강제 push는 하지 않는다.
+- 사용자가 반영하지 말라고 하면 따른다.
+- 검증하지 못한 것은 요약에 그대로 적는다.
