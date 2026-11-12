@@ -22,4 +22,4 @@
 
 ## 배포
 
-Web.exe 재빌드가 필요하다(새 `.cs` 3개). `wwwroot`에는 `assets/jcs-ui/poc-keepalive.js`가 새로 생겼다. 자세한 파일 목록은 `updates/2026-11-02_web-voc2/CHANGED-FILES.md`.
+Web.exe 재빌드가 필요하다(새 `.cs` 3개). `wwwroot`에는 `assets/jcs-ui/poc-keepalive.js`가 새로 생겼다. 당시 파일 목록은 `updates/2026-11-02_web-voc2/CHANGED-FILES.md`에 있었다. 업데이트를 적용한 뒤 2026-11-12에 `updates/`를 삭제했다.

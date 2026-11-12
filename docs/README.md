@@ -19,7 +19,7 @@
 | `UPDATE-2026-11-Web-VOC2_KO.md` | 한국어 | Web.exe 추가 VOC 7건(기록 삭제, 경로 비노출, 탭 초기화, 중복 실행 방지 등) |
 | `UPDATE-2026-11-Web-VOC_KO.md` | 한국어 | **2026-11 Web VOC 11건 반영 내역**, 설정 키, 공용 검수 기록 구조 |
 | `Web_Table_Layout_Guide_KO.md` | 한국어 | **Web 표가 머리글을 벗어나는 문제**의 원인과 표 작성 규칙 |
-| `../updates/README.md` | 한국어 | **변경 파일만 받는 업데이트 zip** 목록과 만드는 방법 |
+| `../tools/Make-UpdateZip.ps1` | PowerShell | **변경 파일만 zip**. `updates/`의 과거 zip은 적용이 끝나 2026-11-12에 삭제했다. 다음에 필요하면 이 스크립트가 `updates/`를 다시 만든다 |
 | `PocTrace.DeletedPipeLength/가이드.md` | 한국어 | **삭제 배관 길이 Excel** 열 뜻, 순서 열, 탐색 상한 |
 | `BinaryCache_Easy_Guide_KO.md` | 한국어 | **공유 캐시 쉬운 설명**（비개발자·동료 공유） |
 | `BinaryCache_Easy_Guide_ZH.md` | 中文 | **共享缓存简明说明**（非开发同事共享） |

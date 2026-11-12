@@ -17,7 +17,7 @@
 | 8 | 검수 기록 공용화 | 개인 로컬 + 공용 폴더에 기록. 조회 조건(사용자, 방식, 라인, 기간, 대상)과 Excel 다운로드 | `InspectionHistory.cs`, `history.html`, `GET /api/history`, `/api/history/excel` |
 | 9 | 철거검수 표가 머리글을 벗어남 | 원인 재현 후 수정. 규칙은 `docs/Web_Table_Layout_Guide_KO.md` | `jcs-glass.css`, `index.html` |
 | 10 | 배관 Trace 진행 UI | 원형 진행 표시에 캐시 → Trace → Excel 단계, 배치는 Tag n/m, 현재 Tag, 경과 시간 | `PortalService.RunSingle/RunBatch/SetPhase` |
-| 11 | 변경 파일만 zip | `updates/` 폴더. 만드는 스크립트 `tools/Make-UpdateZip.ps1` | `updates/README.md` |
+| 11 | 변경 파일만 zip | 당시 `updates/`에 두었다. 적용이 끝나 2026-11-12에 폴더를 삭제했다. 스크립트는 `tools/Make-UpdateZip.ps1` | |
 
 ## 설정 키 (`PocTrace.Web.exe.config`)
 

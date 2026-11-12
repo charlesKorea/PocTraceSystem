@@ -429,10 +429,6 @@ FodyWeavers.xsd
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
 
-# Copied from jcs-codes-260718. This folder is a note, not restored NuGet packages.
-!offline-kit/nuget-packages/
-!offline-kit/nuget-packages/**
-
 # Admin HTML 대용량 정적 파일. 소스(poc-*.js, app.js, style.css, layout.html)만 git에 둔다.
 # 받는 법: PocTrace.Core/Templates/README.txt
 PocTrace.Core/Templates/assets/emoji/

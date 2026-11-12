@@ -23,7 +23,7 @@ nuget install Jcs.UiAssets -Source C:\OfflineDev\nuget-packages -OutputDirectory
 피드에 없을 때는 이 폴더에서 만듭니다.
 
 ```
-nuget pack Jcs.UiAssets.nuspec -OutputDirectory ..\..\offline-kit\nuget-packages
+nuget pack Jcs.UiAssets.nuspec -OutputDirectory C:\OfflineDev\nuget-packages
 ```
 
 HTML에서는 `jcs-glass.css`를 읽고, 아이콘은 CSS `mask`로 칠합니다. `currentColor`라서 버튼 색을 따라갑니다.
