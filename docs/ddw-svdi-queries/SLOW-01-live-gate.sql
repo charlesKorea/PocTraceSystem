@@ -1,6 +1,7 @@
 -- SLOW-01 version_sequence 분포. 모델 102만, POC 147만, 배관 23만 행을 각각 한 번씩 집계한다(02 결과).
 -- rev3 2026-11-11: 모든 tb_* 에 version_sequence 가 있고 operationtype 은 없다(담당자 확인).
--- 삭제 판정 임계가 1000000000(JSearchMK 주석)인지 10000000(SVDI 담당 설명)인지 이 분포로 가른다.
+-- rev4 2026-11-12: 담당자가 모든 테이블 기본 조건으로 version_sequence < 1000000000 을 확정했다.
+-- 이 분포는 확정된 임계 1e9 가 실제 값 사이의 틈에 있는지(1e7 와 1e9 사이에 값이 있는지) 검증하는 용도다.
 -- 테이블당 집계 쿼리 두 개씩이다. 10분이 넘으면 그 블록만 취소하고 TIMEOUT 과 테이블 이름을 보낸다.
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;

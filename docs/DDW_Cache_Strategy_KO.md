@@ -4,6 +4,8 @@
 
 2026-11-11 개정: SVDI 01, 02 결과를 반영했다. 이 사이트(카탈로그 `monami`)의 모든 `tb_*`에는 `operationtype` 열이 없고 `version_sequence`가 있다. 삭제 판정은 `version_sequence`다. 결과 기록은 `DDW_SVDI_Results_KO.md`에 쌓는다.
 
+2026-11-12 개정: 담당자가 설비 Tag 하나를 DDW 솔루션과 테이블로 따라간 flow를 받았다. 새 문서 `DDW_Trace_Flow_KO.md`에 정리했다. 삭제 임계는 `version_sequence < 1000000000`으로 확정됐다. Tag 원천은 `tb_attributes`의 `tag` 행이고, 배관 길이는 `length2`일 가능성이 있다(확인 대기). 아래 5, 6, 7, 11절에 그 변경만 반영했고, 나머지는 SVDI 결과가 모이면 고친다.
+
 독자는 Admin으로 공유 캐시를 만드는 쪽이다. Viewer, Web, 철거, 노즐추적은 그 캐시만 읽는다. DDW를 읽어도 지금 S5D 캐시와 같은 파일 종류, 같은 DTO, 같은 추적 규칙이 나와야 한다.
 
 ## 1. 자료와 우선순위
@@ -96,13 +98,13 @@ Admin의 전체 추적과 캐시만 갱신(`RunCacheOnlyAsync`) 모두 이 provi
 | 폴더 키 | `GraphCache_{TargetDatabases 이름}` 하나 | `SchemaKind`만 DDW로 두고 이름 `x1`로 저장하면 S5D 운영 캐시를 덮는다. |
 | sidecar | `GetSelectBimGroups`, `GetSelectTemplateEquipments`가 `ConfigurationGroupLog` / `ObjectInstanceLog` | DDW 카탈로그에는 그 로그 테이블이 없다. 그룹·3-% 캐시는 실패하거나 비고, 그래프 저장은 이미 끝난 뒤라 그래프만 남을 수 있다. 실패는 잡이 삼키고 다음으로 간다. |
 | 일배치 설비 | `GetSelectAllEquipments`도 S5D 로그. Sub1 `1-%`/`6-%`, Tag 필수, 건설코드 Delete 제외 | DDW 그래프를 만들어도 추적 대상 목록은 S5D다. |
-| TbStar Tag | 모델 SQL의 Tag가 `NULL`. `Element ID_Number`는 BimId로만 간다 | 노드가 캐시에 있어도 Tag가 비면 `FindStartPocs`와 일배치가 설비를 못 찾는다. WebDdw가 Tag를 채우는 프로파일이다. |
+| TbStar Tag | 모델 SQL의 Tag가 `NULL`. `Element ID_Number`는 BimId로만 간다 | 노드가 캐시에 있어도 Tag가 비면 `FindStartPocs`와 일배치가 설비를 못 찾는다. 2026-11-12 담당자 설명으로 Tag 원천이 정해졌다. `tb_attributes`에서 `attribute_nm = 'tag'`인 행의 `owner_id`가 그 객체다. 속성 읽기를 모델 노드에 연결하면 메워진다(코드 변경은 별도 단계, `DDW_Trace_Flow_KO.md` 6절). WebDdw의 `tag` 열 경로는 이 DB에서 쓰지 않는다. |
 | Hookup | dynprops가 빈 채 v10으로 저장된다 | Hookup 시트·ConnectorUse 검수는 이 캐시에서 나오지 않는다. 빈 ConnectorUse는 조회 시 Y라서, 빈 목록은 "전부 Y"로 보일 수 있다. |
-| live 판정 열 | `DdwSql`의 모든 SELECT가 `OPERATIONTYPE < 2`로 거르고, `DdwGraphMapping`도 `OperationType >= 2`를 버린다. `DdwAcceptance`는 그 문자열을 검사한다 | 2026-11-11 SVDI 01에서 `tb_instancegroups`에 `operationtype`이 없다는 오류가 났고, 담당자는 모든 `tb_*`에 그 열이 없고 `version_sequence`가 있다고 확인했다. 그대로 돌리면 `monami`에서는 쿼리 오류로 그래프를 못 만든다. 임계(1e9 vs 1e7)를 SLOW-01로 정한 뒤 live 문을 `version_sequence`로 바꾼다(코드 변경은 별도 단계). |
+| live 판정 열 | `DdwSql`의 모든 SELECT가 `OPERATIONTYPE < 2`로 거르고, `DdwGraphMapping`도 `OperationType >= 2`를 버린다. `DdwAcceptance`는 그 문자열을 검사한다 | 2026-11-11 SVDI 01에서 `tb_instancegroups`에 `operationtype`이 없다는 오류가 났고, 담당자는 모든 `tb_*`에 그 열이 없고 `version_sequence`가 있다고 확인했다. 2026-11-12 임계가 `version_sequence < 1000000000`으로 확정됐다. 그대로 돌리면 `monami`에서는 쿼리 오류로 그래프를 못 만든다. live 문을 `version_sequence < 1000000000`으로 바꾼다(코드 변경은 별도 단계). |
 | 삭제 배관 도구 | `SchemaKind != S5d`이면 시작을 거부한다 | DDW 캐시와 무관한 S5D 로그 스냅샷이다. DDW 캐시 범위에 넣지 않는다. |
 | 증분 | `VERSIONS`는 워터마크 후보이나 미구현 | 캐시는 DB 전체 SQL 후 섹션 전체 저장이 기본이다. |
 
-TbStar에서 Tag가 비는 것은 버그로 메우지 않는다. 계약이 ElementId를 Tag로 쓰지 말라고 한다. Tag 원천이 확정되기 전에는 WebDdw로 캐시를 만들거나, TbStar 캐시는 기하·연결 점검용으로만 둔다.
+TbStar에서 Tag가 비는 것은 버그로 메우지 않는다. 계약이 ElementId를 Tag로 쓰지 말라고 한다. Tag 원천은 `tb_attributes`의 `tag` 행으로 정해졌다. 이름 변형, owner_type, 중복은 SVDI T02로 확인한 뒤 코드에 연결한다.
 
 ## 6. JSearchMK 원격 DDW 조회에서 가져올 것
 
@@ -112,7 +114,7 @@ X2-M은 FRM 서버에 접속한 뒤 Linked Server `remote_monami.monami.dbo.tb_*
 
 - 접속 카탈로그는 데이터가 있는 DB가 아니라 `master`일 수 있다. 데이터 위치는 4-part 이름이다.
 - 원격 테이블을 로컬 임시 테이블과 조인하면 원격 전체가 넘어와 수 분이 걸린다. 그룹명, `attribute_nm`, 삭제 조건은 원격 `WHERE`의 리터럴로 둔다.
-- 삭제 행은 그 사이트에서 `version_sequence < 1000000000`으로 거른다. 주석은 이것이 `operationtype < 2`와 같은 뜻이라고 한다. SVDI 담당 설명은 "`version_sequence`가 10000000 이상이면 삭제"라서 임계가 1e9인지 1e7인지 다르다. SLOW-01의 분포로 가른다.
+- 삭제 행은 그 사이트에서 `version_sequence < 1000000000`으로 거른다. 주석은 이것이 `operationtype < 2`와 같은 뜻이라고 한다. 2026-11-11 담당 설명 "10000000 이상"은 2026-11-12에 담당자가 `< 1000000000`을 모든 테이블 기본 조건으로 확정해 정리됐다. SLOW-01은 분포 검증용이다.
 - `instance_id`를 `nvarchar`로 바꾸면 글자가 깨진다. 다시 필터할 때는 `0x` 16진 리터럴을 쓰고, 한 번에 200개 단위다.
 - 속성 필터(`Element ID_Number`, `ConnectionTag`, `BIM_DESIGN_INFO`, `S5_LATERAL NUMBER`, `ConvertDate`)는 필요한 이름만 건다.
 - 노즐 번호 끝 3자리 `000`은 SQL에서 자르지 않는다. 원격 `WHERE`에 함수 필터를 더하면 느려져서, 조회 후 프로그램이 뺀다.
@@ -124,7 +126,7 @@ X2-M은 FRM 서버에 접속한 뒤 Linked Server `remote_monami.monami.dbo.tb_*
 1. 전체 스냅샷은 **DDW 카탈로그에 직접** 붙는다. `DdwSql`은 `{db}.dbo.TB_*`이다. `master`에 붙고 4-part로 읽는 형태가 아니다.
 2. 그 카탈로그에 직접 붙을 수 있으면 그 경로만 쓴다. Linked Server는 대화형 점검과, 직접 접속이 없을 때의 예외 추출이다.
 3. 예외 추출을 만들더라도 원격 `WHERE`에 필터를 두고, 로컬 임시 테이블과 조인하지 않는다. 노즐 쿼리를 그래프 쿼리로 재사용하지 않는다. 노즐 쿼리는 BIM Group 일부와 노즐 템플릿만 가져온다.
-4. 2026-11-11 SVDI 결과 이 사이트의 모든 `tb_*`에는 `OPERATIONTYPE` 열이 없고 `version_sequence`가 그 역할이다(01에서 `tb_modelinstances` 샘플 값 2682 확인, 나머지는 담당자 확인). 삭제 임계는 SLOW-01 분포로 1e9와 1e7 중 하나로 고정한다. 확정 전에는 live 문을 캐시 SQL에 넣지 않는다. 두 열이 모두 있는 사이트에서는 한 문장에 섞지 않고 행수가 같은지 먼저 본다. `TB_VERSIONS`를 live 판정에 조인하지 않는다.
+4. 2026-11-11 SVDI 결과 이 사이트의 모든 `tb_*`에는 `OPERATIONTYPE` 열이 없고 `version_sequence`가 그 역할이다(01에서 `tb_modelinstances` 샘플 값 2682 확인, 나머지는 담당자 확인). 삭제 임계는 `version_sequence < 1000000000`이다(2026-11-12 담당자 확정). 마스터 테이블에도 같은 조건을 건다고 이해했으며 마스터의 삭제 행 여부는 열린 질문이다. 두 열이 모두 있는 사이트에서는 한 문장에 섞지 않고 행수가 같은지 먼저 본다. `TB_VERSIONS`를 live 판정에 조인하지 않는다.
 5. `TB_ATTRIBUTES`는 이 사이트에서 11,953,709행이다(02 결과, 2026-11-11. 초안의 약 1.8억 가정보다 작다). 캐시 SQL은 지금처럼 이름 목록만 읽는다. 이름을 늘릴 때도 한 번의 `IN`이다. OWNER별 상관 서브쿼리를 만들지 않는다.
 6. GUID를 문자열 키로 왕복하지 않는다. 캐시 안의 키는 `uniqueidentifier`에서 온 `Guid`이다.
 
@@ -256,7 +258,10 @@ WebDdw가 이 조건을 만족하기 전에는 일배치 추적 산출(Excel, HT
 
 - D-01. 실행 DB가 TbStar인지 WebDdw인지. (05 결과 대기)
 - 직접 카탈로그 접속이 있는지, `remote_monami`뿐인지. (01로는 링크 `remote_monami`와 카탈로그 `monami`까지 확인. 직접 접속 여부는 미확인)
-- D-10. 삭제 판정. 확정: `operationtype` 열 없음, `version_sequence`가 역할을 한다. 확정: 모든 `tb_*`에 `version_sequence`가 있다(담당자 확인). 미확정: 임계(1e9 vs 1e7). (SLOW-01 결과 대기)
+- D-10. 삭제 판정. 확정: `operationtype` 열 없음, `version_sequence < 1000000000`이 live(담당자 확정 2026-11-12). 모든 `tb_*`에 `version_sequence`가 있다. 남은 것: 마스터 테이블에도 같은 조건을 거는지 확인, SLOW-01로 분포 검증.
+- D-11. 설비 Tag 원천. 담당자 설명: `tb_attributes`의 `attribute_nm = 'tag'`. 남은 것: T02로 이름 변형과 중복 확인.
+- D-12. 배관 길이 열. 코드는 `length1`, 담당자는 `length2`(mm). T05 대기.
+- D-13. 설비 판정 규칙. 담당자는 `model_type = 50594049`와 `family_key = equipment`. 위 7절의 "MODEL_TYPE만으로 설비를 만들지 않는다"와 충돌 가능. T03 대기.
 
 캐시 이후에도 코드에서 추측하지 않을 것:
 
@@ -301,7 +306,7 @@ Q=07
 | 9 | `09-group-shape.sql` | 보통 | 그룹 부모 열, capa 건수. sidecar |
 | 10 | `10-shape-samples.sql` | 빠름 | 모델, 템플릿, POC, 배관, POC 템플릿의 행 모양. 분포 아님 |
 | 11 | `11-template-sub-top.sql` | 보통 | Sub1 상위 40개. 노드 분류 어휘 |
-| 12 | `SLOW-01-live-gate.sql` | 느림 | `version_sequence` 분포. 삭제 임계가 1e9인지 1e7인지 |
+| 12 | `SLOW-01-live-gate.sql` | 느림 | `version_sequence` 분포. 임계 1e9 확정 후 검증용 |
 | 13 | `SLOW-02-pipe-type.sql` | 느림 | `PIPE_TYPE`별 건수. 17301768 |
 | 14 | `SLOW-03-poc-ends.sql` | 느림 | owner 768/256, 끝점 1·2·3·4개 이상, 최댓값 |
 | 15 | `SLOW-04-connect-order.sql` | 느림 | 미연결, zero GUID, 순번 중복, dangling |
@@ -310,13 +315,20 @@ Q=07
 | 18 | `SLOW-08-takeoff-flags.sql` | 느림 | `TAKEOFF_YN` 건수와 17301768 건수를 따로 |
 | 19 | `SLOW-07-attributes.sql` | 가장 느림 | 필요한 속성 이름만. Element ID, 모듈, Hookup, ConnectorUse |
 
-첫 방문은 01부터 10까지다(01B는 선택). 11과 SLOW는 그 다음이다. SLOW-07은 항상 마지막이다.
+| 20 | `T01-flow-steps.sql` | 빠름 | 설비 Tag에서 배관 길이까지 한 단계씩. 담당자 flow와 맞추기. `DDW_Trace_Flow_KO.md` |
+| 21 | `T02-tag-attribute-shape.sql` | 보통 | Tag 속성의 `owner_type`, 중복, 빈 값, 삭제 행 |
+| 22 | `T03-equipment-judgement.sql` | 보통 | `model_type`, `family_key`, `bim_yn`로 본 설비 판정 근거 |
+| 23 | `T04-poc-shape.sql` | 보통에서 느림 | 템플릿 0 POC와 `owner_type`, connector_pipe의 POC 수, 연결 대칭성 |
+| 24 | `T05-pipe-length-deleted.sql` | 보통 | `length1`/`length2` 비교, 삭제 행과 `last_update` |
+| 25 | `T06-history-rows.sql` | 보통에서 느림 | `instance_id`당 여러 행 여부 |
+
+첫 방문은 01부터 10까지다(01B는 선택). 11과 SLOW는 그 다음이다. SLOW-07은 SLOW 중 마지막이다. T 파일은 03, 04로 열 이름을 확인한 뒤 돌린다.
 
 빈 칸은 `RESULT-TEMPLATE.txt`에 맞춰 채운다. 그리드가 길면(02, 03, 04) 사진이어도 된다. 집계 쿼리는 숫자 행이라 타이핑으로 충분하다.
 
 ## 13. 쿼리 본문
 
-아래 본문은 `docs/ddw-svdi-queries` 와 `docs/DDW-SVDI-Queries.zip` 과 같다(rev3, 2026-11-11). SSMS에는 zip 안의 파일을 연다.
+아래 본문은 `docs/ddw-svdi-queries` 와 `docs/DDW-SVDI-Queries.zip` 과 같다(rev4, 2026-11-12). SSMS에는 zip 안의 파일을 연다.
 
 ### 00-README.txt
 
@@ -347,7 +359,11 @@ Q=파일번호
 
 첫 방문: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10
 다음: 11, SLOW-01, SLOW-02, SLOW-03, SLOW-04, SLOW-05, SLOW-06, SLOW-08
+설비 Tag flow(rev4): T01 ~ T06. 03, 04 로 열 이름을 확인한 뒤에 돌린다.
 마지막: SLOW-07
+
+T01 은 설비 Tag 하나를 배관 길이까지 한 단계씩 따라간다. 파일 위쪽 DECLARE 에 Tag 와 앞 단계 결과의 0x 전체를 넣는다.
+Tag 원문과 0x 전체는 회신에 쓰지 않는다. 앞 10자와 숫자 열만 보낸다.
 
 rev2 (2026-11-11): 이 DDW에는 operationtype 열이 없다. 삭제 판정은 version_sequence 로 한다.
 담당자 확인: 모든 tb_* 에 version_sequence 가 있고 operationtype 은 없다. 01B 는 그 확인을 결과로 남기는 선택 쿼리다.
@@ -355,6 +371,9 @@ live 필터 없이 전체 행을 본 쿼리가 많다. 삭제 행도 세어진�
 결과는 docs/DDW_SVDI_Results_KO.md 에 쌓인다. 회신마다 Q 번호와 날짜를 적는다.
 
 이 팩은 캐시 작성 SQL이 아니다. 명세와 분포를 확인한 뒤 캐시 쿼리를 고정한다.
+
+rev4 (2026-11-12): 담당자가 모든 테이블 기본 조건으로 version_sequence < 1000000000 을 확정했다. T01 ~ T06 을 추가했다(docs/DDW_Trace_Flow_KO.md).
+T05-C, T05-D, T06 은 삭제 행 또는 전체 행을 본다. 그 밖의 T 쿼리는 live 필터가 걸려 있다.
 ```
 
 ### RESULT-TEMPLATE.txt
@@ -441,6 +460,30 @@ SSMS 서버: FRM (링크가 있는 쪽)
 결과=
 
 [SLOW-07]
+분=
+결과=
+
+[T01]
+분=
+결과=
+
+[T02]
+분=
+결과=
+
+[T03]
+분=
+결과=
+
+[T04]
+분=
+결과=
+
+[T05]
+분=
+결과=
+
+[T06]
 분=
 결과=
 ```
@@ -957,7 +1000,8 @@ ORDER BY COUNT(*) DESC;
 ```sql
 -- SLOW-01 version_sequence 분포. 모델 102만, POC 147만, 배관 23만 행을 각각 한 번씩 집계한다(02 결과).
 -- rev3 2026-11-11: 모든 tb_* 에 version_sequence 가 있고 operationtype 은 없다(담당자 확인).
--- 삭제 판정 임계가 1000000000(JSearchMK 주석)인지 10000000(SVDI 담당 설명)인지 이 분포로 가른다.
+-- rev4 2026-11-12: 담당자가 모든 테이블 기본 조건으로 version_sequence < 1000000000 을 확정했다.
+-- 이 분포는 확정된 임계 1e9 가 실제 값 사이의 틈에 있는지(1e7 와 1e9 사이에 값이 있는지) 검증하는 용도다.
 -- 테이블당 집계 쿼리 두 개씩이다. 10분이 넘으면 그 블록만 취소하고 TIMEOUT 과 테이블 이름을 보낸다.
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
@@ -1319,4 +1363,428 @@ SELECT
     SUM(CASE WHEN pipe_type <> 17301768 THEN 1 ELSE 0 END) AS rows_other,
     COUNT(*) AS rows_all
 FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK);
+```
+
+### T01-flow-steps.sql
+
+```sql
+-- T01 설비 Tag 에서 배관 길이까지 한 단계씩 따라가는 쿼리. 빠름. 설계: docs/DDW_Trace_Flow_KO.md
+-- 담당자가 SVDI 에서 손으로 따라간 순서(2026-11-12)를 그대로 쿼리로 옮겼다. 모든 테이블에 version_sequence < 1000000000.
+-- 한 번에 한 단계씩 돌린다. 단계 출력의 *_hex 전체를 다음 단계의 DECLARE 에 붙여 넣는다.
+-- 회신에는 Tag 원문과 hex 전체를 쓰지 않는다. 회신은 앞 10자(0x 포함)와 숫자 열만 보낸다.
+-- id 열이 binary 인지 uniqueidentifier 인지에 상관없이 0x 리터럴로 비교한다.
+-- attribute_val 이 ntext 라서 = 비교가 에러(402)면 에러 메시지만 보내고 LIKE 로 바꾸지 않는다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+DECLARE @Tag      nvarchar(200)  = N'<TAG>';
+DECLARE @Eq       varbinary(16)  = 0x00000000000000000000000000000000;  -- 1단계 owner_id (설비 인스턴스)
+DECLARE @Tpl      varbinary(16)  = 0x00000000000000000000000000000000;  -- 2단계 model_template_id
+DECLARE @StartPoc varbinary(16)  = 0x00000000000000000000000000000000;  -- 5단계 설비 POC instance_id
+DECLARE @Next     varbinary(16)  = 0x00000000000000000000000000000000;  -- 5단계 connected_poc_id (건너편 POC)
+DECLARE @NextOwn  varbinary(16)  = 0x00000000000000000000000000000000;  -- 6단계 owner_instance_id (건너편 소유 객체)
+DECLARE @Pipe     varbinary(16)  = 0x00000000000000000000000000000000;  -- 8단계 poc_template_id 가 0 인 POC 의 owner_instance_id
+
+-- 1. Tag 속성으로 owner 찾기. Tag 는 속성 테이블의 attribute_nm = 'tag' 에 있다.
+SELECT TOP 20
+    CONVERT(varchar(34), CONVERT(varbinary(16), a.owner_id), 1) AS owner_hex,
+    a.owner_type,
+    a.version_sequence
+FROM remote_monami.monami.dbo.tb_attributes AS a WITH (NOLOCK)
+WHERE a.attribute_nm = N'tag'
+  AND a.attribute_val = @Tag
+  AND a.version_sequence < 1000000000;
+
+-- 2. 설비 여부. 배치 객체 정보. model_type 50594049 를 설비로 본다.
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), mi.instance_id), 1) AS instance_hex,
+    mi.model_type,
+    mi.composite_yn,
+    CONVERT(varchar(34), CONVERT(varbinary(16), mi.model_template_id), 1) AS template_hex,
+    mi.version_sequence
+FROM remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
+WHERE mi.instance_id = @Eq
+  AND mi.version_sequence < 1000000000;
+
+-- 3. 라이브러리 모델. display_nm 이 설비 이름, family_key = equipment 가 힌트, bim_yn = 0 이 2차 설계 객체.
+SELECT
+    LEFT(mt.display_nm, 12) AS display12,
+    LEN(mt.display_nm) AS display_len,
+    mt.family_key,
+    mt.bim_yn,
+    mt.version_sequence
+FROM remote_monami.monami.dbo.tb_modeltemplates AS mt WITH (NOLOCK)
+WHERE mt.model_template_id = @Tpl
+  AND mt.version_sequence < 1000000000;
+
+-- 4. 라이브러리 POC. equipment_yn = 1 이 설비 POC, memo 는 비고.
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), pt.poc_template_id), 1) AS poc_template_hex,
+    LEFT(pt.poc_template_nm, 16) AS poc_nm16,
+    CONVERT(varchar(34), CONVERT(varbinary(16), pt.utility_id), 1) AS utility_hex,
+    pt.equipment_yn,
+    CASE WHEN pt.memo IS NULL OR LTRIM(RTRIM(pt.memo)) = '' THEN 0 ELSE LEN(pt.memo) END AS memo_len
+FROM remote_monami.monami.dbo.tb_poctemplates AS pt WITH (NOLOCK)
+WHERE pt.model_template_id = @Tpl
+  AND pt.version_sequence < 1000000000;
+
+-- 5. 배치된 설비 POC. 설비 id(owner_instance_id)를 반드시 걸어야 그 설비의 POC 만 나온다.
+--    connected_poc_id 가 S5D 의 outlet 이다.
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.instance_id), 1) AS poc_hex,
+    p.owner_type,
+    p.connection_order,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.poc_template_id), 1) AS poc_template_hex,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.utility_id), 1) AS utility_hex,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.connected_poc_id), 1) AS connected_hex,
+    CASE WHEN p.connected_poc_id IS NULL THEN 'null'
+         WHEN p.connected_poc_id = 0x00000000000000000000000000000000 THEN 'zero'
+         ELSE 'set' END AS connected
+FROM remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
+WHERE p.owner_instance_id = @Eq
+  AND p.version_sequence < 1000000000
+ORDER BY p.connection_order;
+
+-- 6. 건너편 POC. connected_poc_id 가 지나온 POC(@StartPoc)를 가리키면 되돌아가지 않는 규칙을 확인한다.
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.instance_id), 1) AS poc_hex,
+    p.owner_type,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.poc_template_id), 1) AS poc_template_hex,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.owner_instance_id), 1) AS owner_hex,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.connected_poc_id), 1) AS connected_hex,
+    CASE WHEN p.connected_poc_id = @StartPoc THEN 1 ELSE 0 END AS points_back
+FROM remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
+WHERE p.instance_id = @Next
+  AND p.version_sequence < 1000000000;
+
+-- 7. 건너편 소유 객체. model_type 51380485 가 connector_pipe. 그 객체의 POC 전부와 아직 지나지 않은 POC.
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), mi.instance_id), 1) AS instance_hex,
+    mi.model_type,
+    mi.composite_yn,
+    CONVERT(varchar(34), CONVERT(varbinary(16), mi.model_template_id), 1) AS template_hex
+FROM remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
+WHERE mi.instance_id = @NextOwn
+  AND mi.version_sequence < 1000000000;
+
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.instance_id), 1) AS poc_hex,
+    p.connection_order,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.poc_template_id), 1) AS poc_template_hex,
+    CONVERT(varchar(34), CONVERT(varbinary(16), p.connected_poc_id), 1) AS connected_hex,
+    CASE WHEN p.instance_id = @Next THEN 1 ELSE 0 END AS arrived_here
+FROM remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
+WHERE p.owner_instance_id = @NextOwn
+  AND p.version_sequence < 1000000000
+ORDER BY p.connection_order;
+
+-- 8. poc_template_id 가 0 인 POC 를 만나면 owner_instance_id 로 배관 테이블을 본다.
+--    length2 가 배관 길이(mm, 변환 불필요)라는 담당자 설명. length1 과 같이 본다. 관경 열 이름은 03 결과를 보고 더한다.
+SELECT
+    CONVERT(varchar(34), CONVERT(varbinary(16), pi.instance_id), 1) AS pipe_hex,
+    pi.pipe_type,
+    pi.length1,
+    pi.length2,
+    CONVERT(varchar(34), CONVERT(varbinary(16), pi.utility_id), 1) AS utility_hex,
+    pi.version_sequence
+FROM remote_monami.monami.dbo.tb_pipeinstances AS pi WITH (NOLOCK)
+WHERE pi.instance_id = @Pipe
+  AND pi.version_sequence < 1000000000;
+
+-- 9. 이 과정을 건너편 POC 마다 되풀이한다. 지나온 POC 는 건너뛰고, 다른 설비, 노즐, 캡에서는 멈춘다(종료 조건은 설계 문서 질문 참고).
+```
+
+### T02-tag-attribute-shape.sql
+
+```sql
+-- T02 Tag 속성의 모양. 보통. 속성 테이블 약 1,195만 행에서 attribute_nm = 'tag' 만 원격에서 거른다.
+-- Tag 값은 내지 않는다. 건수와 길이만.
+-- 10분이 넘으면 TIMEOUT 과 블록 이름을 보낸다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+-- T02-A owner_type 별 live 건수, 빈 값, 값 길이
+SELECT
+    owner_type,
+    COUNT(*) AS rows_live,
+    SUM(CASE WHEN attribute_val IS NULL OR LTRIM(RTRIM(attribute_val)) = '' THEN 1 ELSE 0 END) AS blank_val,
+    MIN(LEN(attribute_val)) AS min_len,
+    MAX(LEN(attribute_val)) AS max_len
+FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK)
+WHERE attribute_nm = N'tag'
+  AND version_sequence < 1000000000
+GROUP BY owner_type
+ORDER BY owner_type;
+
+-- T02-B 삭제된 tag 속성 행수(version_sequence 1e9 이상)
+SELECT COUNT(*) AS rows_deleted
+FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK)
+WHERE attribute_nm = N'tag'
+  AND version_sequence >= 1000000000;
+
+-- T02-C 같은 Tag 값이 여러 owner 에 붙은 정도. 값은 내지 않는다.
+SELECT
+    COUNT(*) AS tag_values,
+    SUM(CASE WHEN n > 1 THEN 1 ELSE 0 END) AS values_with_many_owners,
+    MAX(n) AS max_owners_per_value
+FROM (
+    SELECT attribute_val, COUNT(*) AS n
+    FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK)
+    WHERE attribute_nm = N'tag'
+      AND version_sequence < 1000000000
+    GROUP BY attribute_val
+) AS s;
+
+-- T02-D 한 owner 에 live tag 행이 둘 이상인 정도
+SELECT
+    COUNT(*) AS owners,
+    SUM(CASE WHEN n > 1 THEN 1 ELSE 0 END) AS owners_with_many_tag_rows,
+    MAX(n) AS max_rows_per_owner
+FROM (
+    SELECT owner_id, COUNT(*) AS n
+    FROM remote_monami.monami.dbo.tb_attributes WITH (NOLOCK)
+    WHERE attribute_nm = N'tag'
+      AND version_sequence < 1000000000
+    GROUP BY owner_id
+) AS s;
+```
+
+### T03-equipment-judgement.sql
+
+```sql
+-- T03 설비 판정 근거. 보통. 템플릿 148,110 행, 모델 약 102만 행.
+-- model_type 50594049 만으로 설비로 보는지, family_key = equipment 와 bim_yn 이 어떻게 겹치는지 본다.
+-- 값은 숫자와 family_key 앞 24자만. 모두 원격끼리 조인한다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+-- T03-A 템플릿의 model_type x family_key x bim_yn 건수 상위 40
+SELECT TOP 40
+    model_type,
+    LEFT(family_key, 24) AS family24,
+    bim_yn,
+    COUNT(*) AS templates
+FROM remote_monami.monami.dbo.tb_modeltemplates WITH (NOLOCK)
+WHERE version_sequence < 1000000000
+GROUP BY model_type, LEFT(family_key, 24), bim_yn
+ORDER BY COUNT(*) DESC;
+
+-- T03-B 인스턴스 model_type 50594049, 50594048, 51380485 의 템플릿 구성
+SELECT
+    mi.model_type,
+    LEFT(mt.family_key, 24) AS family24,
+    mt.bim_yn,
+    COUNT(*) AS instances
+FROM remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
+LEFT JOIN remote_monami.monami.dbo.tb_modeltemplates AS mt WITH (NOLOCK)
+    ON mt.model_template_id = mi.model_template_id
+   AND mt.version_sequence < 1000000000
+WHERE mi.version_sequence < 1000000000
+  AND mi.model_type IN (50594049, 50594048, 51380485)
+GROUP BY mi.model_type, LEFT(mt.family_key, 24), mt.bim_yn
+ORDER BY mi.model_type, COUNT(*) DESC;
+
+-- T03-C tag 속성을 가진 인스턴스가 어떤 model_type, family_key 인지. 설비가 아닌 것에도 tag 가 붙는지 본다.
+SELECT TOP 40
+    mi.model_type,
+    LEFT(mt.family_key, 24) AS family24,
+    mt.bim_yn,
+    COUNT(*) AS tagged_instances
+FROM remote_monami.monami.dbo.tb_attributes AS a WITH (NOLOCK)
+JOIN remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
+    ON mi.instance_id = a.owner_id
+   AND mi.version_sequence < 1000000000
+LEFT JOIN remote_monami.monami.dbo.tb_modeltemplates AS mt WITH (NOLOCK)
+    ON mt.model_template_id = mi.model_template_id
+   AND mt.version_sequence < 1000000000
+WHERE a.attribute_nm = N'tag'
+  AND a.version_sequence < 1000000000
+GROUP BY mi.model_type, LEFT(mt.family_key, 24), mt.bim_yn
+ORDER BY COUNT(*) DESC;
+```
+
+### T04-poc-shape.sql
+
+```sql
+-- T04 POC 의 모양과 연결 대칭성. 보통에서 느림. POC 약 147만 행.
+-- poc_template_id 가 0 인 POC 가 배관 끝점(owner_type 256)과 같은 집합인지,
+-- connector_pipe(model_type 51380485)가 POC 를 몇 개 갖는지, 연결이 서로를 가리키는지 본다.
+-- T04-D 는 자기 조인이라 가장 길다. 10분이 넘으면 T04-D 만 취소하고 TIMEOUT 이라고 보낸다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+-- T04-A owner_type x 템플릿 0 여부 x 연결 상태
+SELECT
+    owner_type,
+    CASE WHEN poc_template_id IS NULL THEN 'null'
+         WHEN poc_template_id = 0x00000000000000000000000000000000 THEN 'zero'
+         ELSE 'set' END AS poc_template,
+    CASE WHEN connected_poc_id IS NULL THEN 'null'
+         WHEN connected_poc_id = 0x00000000000000000000000000000000 THEN 'zero'
+         ELSE 'set' END AS connected,
+    COUNT(*) AS n
+FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
+WHERE version_sequence < 1000000000
+GROUP BY owner_type,
+    CASE WHEN poc_template_id IS NULL THEN 'null'
+         WHEN poc_template_id = 0x00000000000000000000000000000000 THEN 'zero'
+         ELSE 'set' END,
+    CASE WHEN connected_poc_id IS NULL THEN 'null'
+         WHEN connected_poc_id = 0x00000000000000000000000000000000 THEN 'zero'
+         ELSE 'set' END
+ORDER BY owner_type, poc_template, connected;
+
+-- T04-B connector_pipe 하나가 가진 POC 개수 분포
+SELECT
+    n AS poc_per_owner,
+    COUNT(*) AS owners
+FROM (
+    SELECT p.owner_instance_id, COUNT(*) AS n
+    FROM remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
+    JOIN remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
+        ON mi.instance_id = p.owner_instance_id
+       AND mi.version_sequence < 1000000000
+       AND mi.model_type = 51380485
+    WHERE p.version_sequence < 1000000000
+    GROUP BY p.owner_instance_id
+) AS s
+GROUP BY n
+ORDER BY n;
+
+-- T04-C 배관 하나가 가진 POC(템플릿 0) 개수 분포. 6개까지와 90개 이상만.
+SELECT
+    n AS poc_per_pipe,
+    COUNT(*) AS pipes
+FROM (
+    SELECT owner_instance_id, COUNT(*) AS n
+    FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
+    WHERE version_sequence < 1000000000
+      AND poc_template_id = 0x00000000000000000000000000000000
+    GROUP BY owner_instance_id
+) AS s
+WHERE n <= 6 OR n >= 90
+GROUP BY n
+ORDER BY n;
+
+-- T04-D 연결 대칭성. 상대 POC 가 나를 가리키지 않는 건수와, 상대가 live 가 아닌 건수.
+SELECT
+    SUM(CASE WHEN t.instance_id IS NULL THEN 1 ELSE 0 END) AS target_missing_or_deleted,
+    SUM(CASE WHEN t.instance_id IS NOT NULL
+              AND (t.connected_poc_id IS NULL OR t.connected_poc_id <> p.instance_id) THEN 1 ELSE 0 END) AS not_reciprocal,
+    COUNT(*) AS connected_pocs
+FROM remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
+LEFT JOIN remote_monami.monami.dbo.tb_pocinstances AS t WITH (NOLOCK)
+    ON t.instance_id = p.connected_poc_id
+   AND t.version_sequence < 1000000000
+WHERE p.version_sequence < 1000000000
+  AND p.connected_poc_id IS NOT NULL
+  AND p.connected_poc_id <> 0x00000000000000000000000000000000;
+```
+
+### T05-pipe-length-deleted.sql
+
+```sql
+-- T05 배관 길이 열과 삭제 행. 보통. 배관 228,878 행.
+-- 현재 캐시 코드는 length1 을 쓴다. 담당자 설명은 length2 가 배관 길이(mm)다. 둘의 차이를 본다.
+-- 삭제 행(version_sequence 1e9 이상)이 얼마나 남아 있고 언제 지워졌는지 본다. last_update 가 없으면 에러가 난다. 그 경우 에러만 보낸다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+-- T05-A pipe_type 별 length1, length2 비교(live)
+SELECT
+    pipe_type,
+    COUNT(*) AS rows_live,
+    SUM(CASE WHEN length1 IS NULL OR length1 <= 0 THEN 1 ELSE 0 END) AS length1_empty,
+    SUM(CASE WHEN length2 IS NULL OR length2 <= 0 THEN 1 ELSE 0 END) AS length2_empty,
+    SUM(CASE WHEN length1 > 0 AND length2 > 0 AND ABS(length1 - length2) > 0.5 THEN 1 ELSE 0 END) AS differ_over_half_mm,
+    SUM(CAST(CASE WHEN length1 > 0 THEN length1 ELSE 0 END AS float)) AS sum_length1,
+    SUM(CAST(CASE WHEN length2 > 0 THEN length2 ELSE 0 END AS float)) AS sum_length2
+FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
+WHERE version_sequence < 1000000000
+GROUP BY pipe_type
+ORDER BY pipe_type;
+
+-- T05-B 두 값이 다른 행 샘플 8개. id 는 앞 10자만.
+SELECT TOP 8
+    LEFT(CONVERT(varchar(34), CONVERT(varbinary(16), instance_id), 1), 10) AS id10,
+    pipe_type,
+    ROUND(length1, 3) AS length1,
+    ROUND(length2, 3) AS length2
+FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
+WHERE version_sequence < 1000000000
+  AND length1 > 0 AND length2 > 0
+  AND ABS(length1 - length2) > 0.5;
+
+-- T05-C 삭제 행 건수와 마지막 갱신 시각 범위
+SELECT
+    COUNT(*) AS rows_deleted,
+    MIN(last_update) AS min_last_update,
+    MAX(last_update) AS max_last_update
+FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
+WHERE version_sequence >= 1000000000;
+
+-- T05-D 삭제 행의 pipe_type 별 건수와 길이 합(length2)
+SELECT
+    pipe_type,
+    COUNT(*) AS rows_deleted,
+    SUM(CAST(CASE WHEN length2 > 0 THEN length2 ELSE 0 END AS float)) AS sum_length2
+FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
+WHERE version_sequence >= 1000000000
+GROUP BY pipe_type
+ORDER BY pipe_type;
+```
+
+### T06-history-rows.sql
+
+```sql
+-- T06 instance_id 하나에 행이 여러 개인지(이력 행). 보통에서 느림.
+-- S5D 의 로그 테이블은 최신 행을 골라야 했다. DDW 의 tb_* 는 instance_id 당 한 행인지, 삭제가 새 행인지 제자리 갱신인지 본다.
+-- live 필터 없이 전체 행 기준이다. 10분이 넘으면 그 블록만 취소하고 TIMEOUT 과 테이블 이름을 보낸다.
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+SELECT
+    'tb_modelinstances' AS src,
+    COUNT(*) AS instance_ids,
+    SUM(CASE WHEN n > 1 THEN 1 ELSE 0 END) AS ids_with_many_rows,
+    MAX(n) AS max_rows_per_id,
+    SUM(CASE WHEN n > 1 AND live_n > 0 AND deleted_n > 0 THEN 1 ELSE 0 END) AS ids_live_and_deleted
+FROM (
+    SELECT instance_id,
+           COUNT(*) AS n,
+           SUM(CASE WHEN version_sequence < 1000000000 THEN 1 ELSE 0 END) AS live_n,
+           SUM(CASE WHEN version_sequence >= 1000000000 THEN 1 ELSE 0 END) AS deleted_n
+    FROM remote_monami.monami.dbo.tb_modelinstances WITH (NOLOCK)
+    GROUP BY instance_id
+) AS s;
+
+SELECT
+    'tb_pipeinstances' AS src,
+    COUNT(*) AS instance_ids,
+    SUM(CASE WHEN n > 1 THEN 1 ELSE 0 END) AS ids_with_many_rows,
+    MAX(n) AS max_rows_per_id,
+    SUM(CASE WHEN n > 1 AND live_n > 0 AND deleted_n > 0 THEN 1 ELSE 0 END) AS ids_live_and_deleted
+FROM (
+    SELECT instance_id,
+           COUNT(*) AS n,
+           SUM(CASE WHEN version_sequence < 1000000000 THEN 1 ELSE 0 END) AS live_n,
+           SUM(CASE WHEN version_sequence >= 1000000000 THEN 1 ELSE 0 END) AS deleted_n
+    FROM remote_monami.monami.dbo.tb_pipeinstances WITH (NOLOCK)
+    GROUP BY instance_id
+) AS s;
+
+SELECT
+    'tb_pocinstances' AS src,
+    COUNT(*) AS instance_ids,
+    SUM(CASE WHEN n > 1 THEN 1 ELSE 0 END) AS ids_with_many_rows,
+    MAX(n) AS max_rows_per_id,
+    SUM(CASE WHEN n > 1 AND live_n > 0 AND deleted_n > 0 THEN 1 ELSE 0 END) AS ids_live_and_deleted
+FROM (
+    SELECT instance_id,
+           COUNT(*) AS n,
+           SUM(CASE WHEN version_sequence < 1000000000 THEN 1 ELSE 0 END) AS live_n,
+           SUM(CASE WHEN version_sequence >= 1000000000 THEN 1 ELSE 0 END) AS deleted_n
+    FROM remote_monami.monami.dbo.tb_pocinstances WITH (NOLOCK)
+    GROUP BY instance_id
+) AS s;
 ```

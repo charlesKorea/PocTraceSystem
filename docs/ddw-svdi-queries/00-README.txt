@@ -24,7 +24,11 @@ Q=파일번호
 
 첫 방문: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10
 다음: 11, SLOW-01, SLOW-02, SLOW-03, SLOW-04, SLOW-05, SLOW-06, SLOW-08
+설비 Tag flow(rev4): T01 ~ T06. 03, 04 로 열 이름을 확인한 뒤에 돌린다.
 마지막: SLOW-07
+
+T01 은 설비 Tag 하나를 배관 길이까지 한 단계씩 따라간다. 파일 위쪽 DECLARE 에 Tag 와 앞 단계 결과의 0x 전체를 넣는다.
+Tag 원문과 0x 전체는 회신에 쓰지 않는다. 앞 10자와 숫자 열만 보낸다.
 
 rev2 (2026-11-11): 이 DDW에는 operationtype 열이 없다. 삭제 판정은 version_sequence 로 한다.
 담당자 확인: 모든 tb_* 에 version_sequence 가 있고 operationtype 은 없다. 01B 는 그 확인을 결과로 남기는 선택 쿼리다.
@@ -32,3 +36,6 @@ live 필터 없이 전체 행을 본 쿼리가 많다. 삭제 행도 세어진�
 결과는 docs/DDW_SVDI_Results_KO.md 에 쌓인다. 회신마다 Q 번호와 날짜를 적는다.
 
 이 팩은 캐시 작성 SQL이 아니다. 명세와 분포를 확인한 뒤 캐시 쿼리를 고정한다.
+
+rev4 (2026-11-12): 담당자가 모든 테이블 기본 조건으로 version_sequence < 1000000000 을 확정했다. T01 ~ T06 을 추가했다(docs/DDW_Trace_Flow_KO.md).
+T05-C, T05-D, T06 은 삭제 행 또는 전체 행을 본다. 그 밖의 T 쿼리는 live 필터가 걸려 있다.
