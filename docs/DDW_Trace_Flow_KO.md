@@ -105,11 +105,41 @@ for E in equip:
 3. `T02`~`T06`을 돌린다.
 4. `SLOW-01`은 임계가 확정되어 분포 확인용으로 내려갔다.
 
-## 6. 코드에 닿는 변경 후보 (아직 고치지 않음)
+### 5.1 담당자 답변 (2026-11-12)
+
+| 번호 | 답변 |
+|---|---|
+| Q-01 | 길이는 `length2`. `length1`은 예비로 같이 담는다 |
+| Q-02 | 구경 열은 `pipesize_id`. `tb_pipesize.pipesize_id`와 맞고 `pipesize_nm`에 "14.29 mm" 같은 text가 있다 |
+| Q-03 | 설비 판정은 `model_type`, `family_key`, `bim_yn` 세 가지를 모두 참조하되 하나만 만족해도 설비. 향후 변경 가능 |
+| Q-04 | Tag뿐 아니라 모든 속성은 `tb_attributes`의 `attribute_nm`과 값 열로 찾는다. 1차 BIM 설비도 같다 |
+| Q-05 | 시작 POC만이 아니라 그 POC의 주인 설비가 가진 모든 POC가 추적 대상 |
+| Q-06 | 다를 것 같다. `owner_type = 256`은 현재 불분명하며 향후 시험으로 재확인 |
+| Q-07 | `model_type`은 참고만 한다. 대신 기록해 다수 데이터로 유추한다 |
+| Q-08 | 다른 설비로 가거나 `modeltemplates.bim_yn = 1`인 객체를 만나면 그 이름을 기록하고 멈춘다. 상세 status는 구분하지 않고 추적이 올바른지에 집중한다 |
+| Q-09 | 없는 경우는 없는 것으로 두고 비고(status)로 남긴다 |
+| Q-10 | `instance_id`는 삭제 행을 제외하면 유일하다고 간주한다 |
+| Q-11 | 삭제 행이 남아 있다. `version_sequence`로 알고 `last_update` 열로 시각을 식별한다 |
+| Q-12 | `memo`는 당장 추적에 필요하지 않아 보이지만 기록은 남긴다 |
+
+이 답변으로 3절 flow는 두 가지가 바뀐다. 5단계의 시작 POC가 설비의 모든 POC로 넓어졌다. 8단계의 길이 열이 `length2`로 정해졌다. 의사코드의 종료 조건은 "다른 설비 또는 `bim_yn = 1` 객체"다.
+
+## 6. 시험 도구 `PocTrace.DdwTraceBench`
+
+SVDI에서 위 규칙이 맞는지 보기 위한 WinForms 도구다(`PocTrace.DdwTraceBench/`, 사용법은 그 폴더의 `가이드.md`). Tag를 입력(기본 `rme010n03`)하면 설비의 모든 POC에서 배관을 따라가고, `bim_yn = 1` 객체나 다른 설비를 만나면 이름을 기록하고 그 가지를 멈춘다. 지나간 POC, 배관, 객체의 id와 table, `length2`와 `length1`, 구경 이름, `model_type`, `family_key`, `bim_yn`, `memo`를 Excel에 쓴다.
+
+도구의 해석 두 가지는 답변에 없어서 정한 것이다.
+
+- connector_pipe(`model_type` 51380485)는 설비 판정에서 빼고 통과한다. 설비-배관 사이에 낀 요소로 읽었다. 화면에서 바꿀 수 있다.
+- 설비 판정의 `bim_yn = 0` 조건은 기본 꺼짐이다. 켜면 2차 설계 객체(`bim_yn = 0`)인 밸브와 피팅이 설비가 되어 첫 컴포넌트에서 멈추기 쉽다. 객체 시트에 세 판정 결과가 모두 남으므로 시험 후 켤지 정한다.
+
+도구는 `tb_*`를 키 목록 `IN`으로 200개씩 읽고 원격 조인을 하지 않는다. 열 이름이 다르면 `연결·스키마 확인`이 필요한 열을 알려 준다.
+
+## 7. 코드에 닿는 변경 후보 (아직 고치지 않음)
 
 - live 문: `version_sequence < 1000000000`을 `DdwSql`의 모델, POC, 배관, 속성, 마스터 조인 전부에 건다. `DdwGraphMapping`의 `OperationType >= 2` 판정과 `DdwAcceptance` 검사 문자열도 바꾼다.
 - Tag: `attributes`에서 `attribute_nm = 'tag'`를 읽어 노드 Tag에 채운다. 큰 테이블(약 1,195만 행)이므로 이름 목록 `IN` 한 번으로 읽고 OWNER별 상관 서브쿼리를 만들지 않는다.
-- 길이: Q-01 결과 후 `length1`/`length2` 중 하나로 고정한다.
-- 설비 판정과 connector_pipe 분류: Q-03, Q-07 결과 후 `DdwGraphMapping.Classify`에 반영한다.
+- 길이: `length2`(확정). `length1`은 예비 값으로 DTO에 같이 담는다.
+- 설비 판정과 connector_pipe 분류: 시험 도구 결과(객체 시트의 `model_type` 분포)를 본 뒤 `DdwGraphMapping.Classify`에 반영한다.
 
 이 항목들은 `DDW_Cache_Strategy_KO.md`의 C0 방침(이 단계에서는 C# 변경 없음)에 따라 쿼리 결과가 모일 때까지 보류한다.

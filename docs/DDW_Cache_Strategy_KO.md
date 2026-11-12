@@ -260,8 +260,8 @@ WebDdw가 이 조건을 만족하기 전에는 일배치 추적 산출(Excel, HT
 - 직접 카탈로그 접속이 있는지, `remote_monami`뿐인지. (01로는 링크 `remote_monami`와 카탈로그 `monami`까지 확인. 직접 접속 여부는 미확인)
 - D-10. 삭제 판정. 확정: `operationtype` 열 없음, `version_sequence < 1000000000`이 live(담당자 확정 2026-11-12). 모든 `tb_*`에 `version_sequence`가 있다. 남은 것: 마스터 테이블에도 같은 조건을 거는지 확인, SLOW-01로 분포 검증.
 - D-11. 설비 Tag 원천. 담당자 설명: `tb_attributes`의 `attribute_nm = 'tag'`. 남은 것: T02로 이름 변형과 중복 확인.
-- D-12. 배관 길이 열. 코드는 `length1`, 담당자는 `length2`(mm). T05 대기.
-- D-13. 설비 판정 규칙. 담당자는 `model_type = 50594049`와 `family_key = equipment`. 위 7절의 "MODEL_TYPE만으로 설비를 만들지 않는다"와 충돌 가능. T03 대기.
+- D-12. 배관 길이 열. 확정: `length2`(mm), `length1`은 예비(담당자 답변 2026-11-12).
+- D-13. 설비 판정 규칙. 확정(변경 가능): `model_type`, `family_key`, `bim_yn` 중 하나만 만족하면 설비. 위 7절의 "MODEL_TYPE만으로 설비를 만들지 않는다"와 충돌하므로 DDW 캐시 코드에 옮기기 전에 시험 도구(`PocTrace.DdwTraceBench`) 결과를 본다.
 
 캐시 이후에도 코드에서 추측하지 않을 것:
 

@@ -20,7 +20,18 @@
 | 삭제 임계 | **모든 테이블 쿼리에 `version_sequence < 1000000000`이 기본.** 그 이상은 삭제 행이라 제외 | 담당자 확정(2026-11-12). 11일의 "10000000 이상" 설명은 이 값으로 정리한다. JSearchMK 주석과도 같다 |
 | Tag 원천 | 설비 Tag는 `tb_attributes`의 `attribute_nm = 'tag'`, `attribute_val = <TAG>`이고 그 행의 `owner_id`가 설비 인스턴스 id | 담당자 설명(2026-11-12). 3절 |
 | 설비 판정(담당자 기준) | `tb_modelinstances.model_type = 50594049`, 템플릿 `family_key = equipment`, `bim_yn = 0`이면 2차 설계 설비 | 담당자 설명. 코드 가정과 충돌하는 부분은 6절 Q-03 |
-| 배관 길이 | `tb_pipeinstances.length2`가 길이(mm, 변환 없음) | 담당자 설명. 현재 코드는 `length1`. 6절 Q-01 |
+| 배관 길이 | `tb_pipeinstances.length2`가 DDW 화면에 표시되는 길이(mm, 변환 없음). `length1`은 예비로 같이 담는다 | 담당자 확정(2026-11-12). 현재 캐시 코드는 `length1` |
+| 배관 구경 | `tb_pipeinstances.pipesize_id`가 `tb_pipesize.pipesize_id`와 맞고 `pipesize_nm`에 "14.29 mm" 같은 text가 있다 | 담당자 답변(2026-11-12). 답변에 `tb_pipeszie`로 적혀 `tb_pipesize` 오타로 읽었다. 도구는 두 이름을 모두 찾는다 |
+| 설비 판정 | `model_type`, `family_key`, `bim_yn` 세 조건 중 하나만 만족해도 설비. 조건은 향후 바뀔 수 있다 | 담당자 답변(2026-11-12) |
+| 속성 조회 | Tag만이 아니라 모든 속성은 `tb_attributes`의 `attribute_nm`과 값 열로 찾는다. 1차 BIM 설비도 같다 | 담당자 답변. 값 열 이름은 `attribute_val`(11일 설명)과 `attribute_value`(12일 답변)가 다르게 적혀, 도구는 있는 쪽을 쓴다 |
+| 시작 POC | 시작 POC만이 아니라 그 POC의 주인 설비가 가진 모든 POC가 추적 대상 | 담당자 답변 |
+| `owner_type = 256` | 의미가 불분명. 향후 시험으로 재확인. 배관 식별은 `poc_template_id = 0`으로 한다 | 담당자 답변 |
+| `model_type` | 참고만 한다. 판정에 쓰지 않고 기록해 다수 데이터로 유추한다 | 담당자 답변. 설비 판정 조건 하나로는 쓴다 |
+| 종료 조건 | 다른 설비로 가거나 `modeltemplates.bim_yn = 1` 객체를 만나면 이름을 기록하고 멈춘다. 상태를 세분하지 않고 추적이 올바른지에 집중한다 | 담당자 답변 |
+| 없는 값 | 없으면 없는 대로 두고 비고(status)로 남긴다 | 담당자 답변 |
+| id 유일성 | 삭제 행을 제외하면 `instance_id`는 유일하다고 간주한다 | 담당자 답변. T06으로 확인한다 |
+| 삭제 행 | 삭제 행이 남아 있다. `version_sequence`로 알고 `last_update` 열로 시각을 안다 | 담당자 답변. T05-C, T05-D로 건수 확인 |
+| `memo` | 추적에 당장 필요하지 않으나 기록은 남긴다 | 담당자 답변 |
 | 표기 | 대화에서 `*`만 적으면 `remote_monami.monami.dbo.tb_*`의 그 테이블 | 담당자 안내(2026-11-12) |
 | `version_sequence` 값 확인 | `tb_modelinstances` 샘플 2682 | 01-C. 다른 테이블 값은 SLOW-01로 본다 |
 | 규모 | 모델 1,022,126, POC 1,469,668, 배관 228,878, 속성 11,953,709 | 02. 3절 |
@@ -133,7 +144,9 @@
 | D-01 | 실행 DB가 TbStar인지 WebDdw인지 | 대기 | 05 결과 |
 | D-10 | 삭제 판정을 `version_sequence < 1000000000`으로 한다. `operationtype` 열은 이 DDW 쿼리와 캐시 SQL에서 제외한다 | 확정 2026-11-12 | 모든 `tb_*`에 `version_sequence` 있음, `operationtype` 없음. 임계 1e9는 담당자 확정. 마스터 테이블에도 같은 조건을 건다고 이해했으며 Q-12로 확인 |
 | D-11 | 설비 Tag 원천은 `attributes`의 `tag` 행이다 | 담당자 설명 2026-11-12 | 전략 문서 5절 "TbStar Tag NULL"이 이것으로 메워진다. 실제 열 이름과 속성 변형은 T02 후 |
-| D-12 | 배관 길이 열이 `length2`인가 | 대기 | T05 후 |
+| D-12 | 배관 길이 열은 `length2`(mm)이고 `length1`은 예비 | 확정 2026-11-12 | 담당자 답변. T05-A/B는 두 값 차이를 보는 참고 쿼리로 남는다 |
+| D-13 | 설비 판정은 `model_type`, `family_key`, `bim_yn` 중 하나만 만족하면 설비. 변경 가능 | 확정 2026-11-12(변경 가능) | 담당자 답변. 설비 판정에 `bim_yn = 0`을 켜면 2차 설계 객체가 대부분 설비가 되어 `bim_yn = 1` 끝점과 역할이 겹친다. 시험 도구는 이 조건을 기본 꺼짐으로 두고 화면에서 켠다 |
+| D-14 | 시험 도구 `PocTrace.DdwTraceBench`로 Tag의 모든 POC에서 추적해 id와 table을 Excel에 남긴다 | 구현 2026-11-12, SVDI 시험 대기 | 규칙은 `DDW_Trace_Flow_KO.md` 6절 |
 | 쿼리 팩 | `operationtype`을 쓰던 쿼리를 전부 고쳤다(rev2). `01B`를 추가했다 | 완료 2026-11-11 | 삭제 행이 세어지는 쿼리가 있다 |
 | 쿼리 팩 rev4 | T01~T06 추가(Tag flow, Tag 속성, 설비 판정, POC 모양, 배관 길이와 삭제 행, 이력 행) | 완료 2026-11-12 | 모든 T 쿼리는 `version_sequence < 1000000000`. T05-C, T05-D, T06은 삭제 행·전체 행 기준 |
 
@@ -155,25 +168,25 @@
 
 ## 6. 열린 질문
 
-설비 Tag flow에서 나온 질문(Q-01~Q-12). 설명과 쿼리 매핑은 `DDW_Trace_Flow_KO.md` 5절이다.
+설비 Tag flow에서 나온 질문(Q-01~Q-12)과 2026-11-12 담당자 답변이다. 설명은 `DDW_Trace_Flow_KO.md` 5절이다.
 
-| 번호 | 질문 | 쿼리 | 상태 |
-|---|---|---|---|
-| Q-01 | 배관 길이가 `length2`인가 `length1`인가 | T05-A, T05-B | 대기 |
-| Q-02 | 구경 열 이름, POC 구경과 배관 구경의 연결, `pipesize` 테이블 유무 | 03, 04, 08 | 대기 |
-| Q-03 | 설비 판정: `model_type` 50594049/50594048, `family_key = equipment`, `bim_yn` | T03 | 대기 |
-| Q-04 | Tag 속성 이름 변형, `owner_type`, 중복, 1차 BIM 설비의 Tag 속성 | T02 | 대기 |
-| Q-05 | 시작 POC가 설비의 POC 전부인가 `equipment_yn = 1`만인가 | T01 4, 5단계 | 대기 |
-| Q-06 | `poc_template_id = 0`과 `owner_type = 256`이 같은 집합인가 | T04-A, T04-C | 대기 |
-| Q-07 | connector_pipe의 POC 수와 길이 취급, 추적 중 만나는 `model_type`들 | T04-B, T03-B, SLOW-06 | 대기 |
-| Q-08 | 종료 조건(다른 설비, 노즐, 캡, Takeoff)을 DDW에서 무엇으로 식별하나 | SLOW-08, SLOW-02, 대표 1건 | 대기 |
-| Q-09 | 연결의 대칭성과 dangling | T04-D, SLOW-04 | 대기 |
-| Q-10 | `instance_id`당 행이 여러 개인가, 삭제가 새 행인가 제자리 갱신인가 | T06 | 대기 |
-| Q-11 | 삭제 행이 남아 있는지, 삭제 시각을 알 수 있는지 | T05-C, T05-D, SLOW-01 | 대기 |
-| Q-12 | `memo`를 비고로 쓰는지, 마스터 테이블에도 같은 임계인지 | 담당자 답변 | 대기 |
+| 번호 | 질문 | 답변(2026-11-12) | 남은 확인 | 상태 |
+|---|---|---|---|---|
+| Q-01 | 배관 길이 열 | `length2` 기준, `length1` 예비로 같이 담는다 | T05-A/B로 두 값 차이(선택) | 답변 |
+| Q-02 | 구경 열 이름, 구경 테이블 | `pipesize_id`가 `tb_pipesize`(`pipesize_nm`, 예: "14.29 mm")와 맞는다 | 열 타입(03), 값 형식 | 답변 |
+| Q-03 | 설비 판정 | 세 조건 중 하나만 만족해도 설비. 변경 가능 | T03으로 분포 | 답변 |
+| Q-04 | Tag 속성 이름 변형, 1차 BIM 설비의 Tag | 모든 속성은 `tb_attributes`의 `attribute_nm`과 값 열. 1차 BIM도 같다 | 값 열 이름(`attribute_val`/`attribute_value`), T02 | 답변 |
+| Q-05 | 시작 POC 범위 | 시작 POC와 그 주인 설비의 모든 POC | | 답변 |
+| Q-06 | `poc_template_id = 0`과 `owner_type = 256` | `owner_type = 256`은 불분명. 시험으로 재확인 | T04-A, T04-C | 열림 |
+| Q-07 | connector_pipe와 `model_type` | `model_type`은 참고로 기록하고 다수 데이터로 유추 | T04-B, T03-B, 시험 도구의 객체 시트 | 부분 답변 |
+| Q-08 | 종료 조건 | 다른 설비 또는 `bim_yn = 1` 객체를 만나면 이름을 기록하고 멈춘다. 상세 status는 구분하지 않는다 | 시험 도구 결과 | 답변 |
+| Q-09 | 연결 대칭성, dangling | 없으면 없는 대로, 비고(status)로 남긴다 | T04-D | 답변 |
+| Q-10 | `instance_id` 유일성 | 삭제 행 제외 유일하다고 간주한다 | T06 | 답변 |
+| Q-11 | 삭제 행 | 남아 있다. `version_sequence`로 알고 `last_update`로 시각을 안다 | T05-C, T05-D로 건수와 범위 | 답변 |
+| Q-12 | `memo`, 마스터 삭제 | `memo`는 기록한다. 마스터 삭제 조건은 답이 없어 같은 임계로 이해한다 | 마스터의 삭제 행 존재 | 부분 답변 |
 
 그 밖에:
 
 - `tb_pipesize`, `tb_poctypes`, `tb_new_usergroups`가 이 DB에 있는지(03, 04).
 - 직접 `monami` 카탈로그에 붙는 접속이 있는지, `remote_monami`뿐인지. 캐시 작성은 직접 접속을 쓴다.
-- 담당자가 쓴 `pocinstances.owner_id`는 코드의 `owner_instance_id`와 같은 열이라고 이해했다. 03 결과에서 열 이름을 확인한다.
+- 담당자가 쓴 `pocinstances.owner_id`는 코드의 `owner_instance_id`와 같은 열이라고 이해했다. 시험 도구는 두 이름 중 있는 쪽을 쓴다. 03 결과에서 열 이름을 확인한다.

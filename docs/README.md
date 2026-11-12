@@ -25,7 +25,7 @@
 | `BinaryCache_Easy_Guide_ZH.md` | 中文 | **共享缓存简明说明**（非开发同事共享） |
 | `DDW_Cache_Strategy_KO.md` | 한국어 | **DDW DB로 같은 공유 캐시를 만드는 전략**. S5D 캐시는 유지하고 폴더 키를 분리한다. 12절이 SVDI 조회 순서 |
 | `ddw-svdi-queries/` | SQL | **remote_monami 조회 팩**. `DDW-SVDI-Queries.zip`과 같은 내용 |
-| `DDW_Trace_Flow_KO.md` | 한국어 | **DDW에서 설비 Tag가 배관 길이까지 이어지는 추적 flow**(담당자 설명 2026-11-12), S5D·현재 코드와의 차이, 열린 질문 Q-01~Q-12 |
+| `DDW_Trace_Flow_KO.md` | 한국어 | **DDW에서 설비 Tag가 배관 길이까지 이어지는 추적 flow**(담당자 설명 2026-11-12), S5D·현재 코드와의 차이, 질문 Q-01~Q-12와 담당자 답변, SVDI 시험 도구 `PocTrace.DdwTraceBench` 설명 |
 | `DDW_SVDI_Results_KO.md` | 한국어 | **SVDI에서 받은 DDW 조회 결과와 결정 기록**. 확정 사실, 진행 표, 코드 영향, 열린 질문을 쌓는다 |
 
 CSV는 UTF-8 BOM이라 Excel에서 한글/중국어가 깨지지 않습니다.

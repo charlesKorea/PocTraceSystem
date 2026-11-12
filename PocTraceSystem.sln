@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocTrace.DdwAcceptance", "P
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocTrace.DeletedPipeLength", "PocTrace.DeletedPipeLength\PocTrace.DeletedPipeLength.csproj", "{E7C4A91B-2D6F-4C8A-9B15-6F0D3E8A71C2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocTrace.DdwTraceBench", "PocTrace.DdwTraceBench\PocTrace.DdwTraceBench.csproj", "{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,14 @@ Global
 		{E7C4A91B-2D6F-4C8A-9B15-6F0D3E8A71C2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E7C4A91B-2D6F-4C8A-9B15-6F0D3E8A71C2}.Release|x64.ActiveCfg = Release|Any CPU
 		{E7C4A91B-2D6F-4C8A-9B15-6F0D3E8A71C2}.Release|x64.Build.0 = Release|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Debug|x64.Build.0 = Debug|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Release|x64.ActiveCfg = Release|Any CPU
+		{A1D3C5E7-4B29-4F6A-8C10-2E9D7B5F3A64}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
