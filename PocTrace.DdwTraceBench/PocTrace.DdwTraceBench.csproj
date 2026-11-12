@@ -44,6 +44,7 @@
     <Compile Include="Data\DdwSettings.cs" />
     <Compile Include="Data\IDdwData.cs" />
     <Compile Include="Data\SqlDdwData.cs" />
+    <Compile Include="Data\UiSqlConfig.cs" />
     <Compile Include="Export\TraceExcelWriter.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>

@@ -15,22 +15,26 @@ namespace PocTrace.DdwTraceBench.Data
 
         public string Prefix
         {
-            get
-            {
-                Validate(LinkedServer, "Linked server 이름");
-                Validate(Catalog, "카탈로그 이름");
-                return "[" + LinkedServer + "].[" + Catalog + "].[dbo].";
-            }
+            get { return Qualified("") ; }
         }
 
         public string InformationSchema
         {
-            get
+            get { return Qualified("INFORMATION_SCHEMA.COLUMNS"); }
+        }
+
+        private string Qualified(string tail)
+        {
+            Validate(Catalog, "카탈로그 이름");
+            string head;
+            if (string.IsNullOrWhiteSpace(LinkedServer))
+                head = "[" + Catalog.Trim() + "].";
+            else
             {
-                Validate(LinkedServer, "Linked server 이름");
-                Validate(Catalog, "카탈로그 이름");
-                return "[" + LinkedServer + "].[" + Catalog + "].INFORMATION_SCHEMA.COLUMNS";
+                Validate(LinkedServer.Trim(), "Linked server 이름");
+                head = "[" + LinkedServer.Trim() + "].[" + Catalog.Trim() + "].";
             }
+            return tail.Length == 0 ? head + "[dbo]." : head + tail;
         }
 
         private static void Validate(string value, string label)

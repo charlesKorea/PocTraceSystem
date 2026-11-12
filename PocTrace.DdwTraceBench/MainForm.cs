@@ -22,13 +22,12 @@ namespace PocTrace.DdwTraceBench
     /// </summary>
     public sealed class MainForm : Form
     {
-        private readonly TextBox _server = new TextBox();
-        private readonly TextBox _database = new TextBox();
-        private readonly CheckBox _windowsAuth = new CheckBox();
-        private readonly TextBox _user = new TextBox();
-        private readonly TextBox _password = new TextBox();
+        private readonly TextBox _uiFolder = new TextBox();
+        private readonly ComboBox _connectionName = new ComboBox();
+        private readonly Label _connectionInfo = new Label();
         private readonly TextBox _linked = new TextBox();
         private readonly TextBox _catalog = new TextBox();
+        private UiSqlConfig _loadedConfig;
 
         private readonly TextBox _tag = new TextBox();
         private readonly NumericUpDown _maxObjects = new NumericUpDown();
@@ -58,7 +57,7 @@ namespace PocTrace.DdwTraceBench
         public MainForm()
         {
             Text = "PocTrace.DdwTraceBench - DDW 설비 POC 추적 시험";
-            ClientSize = new Size(900, 760);
+            ClientSize = new Size(900, 800);
             MinimumSize = new Size(760, 640);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("맑은 고딕", 9F);
@@ -72,13 +71,16 @@ namespace PocTrace.DdwTraceBench
             _log.ScrollBars = ScrollBars.Both;
             _log.WordWrap = false;
             _log.Font = new Font("Consolas", 9F);
-            _log.SetBounds(12, 372, 876, 376);
+            _log.SetBounds(12, 408, 876, 380);
             _log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             Controls.Add(_log);
 
             LoadSettings();
+            if (_uiFolder.Text.Trim().Length == 0)
+                _uiFolder.Text = UiSqlConfig.GuessFolder();
+            TryLoadConfig(false);
             Log("DDW 설비 POC 추적 시험. 모든 조회는 version_sequence < 1000000000 이다.");
-            Log("비밀번호는 저장하지 않는다. Excel에는 id 전체가 들어간다. 회신에는 앞 10자만 쓴다.");
+            Log("SQL 연결은 PocTrace.UI 폴더의 exe.config 와 config\\db.secret 을 그대로 쓴다. 암호는 이 프로그램에 저장하지 않는다.");
         }
 
         private static Label Lbl(string text, int x, int y, int w)
@@ -88,47 +90,69 @@ namespace PocTrace.DdwTraceBench
 
         private void BuildConnectionGroup()
         {
-            var g = new GroupBox { Text = "연결 (FRM 서버에서 Linked Server 로 monami 를 읽는다)", Left = 12, Top = 8, Width = 876, Height = 112 };
+            var g = new GroupBox { Text = "연결 (PocTrace.UI 와 같은 config, 같은 FRM 서버)", Left = 12, Top = 8, Width = 876, Height = 148 };
             g.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             Controls.Add(g);
 
-            g.Controls.Add(Lbl("서버", 10, 22, 50));
-            _server.SetBounds(62, 22, 230, 23);
-            g.Controls.Add(_server);
-            g.Controls.Add(Lbl("DB", 304, 22, 30));
-            _database.SetBounds(336, 22, 120, 23);
-            _database.Text = "master";
-            g.Controls.Add(_database);
+            g.Controls.Add(Lbl("UI 폴더", 10, 22, 55));
+            _uiFolder.SetBounds(68, 22, 690, 23);
+            _uiFolder.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            g.Controls.Add(_uiFolder);
+            var browse = new Button { Text = "찾아보기", Left = 766, Top = 21, Width = 96, Height = 25 };
+            browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            browse.Click += (s, e) =>
+            {
+                using (var d = new FolderBrowserDialog())
+                {
+                    d.Description = "PocTrace.Viewer.exe.config 가 있는 폴더";
+                    if (Directory.Exists(_uiFolder.Text.Trim()))
+                        d.SelectedPath = _uiFolder.Text.Trim();
+                    if (d.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _uiFolder.Text = d.SelectedPath;
+                        TryLoadConfig(true);
+                    }
+                }
+            };
+            g.Controls.Add(browse);
 
-            _windowsAuth.Text = "Windows 인증";
-            _windowsAuth.Checked = true;
-            _windowsAuth.SetBounds(470, 22, 110, 23);
-            _windowsAuth.CheckedChanged += (s, e) => UpdateAuthState();
-            g.Controls.Add(_windowsAuth);
+            g.Controls.Add(Lbl("연결", 10, 52, 55));
+            _connectionName.SetBounds(68, 52, 220, 23);
+            _connectionName.DropDownStyle = ComboBoxStyle.DropDownList;
+            _connectionName.SelectedIndexChanged += (s, e) => ShowSelectedConnection();
+            g.Controls.Add(_connectionName);
+            var reload = new Button { Text = "다시 읽기", Left = 296, Top = 51, Width = 90, Height = 25 };
+            reload.Click += (s, e) => TryLoadConfig(true);
+            g.Controls.Add(reload);
+            _connectionInfo.SetBounds(396, 55, 466, 20);
+            _connectionInfo.AutoSize = false;
+            _connectionInfo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            g.Controls.Add(_connectionInfo);
 
-            g.Controls.Add(Lbl("사용자", 10, 52, 50));
-            _user.SetBounds(62, 52, 230, 23);
-            g.Controls.Add(_user);
-            g.Controls.Add(Lbl("암호", 304, 52, 30));
-            _password.SetBounds(336, 52, 120, 23);
-            _password.UseSystemPasswordChar = true;
-            g.Controls.Add(_password);
-
-            g.Controls.Add(Lbl("Linked server", 10, 82, 80));
-            _linked.SetBounds(92, 82, 130, 23);
+            g.Controls.Add(Lbl("Linked server", 10, 86, 80));
+            _linked.SetBounds(92, 86, 150, 23);
             _linked.Text = "remote_monami";
             g.Controls.Add(_linked);
-            g.Controls.Add(Lbl("카탈로그", 240, 82, 60));
-            _catalog.SetBounds(302, 82, 120, 23);
+            g.Controls.Add(Lbl("카탈로그", 256, 86, 60));
+            _catalog.SetBounds(318, 86, 120, 23);
             _catalog.Text = "monami";
             g.Controls.Add(_catalog);
 
-            UpdateAuthState();
+            var hint = new Label
+            {
+                Text = "기본은 SourceDb. 비밀번호는 UI 폴더의 config\\db.secret 이다. 같은 서버의 DB면 Linked server 를 비운다.",
+                Left = 10,
+                Top = 116,
+                Width = 850,
+                Height = 22,
+                AutoSize = false
+            };
+            g.Controls.Add(hint);
         }
 
         private void BuildTraceGroup()
         {
-            var g = new GroupBox { Text = "추적", Left = 12, Top = 126, Width = 876, Height = 196 };
+            var g = new GroupBox { Text = "추적", Left = 12, Top = 162, Width = 876, Height = 196 };
             g.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             Controls.Add(g);
 
@@ -199,17 +223,17 @@ namespace PocTrace.DdwTraceBench
         private void BuildButtons()
         {
             _test.Text = "연결·스키마 확인";
-            _test.SetBounds(12, 332, 140, 30);
+            _test.SetBounds(12, 368, 140, 30);
             _test.Click += async (s, e) => await OnTest();
             Controls.Add(_test);
 
             _run.Text = "추적 실행";
-            _run.SetBounds(162, 332, 120, 30);
+            _run.SetBounds(162, 368, 120, 30);
             _run.Click += async (s, e) => await OnRun();
             Controls.Add(_run);
 
             _cancel.Text = "취소";
-            _cancel.SetBounds(292, 332, 80, 30);
+            _cancel.SetBounds(292, 368, 80, 30);
             _cancel.Enabled = false;
             _cancel.Click += (s, e) =>
             {
@@ -219,15 +243,45 @@ namespace PocTrace.DdwTraceBench
             Controls.Add(_cancel);
 
             _open.Text = "결과 폴더 열기";
-            _open.SetBounds(382, 332, 120, 30);
+            _open.SetBounds(382, 368, 120, 30);
             _open.Click += (s, e) => OpenFolder();
             Controls.Add(_open);
         }
 
-        private void UpdateAuthState()
+        private void TryLoadConfig(bool tell)
         {
-            _user.Enabled = !_windowsAuth.Checked;
-            _password.Enabled = !_windowsAuth.Checked;
+            try
+            {
+                string keep = (_connectionName.SelectedItem as string) ?? (_connectionName.Tag as string);
+                _loadedConfig = UiSqlConfig.Load(_uiFolder.Text);
+                _connectionName.Items.Clear();
+                foreach (string name in _loadedConfig.Connections.Keys)
+                    _connectionName.Items.Add(name);
+                string pick = keep != null && _loadedConfig.Connections.ContainsKey(keep)
+                    ? keep
+                    : UiSqlConfig.PreferredName(_loadedConfig.Connections);
+                if (pick != null)
+                    _connectionName.SelectedItem = pick;
+                ShowSelectedConnection();
+                Log(_loadedConfig.Notice + " 연결 " + _connectionName.Items.Count.ToString(CultureInfo.InvariantCulture) + "개. 선택 " + (_connectionName.SelectedItem ?? ""));
+            }
+            catch (Exception ex)
+            {
+                _loadedConfig = null;
+                _connectionName.Items.Clear();
+                _connectionInfo.Text = "";
+                if (tell || _uiFolder.Text.Trim().Length > 0)
+                    Log("설정을 읽지 못했다: " + ex.Message);
+            }
+        }
+
+        private void ShowSelectedConnection()
+        {
+            string name = _connectionName.SelectedItem as string;
+            string value = null;
+            if (_loadedConfig != null && name != null)
+                _loadedConfig.Connections.TryGetValue(name, out value);
+            _connectionInfo.Text = string.IsNullOrEmpty(name) ? "" : name + " = " + UiSqlConfig.Describe(value);
         }
 
         private void Log(string text)
@@ -266,26 +320,14 @@ namespace PocTrace.DdwTraceBench
 
         private Request ReadRequest()
         {
-            string server = _server.Text.Trim();
-            if (server.Length == 0)
-                throw new InvalidOperationException("서버를 입력하세요.");
-
-            var csb = new SqlConnectionStringBuilder
-            {
-                DataSource = server,
-                InitialCatalog = string.IsNullOrWhiteSpace(_database.Text) ? "master" : _database.Text.Trim(),
-                ConnectTimeout = 30,
-                ApplicationName = "PocTrace.DdwTraceBench"
-            };
-            if (_windowsAuth.Checked)
-            {
-                csb.IntegratedSecurity = true;
-            }
-            else
-            {
-                csb.UserID = _user.Text.Trim();
-                csb.Password = _password.Text;
-            }
+            UiSqlConfig config = UiSqlConfig.Load(_uiFolder.Text);
+            _loadedConfig = config;
+            string name = _connectionName.SelectedItem as string;
+            if (string.IsNullOrEmpty(name))
+                name = UiSqlConfig.PreferredName(config.Connections);
+            string connectionString;
+            if (string.IsNullOrEmpty(name) || !config.Connections.TryGetValue(name, out connectionString) || string.IsNullOrWhiteSpace(connectionString))
+                throw new InvalidOperationException("쓸 연결 문자열이 없습니다. UI 폴더의 SourceDb 를 확인하세요.");
 
             var settings = new DdwSettings
             {
@@ -293,7 +335,7 @@ namespace PocTrace.DdwTraceBench
                 Catalog = _catalog.Text.Trim()
             };
             if (string.IsNullOrEmpty(settings.Prefix))
-                throw new InvalidOperationException("Linked server 또는 카탈로그 이름이 비었습니다.");
+                throw new InvalidOperationException("카탈로그 이름이 비었습니다.");
 
             var options = new TraceRunOptions
             {
@@ -310,8 +352,8 @@ namespace PocTrace.DdwTraceBench
 
             return new Request
             {
-                ConnectionString = csb.ConnectionString,
-                ConnectionInfo = server + " / " + csb.InitialCatalog + " / " + settings.LinkedServer + "." + settings.Catalog,
+                ConnectionString = connectionString,
+                ConnectionInfo = name + " = " + UiSqlConfig.Describe(connectionString) + " / " + (string.IsNullOrEmpty(settings.LinkedServer) ? settings.Catalog : settings.LinkedServer + "." + settings.Catalog),
                 Settings = settings,
                 Options = options,
                 OutputDirectory = _outDir.Text.Trim()
@@ -489,10 +531,8 @@ namespace PocTrace.DdwTraceBench
                     string val = line.Substring(eq + 1);
                     switch (key)
                     {
-                        case "server": _server.Text = val; break;
-                        case "database": _database.Text = val; break;
-                        case "windowsAuth": _windowsAuth.Checked = val == "1"; break;
-                        case "user": _user.Text = val; break;
+                        case "uiFolder": _uiFolder.Text = val; break;
+                        case "connectionName": _connectionName.Tag = val; break;
                         case "linked": _linked.Text = val; break;
                         case "catalog": _catalog.Text = val; break;
                         case "tag": _tag.Text = val; break;
@@ -505,7 +545,9 @@ namespace PocTrace.DdwTraceBench
                         case "passThrough": _passThrough.Text = val; break;
                     }
                 }
-                UpdateAuthState();
+                string savedName = _connectionName.Tag as string;
+                if (!string.IsNullOrEmpty(savedName))
+                    _connectionName.Tag = savedName;
             }
             catch
             {
@@ -517,10 +559,8 @@ namespace PocTrace.DdwTraceBench
             try
             {
                 var sb = new StringBuilder();
-                sb.AppendLine("server=" + _server.Text);
-                sb.AppendLine("database=" + _database.Text);
-                sb.AppendLine("windowsAuth=" + (_windowsAuth.Checked ? "1" : "0"));
-                sb.AppendLine("user=" + _user.Text);
+                sb.AppendLine("uiFolder=" + _uiFolder.Text);
+                sb.AppendLine("connectionName=" + (_connectionName.SelectedItem as string ?? ""));
                 sb.AppendLine("linked=" + _linked.Text);
                 sb.AppendLine("catalog=" + _catalog.Text);
                 sb.AppendLine("tag=" + _tag.Text);
