@@ -23,5 +23,10 @@ namespace PocTrace.DdwTraceBench.Data
         /// tb_attributes 를 owner_id 와 attribute_nm 목록으로 읽는다. Takeoff 종료 행의 tag, connectiontag, hookup number 용이다.
         /// </summary>
         IList<AttributeRow> GetAttributes(IList<string> ownerIds, IList<string> attributeNames);
+
+        /// <summary>
+        /// tb_division. CONVERT(uniqueidentifier, division_id) 로 맞춘 행의 division_value.
+        /// </summary>
+        IDictionary<string, DivisionRow> GetDivisions(IList<string> divisionIds);
     }
 }

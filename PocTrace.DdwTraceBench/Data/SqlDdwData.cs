@@ -107,6 +107,16 @@ namespace PocTrace.DdwTraceBench.Data
                 _schemaNotes.Add(TPocTemplates + ".equipment_yn 없음.");
             if (!Has(TTemplates, "model_type"))
                 _schemaNotes.Add(TTemplates + ".model_type 없음. 템플릿 model_type은 비운다.");
+            if (!Has(TTemplates, "division_id"))
+                _schemaNotes.Add(TTemplates + ".division_id 없음. division 은 비운다.");
+            if (!Has(TTemplates, "subdivision_1_id"))
+                _schemaNotes.Add(TTemplates + ".subdivision_1_id 없음.");
+            if (!Has(TTemplates, "subdivision_2_id"))
+                _schemaNotes.Add(TTemplates + ".subdivision_2_id 없음.");
+            if (!_columns.ContainsKey("tb_division"))
+                _schemaNotes.Add("tb_division 없음. division 문자는 비운다.");
+            else if (!Has("tb_division", "division_id") || !Has("tb_division", "division_value"))
+                _schemaNotes.Add("tb_division.division_id 또는 division_value 없음. division 문자는 비운다.");
             if (!Has(TPocs, "owner_type"))
                 _schemaNotes.Add(TPocs + ".owner_type 없음.");
             if (!Has(TPocs, "utility_id"))
@@ -120,7 +130,7 @@ namespace PocTrace.DdwTraceBench.Data
         {
             _columns = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             string sql = "SELECT LOWER(TABLE_NAME) AS t, LOWER(COLUMN_NAME) AS c FROM " + _settings.InformationSchema
-                + " WHERE LOWER(TABLE_NAME) IN ('tb_attributes','tb_modelinstances','tb_modeltemplates','tb_poctemplates','tb_pocinstances','tb_pipeinstances','tb_pipesize','tb_pipeszie')";
+                + " WHERE LOWER(TABLE_NAME) IN ('tb_attributes','tb_modelinstances','tb_modeltemplates','tb_poctemplates','tb_pocinstances','tb_pipeinstances','tb_pipesize','tb_pipeszie','tb_division')";
             foreach (var row in Run("열 명세", sql))
             {
                 string t = Convert.ToString(row["t"], CultureInfo.InvariantCulture);
@@ -357,7 +367,10 @@ namespace PocTrace.DdwTraceBench.Data
         public IDictionary<string, TemplateRow> GetTemplates(IList<string> modelTemplateIds)
         {
             string select = IdSel("x", TTemplates, "model_template_id", "model_template_id") + ", x.[display_nm] AS display_nm, x.[family_key] AS family_key, x.[bim_yn] AS bim_yn, "
-                + ValSel("x", TTemplates, "model_type", "model_type") + ", x.[version_sequence] AS version_sequence";
+                + ValSel("x", TTemplates, "model_type", "model_type") + ", "
+                + IdSel("x", TTemplates, "division_id", "division_id") + ", "
+                + IdSel("x", TTemplates, "subdivision_1_id", "subdivision_1_id") + ", "
+                + IdSel("x", TTemplates, "subdivision_2_id", "subdivision_2_id") + ", x.[version_sequence] AS version_sequence";
             var map = new Dictionary<string, TemplateRow>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in ByIds("모델 템플릿", TTemplates, "model_template_id", select, modelTemplateIds))
             {
@@ -369,7 +382,10 @@ namespace PocTrace.DdwTraceBench.Data
                     FamilyKey = S(r["family_key"]),
                     ModelType = L(r["model_type"]),
                     BimYn = L(r["bim_yn"]),
-                    VersionSequence = L(r["version_sequence"])
+                    VersionSequence = L(r["version_sequence"]),
+                    DivisionId = H(r["division_id"]),
+                    Subdivision1Id = H(r["subdivision_1_id"]),
+                    Subdivision2Id = H(r["subdivision_2_id"])
                 }, TTemplates);
             }
             return map;
@@ -577,6 +593,40 @@ namespace PocTrace.DdwTraceBench.Data
                 }
             }
             return list;
+        }
+
+        public IDictionary<string, DivisionRow> GetDivisions(IList<string> divisionIds)
+        {
+            var map = new Dictionary<string, DivisionRow>(StringComparer.OrdinalIgnoreCase);
+            if (divisionIds == null || !_columns.ContainsKey("tb_division") || !Has("tb_division", "division_id") || !Has("tb_division", "division_value"))
+                return map;
+            var guids = new List<string>();
+            var byGuid = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var id in divisionIds)
+            {
+                string ddw = Hex.ToDdwId(id);
+                if (ddw == null || byGuid.ContainsKey(ddw))
+                    continue;
+                byGuid[ddw] = id;
+                guids.Add("'" + ddw + "'");
+            }
+            if (guids.Count == 0)
+                return map;
+            string live = Has("tb_division", "version_sequence") ? " AND x.[version_sequence] < " + Live : string.Empty;
+            for (int i = 0; i < guids.Count; i += BatchSize)
+            {
+                var chunk = guids.Skip(i).Take(BatchSize).ToList();
+                string sql = "SELECT CONVERT(varbinary(16), x.[division_id]) AS division_id, x.[division_value] AS division_value FROM "
+                    + _prefix + "tb_division AS x WITH (NOLOCK) WHERE CONVERT(uniqueidentifier, x.[division_id]) IN ("
+                    + string.Join(",", chunk) + ")" + live;
+                foreach (var r in Run("division (" + chunk.Count.ToString(CultureInfo.InvariantCulture) + ")", sql))
+                {
+                    string id = H(r["division_id"]);
+                    if (id != null && !map.ContainsKey(id))
+                        map[id] = new DivisionRow { Id = id, Value = S(r["division_value"]) };
+                }
+            }
+            return map;
         }
     }
 }

@@ -126,7 +126,7 @@ for E in equip:
 
 ## 6. 시험 도구 `PocTrace.DdwTraceBench`
 
-SVDI에서 위 규칙이 맞는지 보기 위한 WinForms 도구다(`PocTrace.DdwTraceBench/`, 사용법은 그 폴더의 `가이드.md`). Tag를 입력(기본 `rme010n03`)하면 설비의 모든 POC에서 배관을 따라가고, `bim_yn = 1` 객체나 다른 설비를 만나면 이름을 기록하고 그 가지를 멈춘다. 노즐은 객체 이름에 `노즐`이 있고 `bim_yn = 1`일 때만 `noz`로 멈춘다. `model_type` 51382287 damper와 `pipe_type` 17301768 배관이 연결되면 Takeoff(`tof`)로 멈춘다. 그 행의 tag, connectiontag, hookup number는 damper 쪽 POC id를 `tb_attributes.owner_id`로 읽는다. 설비 POC에 배관이 없으면 `emp`, 배관이 설계 없이 끊기면 `ing`, 다른 설비는 `eqp`다. `modeltemplates`를 읽을 때마다 `model_type`과 아는 뜻을 적는다. `pipe_type` 17301760은 standard, 17301771은 bending, 17301768은 Takeoff다. 도착 객체가 배관이면 그 뜻을 이름으로 쓴다. 요약 시트는 설비 POC별 `length2` 합을 적는다. 추적 시트는 한 출발 POC의 이어진 순서대로 쓰고, 소유 table 열은 두지 않는다. 출발 소유 id 칸은 배관, 컴포넌트, 설비·종료를 색으로 구분한다.
+SVDI에서 위 규칙이 맞는지 보기 위한 WinForms 도구다(`PocTrace.DdwTraceBench/`, 사용법은 그 폴더의 `가이드.md`). Tag를 입력(기본 `rme010n03`)하면 설비의 모든 POC에서 배관을 따라가고, `bim_yn = 1` 객체나 다른 설비를 만나면 이름을 기록하고 그 가지를 멈춘다. 노즐은 객체 이름에 `노즐`이 있고 `bim_yn = 1`일 때만 `noz`로 멈춘다. `model_type` 51382287 damper의 connected poc가 Takeoff(`tof`)다. 그 POC id로 tag, connectiontag, hookup number를 읽는다. 노즐 종료의 같은 속성은 노즐 소유 id로 읽는다. id는 DB 값과 `CONVERT(uniqueidentifier)` DDW id를 나눠 적고, 템플릿이 있으면 division 세 값을 `tb_division.division_value`로 적는다. 설비 POC에 배관이 없으면 `emp`, 배관이 설계 없이 끊기면 `ing`, 다른 설비는 `eqp`다. `modeltemplates`를 읽을 때마다 `model_type`과 아는 뜻을 적는다. `pipe_type` 17301760은 standard, 17301771은 bending, 17301768은 Takeoff다. 도착 객체가 배관이면 그 뜻을 이름으로 쓴다. 요약 시트는 설비 POC별 `length2` 합을 적는다. 추적 시트는 한 출발 POC의 이어진 순서대로 쓰고, 소유 table 열은 두지 않는다. 출발 소유 id 칸은 배관, 컴포넌트, 설비·종료를 색으로 구분한다.
 
 도구의 해석 두 가지는 답변에 없어서 정한 것이다.
 

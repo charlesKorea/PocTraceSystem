@@ -60,6 +60,55 @@ namespace PocTrace.DdwTraceBench.Export
                 ws.Cells[ws.Dimension.Address].AutoFitColumns(8, 60);
         }
 
+        private static string Ddw(string id)
+        {
+            return Hex.ToDdwId(id);
+        }
+
+        private static void DivisionOf(TraceResult result, HopRecord hop, out string division, out string sub1, out string sub2)
+        {
+            TemplateRow tpl = null;
+            if (hop.ToPocOwnerTable != null && !string.Equals(hop.ToPocOwnerTable, "tb_pipeinstances", StringComparison.OrdinalIgnoreCase))
+                tpl = TemplateFor(result, hop.ToPocOwnerId);
+            if (tpl == null)
+                tpl = TemplateFor(result, hop.FromPocOwnerId);
+            division = tpl == null ? null : tpl.Division;
+            sub1 = tpl == null ? null : tpl.Subdivision1;
+            sub2 = tpl == null ? null : tpl.Subdivision2;
+        }
+
+        private static TemplateRow TemplateFor(TraceResult result, string ownerId)
+        {
+            if (result == null || Hex.IsEmpty(ownerId))
+                return null;
+            for (int i = 0; i < result.Objects.Count; i++)
+            {
+                ObjectRecord obj = result.Objects[i];
+                TemplateRow tpl;
+                if (string.Equals(obj.Id, ownerId, StringComparison.OrdinalIgnoreCase) && obj.TemplateId != null && result.Templates.TryGetValue(obj.TemplateId, out tpl))
+                    return tpl;
+            }
+            for (int i = 0; i < result.TagOwners.Count; i++)
+            {
+                TagOwnerInfo tag = result.TagOwners[i];
+                if (tag.Owner != null && string.Equals(tag.Owner.OwnerId, ownerId, StringComparison.OrdinalIgnoreCase))
+                    return tag.Template;
+            }
+            return null;
+        }
+
+        private static string DivisionText(TraceResult result, string templateId, int which)
+        {
+            TemplateRow tpl;
+            if (result == null || Hex.IsEmpty(templateId) || !result.Templates.TryGetValue(templateId, out tpl))
+                return null;
+            if (which == 1)
+                return tpl.Subdivision1;
+            if (which == 2)
+                return tpl.Subdivision2;
+            return tpl.Division;
+        }
+
         private static string N(long? v)
         {
             return v.HasValue ? v.Value.ToString(CultureInfo.InvariantCulture) : null;
@@ -136,7 +185,7 @@ namespace PocTrace.DdwTraceBench.Export
         {
             ws.Cells[startRow, 1].Value = "POC별 배관 길이 (length2)";
             ws.Cells[startRow, 1].Style.Font.Bold = true;
-            string[] headers = { "시작설비 id", "설비 이름", "출발 POC id", "출발 POC 이름", "배관 수", "length2 합(mm)", "length2 합(m)" };
+            string[] headers = { "시작설비 db id", "시작설비 ddw id", "설비 이름", "출발 POC db id", "출발 POC ddw id", "출발 POC 이름", "배관 수", "length2 합(mm)", "length2 합(m)" };
             int headerRow = startRow + 1;
             for (int c = 0; c < headers.Length; c++)
             {
@@ -190,12 +239,14 @@ namespace PocTrace.DdwTraceBench.Export
                     eqName = t.Template.DisplayName;
             }
             ws.Cells[row, 1].Value = eqId;
-            ws.Cells[row, 2].Value = eqName;
-            ws.Cells[row, 3].Value = pocId;
-            ws.Cells[row, 4].Value = PocTemplateName(result, pocId);
-            ws.Cells[row, 5].Value = count;
-            ws.Cells[row, 6].Value = Math.Round(sum2, 3);
-            ws.Cells[row, 7].Value = Math.Round(sum2 / 1000d, 3);
+            ws.Cells[row, 2].Value = Ddw(eqId);
+            ws.Cells[row, 3].Value = eqName;
+            ws.Cells[row, 4].Value = pocId;
+            ws.Cells[row, 5].Value = Ddw(pocId);
+            ws.Cells[row, 6].Value = PocTemplateName(result, pocId);
+            ws.Cells[row, 7].Value = count;
+            ws.Cells[row, 8].Value = Math.Round(sum2, 3);
+            ws.Cells[row, 9].Value = Math.Round(sum2 / 1000d, 3);
         }
 
         private static PipeRecord FindPipe(TraceResult result, string pipeId)
@@ -212,19 +263,20 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "owner_id (tb_attributes)", "owner_type", "attr version_sequence", "tb_modelinstances 있음", "model_type", "model_template_id",
-                "display_nm", "family_key", "bim_yn", "template model_type", "model_type 판정", "family_key 판정", "bim_yn=0 판정", "설비", "추적함", "비고"
+                "owner db id", "owner ddw id", "owner_type", "attr version_sequence", "tb_modelinstances 있음", "model_type", "model_template db id", "model_template ddw id",
+                "display_nm", "family_key", "bim_yn", "template model_type", "division", "subdivision_1", "subdivision_2", "model_type 판정", "family_key 판정", "bim_yn=0 판정", "설비", "추적함", "비고"
             };
             var rows = new List<object[]>();
             foreach (var t in result.TagOwners)
             {
                 rows.Add(new object[]
                 {
-                    t.Owner.OwnerId, N(t.Owner.OwnerType), N(t.Owner.VersionSequence), YesNo(t.Model != null),
-                    t.Model == null ? null : TraceCodes.ModelTypeText(t.Model.ModelType), t.Model == null ? null : t.Model.TemplateId,
+                    t.Owner.OwnerId, Ddw(t.Owner.OwnerId), N(t.Owner.OwnerType), N(t.Owner.VersionSequence), YesNo(t.Model != null),
+                    t.Model == null ? null : TraceCodes.ModelTypeText(t.Model.ModelType), t.Model == null ? null : t.Model.TemplateId, t.Model == null ? null : Ddw(t.Model.TemplateId),
                     t.Template == null ? null : t.Template.DisplayName, t.Template == null ? null : t.Template.FamilyKey,
                     t.Template == null ? null : N(t.Template.BimYn),
                     t.Template == null ? null : TraceCodes.ModelTypeText(t.Template.ModelType),
+                    t.Template == null ? null : t.Template.Division, t.Template == null ? null : t.Template.Subdivision1, t.Template == null ? null : t.Template.Subdivision2,
                     YesNo(t.ByModelType), YesNo(t.ByFamilyKey), YesNo(t.ByBimYnZero), YesNo(t.IsEquipment), YesNo(t.Traced), t.Note
                 });
             }
@@ -239,19 +291,22 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] headers =
             {
-                "순번", "단계", "시작설비 id",
-                "출발 POC id", "출발 POC 이름",
-                "출발 POC 소유 id", "출발 소유 이름",
-                "connected poc id", "도착 POC poc_template_id", "도착 POC owner_type",
-                "도착 POC 소유 id", "도착 객체 이름",
+                "순번", "단계",
+                "시작설비 db id", "출발 POC db id", "출발 소유 db id", "connected poc db id", "도착 소유 db id", "속성 owner db id",
+                "시작설비 ddw id", "출발 POC ddw id", "출발 소유 ddw id", "connected poc ddw id", "도착 소유 ddw id", "속성 owner ddw id",
+                "출발 POC 이름", "출발 소유 이름", "도착 객체 이름",
                 "종류", "동작",
-                "Status", "pipe_type", "model_type", "damper", "tag", "connectiontag", "hookup number", "속성 owner id",
+                "Status", "pipe_type", "model_type", "division", "subdivision_1", "subdivision_2",
+                "damper", "tag", "connectiontag", "hookup number",
                 "지나온 객체", "비고(status)"
             };
+            int ownerColorCol = 1;
             for (int c = 0; c < headers.Length; c++)
             {
                 ws.Cells[1, c + 1].Value = headers[c];
                 ws.Cells[1, c + 1].Style.Font.Bold = true;
+                if (headers[c] == "출발 소유 db id")
+                    ownerColorCol = c + 1;
             }
 
             var ordered = OrderHopsForReading(result);
@@ -260,16 +315,19 @@ namespace PocTrace.DdwTraceBench.Export
             foreach (var item in ordered)
             {
                 var x = item.Hop;
+                string division;
+                string sub1;
+                string sub2;
+                DivisionOf(result, x, out division, out sub1, out sub2);
                 object[] values =
                 {
-                    seq, x.Depth, x.StartEquipmentId,
-                    x.FromPocId, PocTemplateName(result, x.FromPocId),
-                    x.FromPocOwnerId, FromOwnerName(result, x),
-                    x.ToPocId, x.ToPocTemplateId, N(x.ToPocOwnerType),
-                    x.ToPocOwnerId, ArrivalOwnerName(result, x),
+                    seq, x.Depth,
+                    x.StartEquipmentId, x.FromPocId, x.FromPocOwnerId, x.ToPocId, x.ToPocOwnerId, x.AttributeOwnerId,
+                    Ddw(x.StartEquipmentId), Ddw(x.FromPocId), Ddw(x.FromPocOwnerId), Ddw(x.ToPocId), Ddw(x.ToPocOwnerId), Ddw(x.AttributeOwnerId),
+                    PocTemplateName(result, x.FromPocId), FromOwnerName(result, x), ArrivalOwnerName(result, x),
                     x.Kind, x.Action,
-                    x.TraceStatus, x.PipeTypeText, x.ModelTypeText, x.DamperName,
-                    x.TakeoffTag, x.TakeoffConnectionTag, x.TakeoffHookup, x.AttributeOwnerId,
+                    x.TraceStatus, x.PipeTypeText, x.ModelTypeText, division, sub1, sub2,
+                    x.DamperName, x.TakeoffTag, x.TakeoffConnectionTag, x.TakeoffHookup,
                     item.PassedNames, x.Status
                 };
                 for (int c = 0; c < values.Length; c++)
@@ -278,7 +336,7 @@ namespace PocTrace.DdwTraceBench.Export
                 var fill = FromOwnerFill(result, x);
                 if (fill.HasValue)
                 {
-                    var cell = ws.Cells[row, 6];
+                    var cell = ws.Cells[row, ownerColorCol];
                     cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
                     cell.Style.Fill.BackgroundColor.SetColor(fill.Value);
                 }
@@ -509,7 +567,7 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "시작설비 id", "단계", "도착 POC id", "배관 id (tb_pipeinstances)", "pipe_type", "pipe_type 의미", "length2 (mm, 기준)", "length1 (예비)",
+                "시작설비 db id", "시작설비 ddw id", "단계", "도착 POC db id", "도착 POC ddw id", "배관 db id", "배관 ddw id", "pipe_type", "pipe_type 의미", "length2 (mm, 기준)", "length1 (예비)",
                 "pipesize_id", "pipesize_nm", "last_update", "version_sequence"
             };
             var rows = new List<object[]>();
@@ -517,7 +575,7 @@ namespace PocTrace.DdwTraceBench.Export
             {
                 rows.Add(new object[]
                 {
-                    p.StartEquipmentId, p.Depth, p.ViaPocId, p.Pipe.Id, N(p.Pipe.PipeType),
+                    p.StartEquipmentId, Ddw(p.StartEquipmentId), p.Depth, p.ViaPocId, Ddw(p.ViaPocId), p.Pipe.Id, Ddw(p.Pipe.Id), N(p.Pipe.PipeType),
                     p.Pipe.PipeType.HasValue ? TraceCodes.PipeTypeMeaning(p.Pipe.PipeType.Value) : null,
                     p.Pipe.Length2, p.Pipe.Length1,
                     p.Pipe.PipeSizeId, p.SizeName, p.Pipe.LastUpdate, N(p.Pipe.VersionSequence)
@@ -530,7 +588,7 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "시작설비 id", "단계", "객체 id", "table", "역할", "도착 POC id", "model_type", "template model_type", "model_template_id", "display_nm", "family_key", "bim_yn",
+                "시작설비 db id", "시작설비 ddw id", "단계", "객체 db id", "객체 ddw id", "table", "역할", "도착 POC db id", "도착 POC ddw id", "model_type", "template model_type", "model_template db id", "model_template ddw id", "display_nm", "family_key", "bim_yn", "division", "subdivision_1", "subdivision_2",
                 "model_type 판정", "family_key 판정", "bim_yn=0 판정", "pass-through", "POC 수", "비고"
             };
             var rows = new List<object[]>();
@@ -538,7 +596,8 @@ namespace PocTrace.DdwTraceBench.Export
             {
                 rows.Add(new object[]
                 {
-                    x.StartEquipmentId, x.Depth, x.Id, x.Table, x.Role, x.ArrivedPocId, TraceCodes.ModelTypeText(x.ModelType), TraceCodes.ModelTypeText(x.TemplateModelType), x.TemplateId, x.DisplayName, x.FamilyKey, N(x.BimYn),
+                    x.StartEquipmentId, Ddw(x.StartEquipmentId), x.Depth, x.Id, Ddw(x.Id), x.Table, x.Role, x.ArrivedPocId, Ddw(x.ArrivedPocId), TraceCodes.ModelTypeText(x.ModelType), TraceCodes.ModelTypeText(x.TemplateModelType), x.TemplateId, Ddw(x.TemplateId), x.DisplayName, x.FamilyKey, N(x.BimYn),
+                    DivisionText(result, x.TemplateId, 0), DivisionText(result, x.TemplateId, 1), DivisionText(result, x.TemplateId, 2),
                     YesNo(x.ByModelType), YesNo(x.ByFamilyKey), YesNo(x.ByBimYnZero), YesNo(x.PassThrough), x.PocCount, x.Note
                 });
             }
@@ -549,8 +608,10 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "POC id (tb_pocinstances)", "소유 id", "소유 table", "poc_template_id", "poc_template_nm", "equipment_yn", "memo",
-                "utility_id", "connected_poc_id", "owner_type", "connection_order", "version_sequence"
+                "POC db id", "소유 db id", "poc_template db id", "connected poc db id",
+                "POC ddw id", "소유 ddw id", "poc_template ddw id", "connected poc ddw id",
+                "소유 table", "poc_template_nm", "equipment_yn", "memo",
+                "utility_id", "owner_type", "connection_order", "version_sequence"
             };
             var pipeIds = new HashSet<string>(result.Pipes.Select(p => p.Pipe.Id), StringComparer.OrdinalIgnoreCase);
             var objIds = new HashSet<string>(result.Objects.Select(o => o.Id), StringComparer.OrdinalIgnoreCase);
@@ -563,8 +624,10 @@ namespace PocTrace.DdwTraceBench.Export
                     result.PocTemplates.TryGetValue(poc.PocTemplateId, out tpl);
                 rows.Add(new object[]
                 {
-                    poc.Id, poc.OwnerId, table, poc.PocTemplateId, tpl == null ? null : tpl.Name, tpl == null ? null : N(tpl.EquipmentYn), tpl == null ? null : tpl.Memo,
-                    poc.UtilityId, poc.ConnectedPocId, N(poc.OwnerType), N(poc.ConnectionOrder), N(poc.VersionSequence)
+                    poc.Id, poc.OwnerId, poc.PocTemplateId, poc.ConnectedPocId,
+                    Ddw(poc.Id), Ddw(poc.OwnerId), Ddw(poc.PocTemplateId), Ddw(poc.ConnectedPocId),
+                    table, tpl == null ? null : tpl.Name, tpl == null ? null : N(tpl.EquipmentYn), tpl == null ? null : tpl.Memo,
+                    poc.UtilityId, N(poc.OwnerType), N(poc.ConnectionOrder), N(poc.VersionSequence)
                 });
             }
             WriteSheet(ws, h, rows);

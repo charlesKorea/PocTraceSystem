@@ -54,6 +54,19 @@ namespace PocTrace.DdwTraceBench.Data
                 return string.Empty;
             return id.Length <= 10 ? id : id.Substring(0, 10);
         }
+
+        /// <summary>
+        /// SQL Server CONVERT(uniqueidentifier, varbinary(16)) 와 같은 문자열. DDW UI의 id 표기다.
+        /// </summary>
+        public static string ToDdwId(string id)
+        {
+            if (!IsValid(id))
+                return null;
+            var bytes = new byte[16];
+            for (int i = 0; i < 16; i++)
+                bytes[i] = byte.Parse(id.Substring(2 + (i * 2), 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            return new Guid(bytes).ToString("D").ToUpperInvariant();
+        }
     }
 
     public sealed class TagOwnerRow
@@ -80,6 +93,18 @@ namespace PocTrace.DdwTraceBench.Data
         public long? ModelType;
         public long? BimYn;
         public long? VersionSequence;
+        public string DivisionId;
+        public string Subdivision1Id;
+        public string Subdivision2Id;
+        public string Division;
+        public string Subdivision1;
+        public string Subdivision2;
+    }
+
+    public sealed class DivisionRow
+    {
+        public string Id;
+        public string Value;
     }
 
     public sealed class AttributeRow

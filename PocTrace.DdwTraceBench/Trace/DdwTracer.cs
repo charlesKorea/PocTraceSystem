@@ -44,17 +44,6 @@ namespace PocTrace.DdwTraceBench.Trace
             public string OwnerTable;
         }
 
-        private sealed class DamperHit
-        {
-            public string PocId;
-            public string ModelId;
-            public string Name;
-            public long? InstanceModelType;
-            public long? TemplateModelType;
-            public string TemplateId;
-            public string FamilyKey;
-        }
-
         public DdwTracer(IDdwData data, Action<string> log)
         {
             _data = data;
@@ -129,6 +118,21 @@ namespace PocTrace.DdwTraceBench.Trace
         private void Finish(TraceResult result)
         {
             Ensure(_pocTemplates, _pocTemplatesAbsent, _pocsById.Values.Select(p => p.PocTemplateId), _data.GetPocTemplates);
+            var divisionIds = new List<string>();
+            foreach (var tpl in _templates.Values)
+            {
+                divisionIds.Add(tpl.DivisionId);
+                divisionIds.Add(tpl.Subdivision1Id);
+                divisionIds.Add(tpl.Subdivision2Id);
+            }
+            var divisions = _data.GetDivisions(divisionIds);
+            foreach (var tpl in _templates.Values)
+            {
+                tpl.Division = DivisionText(divisions, tpl.DivisionId);
+                tpl.Subdivision1 = DivisionText(divisions, tpl.Subdivision1Id);
+                tpl.Subdivision2 = DivisionText(divisions, tpl.Subdivision2Id);
+                result.Templates[tpl.Id] = tpl;
+            }
             result.Finished = DateTime.Now;
             foreach (var kv in _pocsById)
                 result.Pocs[kv.Key] = kv.Value;
@@ -350,10 +354,17 @@ namespace PocTrace.DdwTraceBench.Trace
                             hop.Status += " [pipesize 행 없음]";
                         result.Pipes.Add(new PipeRecord { StartEquipmentId = eqId, Depth = depth, ViaPocId = qid, Pipe = pipe, SizeName = sizeName });
                         objectCount++;
-                        DamperHit damper;
-                        if (pipe.PipeType == TraceCodes.TakeoffPipeType && TryDamperOnPipe(pipe.Id, s, out damper))
+                        if (pipe.PipeType == TraceCodes.TakeoffPipeType && FromIsDamper(s))
                         {
-                            objectCount += EndTakeoff(result, hop, eqId, depth, damper, asym);
+                            MarkDamperEnded(result, s.OwnerId);
+                            hop.Kind = "종료";
+                            hop.Action = "종료";
+                            hop.TraceStatus = "tof";
+                            hop.DamperName = DamperNameOf(s.OwnerId);
+                            hop.ModelTypeText = DamperModelText(s.OwnerId);
+                            hop.AttributeOwnerId = qid;
+                            hop.Status = "Takeoff는 damper의 connected poc. 속성은 이 POC id" + asym;
+                            FillTakeoffAttributes(hop, qid);
                             continue;
                         }
                         var src = new Source { Depth = depth + 1, OwnerId = pipe.Id, OwnerTable = TPipes };
@@ -402,7 +413,9 @@ namespace PocTrace.DdwTraceBench.Trace
                             hop.Kind = "종료";
                             hop.Action = "종료";
                             hop.TraceStatus = "noz";
-                            hop.Status = "노즐로 종료: 이름에 노즐, bim_yn=1. " + (rec.DisplayName ?? "(이름 없음)") + asym;
+                            hop.AttributeOwnerId = model.Id;
+                            hop.Status = "노즐로 종료: 이름에 노즐, bim_yn=1. 속성은 노즐 소유 id. " + (rec.DisplayName ?? "(이름 없음)") + asym;
+                            FillTakeoffAttributes(hop, model.Id);
                         }
                         else if (TraceCodes.IsDamper(tpl, model.ModelType))
                         {
@@ -411,17 +424,45 @@ namespace PocTrace.DdwTraceBench.Trace
                             if (fromTakeoff)
                             {
                                 rec.Role = "종료(Takeoff damper)";
-                                var hit = new DamperHit
+                                hop.Kind = "컴포넌트";
+                                hop.Action = "계속";
+                                hop.Status = "damper에 도착. 다음 행의 connected poc가 Takeoff" + asym;
+                                string takeoffPocId = !Hex.IsEmpty(qPoc.ConnectedPocId) ? qPoc.ConnectedPocId : s.Poc.Id;
+                                var end = new HopRecord
                                 {
-                                    PocId = qPoc.Id,
-                                    ModelId = model.Id,
-                                    Name = rec.DisplayName,
-                                    InstanceModelType = model.ModelType,
-                                    TemplateModelType = rec.TemplateModelType,
-                                    TemplateId = model.TemplateId,
-                                    FamilyKey = rec.FamilyKey
+                                    Seq = ++seq,
+                                    Depth = depth + 1,
+                                    StartEquipmentId = eqId,
+                                    FromPocId = qPoc.Id,
+                                    FromPocOwnerId = model.Id,
+                                    FromPocOwnerTable = TModels,
+                                    ToPocId = takeoffPocId,
+                                    Kind = "종료",
+                                    Action = "종료",
+                                    TraceStatus = "tof",
+                                    DamperName = rec.DisplayName,
+                                    ModelTypeText = TraceCodes.ModelTypeText(rec.TemplateModelType ?? model.ModelType),
+                                    AttributeOwnerId = takeoffPocId,
+                                    Status = "Takeoff는 damper의 connected poc. 속성은 이 POC id" + asym
                                 };
-                                EndTakeoff(result, hop, eqId, depth, hit, asym);
+                                PocRow takeoffPoc;
+                                if (_pocsById.TryGetValue(takeoffPocId, out takeoffPoc))
+                                {
+                                    end.ToPocTemplateId = takeoffPoc.PocTemplateId;
+                                    end.ToPocOwnerType = takeoffPoc.OwnerType;
+                                    end.ToPocOwnerId = takeoffPoc.OwnerId;
+                                    if (!Hex.IsEmpty(takeoffPoc.OwnerId) && _pipes.ContainsKey(takeoffPoc.OwnerId))
+                                    {
+                                        end.ToPocOwnerTable = TPipes;
+                                        PipeRow tp;
+                                        if (_pipes.TryGetValue(takeoffPoc.OwnerId, out tp))
+                                            end.PipeTypeText = TraceCodes.PipeTypeText(tp.PipeType);
+                                    }
+                                    else
+                                        end.ToPocOwnerTable = TModels;
+                                }
+                                FillTakeoffAttributes(end, takeoffPocId);
+                                result.Hops.Add(end);
                             }
                             else
                             {
@@ -515,113 +556,55 @@ namespace PocTrace.DdwTraceBench.Trace
                 hop.TraceStatus = "ing";
         }
 
-        private bool TryDamperOnPipe(string pipeId, Source from, out DamperHit hit)
+        private static string DivisionText(IDictionary<string, DivisionRow> divisions, string id)
         {
-            hit = null;
-            var connected = new List<string>();
-            List<PocRow> pocs = PocsOf(new[] { pipeId })[pipeId];
-            foreach (var p in pocs)
-            {
-                if (!Hex.IsEmpty(p.ConnectedPocId))
-                    connected.Add(p.ConnectedPocId);
-            }
-            if (from != null && from.Poc != null && !Hex.IsEmpty(from.Poc.Id))
-            {
-                bool listed = false;
-                foreach (var id in connected)
-                {
-                    if (string.Equals(id, from.Poc.Id, StringComparison.OrdinalIgnoreCase))
-                    {
-                        listed = true;
-                        break;
-                    }
-                }
-                if (!listed)
-                    connected.Add(from.Poc.Id);
-            }
-
-            Ensure(_pocsById, _pocsAbsent, connected, _data.GetPocsByIds);
-            var owners = new List<string>();
-            foreach (var id in connected)
-            {
-                PocRow poc;
-                if (_pocsById.TryGetValue(id, out poc) && !Hex.IsEmpty(poc.OwnerId))
-                    owners.Add(poc.OwnerId);
-            }
-            Ensure(_models, _modelsAbsent, owners, _data.GetModels);
-            Ensure(_templates, _templatesAbsent, _models.Values.Select(m => m.TemplateId), _data.GetTemplates);
-
-            foreach (var id in connected)
-            {
-                if (TryDamperPoc(id, out hit))
-                    return true;
-            }
-            return false;
+            DivisionRow row;
+            if (Hex.IsEmpty(id) || divisions == null || !divisions.TryGetValue(id, out row))
+                return null;
+            return row.Value;
         }
 
-        private bool TryDamperPoc(string pocId, out DamperHit hit)
+        private bool FromIsDamper(Source s)
         {
-            hit = null;
-            PocRow poc;
-            if (Hex.IsEmpty(pocId) || !_pocsById.TryGetValue(pocId, out poc) || Hex.IsEmpty(poc.OwnerId))
+            if (s == null || s.OwnerTable != TModels || Hex.IsEmpty(s.OwnerId))
                 return false;
             ModelRow model;
-            if (!_models.TryGetValue(poc.OwnerId, out model))
+            if (!_models.TryGetValue(s.OwnerId, out model))
                 return false;
             TemplateRow tpl = null;
             if (model.TemplateId != null)
                 _templates.TryGetValue(model.TemplateId, out tpl);
-            if (!TraceCodes.IsDamper(tpl, model.ModelType))
-                return false;
-            hit = new DamperHit
-            {
-                PocId = poc.Id,
-                ModelId = model.Id,
-                Name = tpl.DisplayName,
-                InstanceModelType = model.ModelType,
-                TemplateModelType = tpl.ModelType,
-                TemplateId = model.TemplateId,
-                FamilyKey = tpl.FamilyKey
-            };
-            return true;
+            return TraceCodes.IsDamper(tpl, model.ModelType);
         }
 
-        private int EndTakeoff(TraceResult result, HopRecord hop, string eqId, int depth, DamperHit damper, string asym)
+        private string DamperNameOf(string modelId)
         {
-            hop.Kind = "종료";
-            hop.Action = "종료";
-            hop.TraceStatus = "tof";
-            hop.DamperName = damper.Name;
-            hop.AttributeOwnerId = damper.PocId;
-            if (string.IsNullOrEmpty(hop.ModelTypeText))
-                hop.ModelTypeText = TraceCodes.ModelTypeText(damper.TemplateModelType ?? damper.InstanceModelType);
-            hop.Status = "Takeoff: pipe_type 17301768, damper 객체와 연결. 속성 owner는 damper 쪽 connected poc" + asym;
-            FillTakeoffAttributes(hop, damper.PocId);
+            ModelRow model;
+            if (Hex.IsEmpty(modelId) || !_models.TryGetValue(modelId, out model) || Hex.IsEmpty(model.TemplateId))
+                return null;
+            TemplateRow tpl;
+            return _templates.TryGetValue(model.TemplateId, out tpl) ? tpl.DisplayName : null;
+        }
 
-            if (Hex.IsEmpty(damper.ModelId))
-                return 0;
-            foreach (var x in result.Objects)
+        private string DamperModelText(string modelId)
+        {
+            ModelRow model;
+            if (Hex.IsEmpty(modelId) || !_models.TryGetValue(modelId, out model))
+                return null;
+            TemplateRow tpl = null;
+            if (model.TemplateId != null)
+                _templates.TryGetValue(model.TemplateId, out tpl);
+            long? type = tpl != null && tpl.ModelType.HasValue ? tpl.ModelType : model.ModelType;
+            return TraceCodes.ModelTypeText(type);
+        }
+
+        private void MarkDamperEnded(TraceResult result, string modelId)
+        {
+            for (int i = 0; i < result.Objects.Count; i++)
             {
-                if (string.Equals(x.Id, damper.ModelId, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(x.StartEquipmentId, eqId, StringComparison.OrdinalIgnoreCase))
-                    return 0;
+                if (string.Equals(result.Objects[i].Id, modelId, StringComparison.OrdinalIgnoreCase))
+                    result.Objects[i].Role = "종료(Takeoff damper)";
             }
-            result.Objects.Add(new ObjectRecord
-            {
-                StartEquipmentId = eqId,
-                Depth = depth,
-                Id = damper.ModelId,
-                Table = TModels,
-                Role = "종료(Takeoff damper)",
-                ArrivedPocId = damper.PocId,
-                ModelType = damper.InstanceModelType,
-                TemplateModelType = damper.TemplateModelType,
-                TemplateId = damper.TemplateId,
-                DisplayName = damper.Name,
-                FamilyKey = damper.FamilyKey,
-                Note = "pipe_type 17301768 Takeoff. 속성은 이 POC id를 owner_id로 읽음"
-            });
-            return 1;
         }
 
         private void FillTakeoffAttributes(HopRecord hop, string ownerPocId)

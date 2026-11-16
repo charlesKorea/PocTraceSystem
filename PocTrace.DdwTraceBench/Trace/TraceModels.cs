@@ -102,6 +102,7 @@ namespace PocTrace.DdwTraceBench.Trace
         public List<PipeRecord> Pipes = new List<PipeRecord>();
         public Dictionary<string, PocRow> Pocs = new Dictionary<string, PocRow>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, PocTemplateRow> PocTemplates = new Dictionary<string, PocTemplateRow>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, TemplateRow> Templates = new Dictionary<string, TemplateRow>(StringComparer.OrdinalIgnoreCase);
         public List<string> Notes = new List<string>();
         public bool LimitHit;
     }
