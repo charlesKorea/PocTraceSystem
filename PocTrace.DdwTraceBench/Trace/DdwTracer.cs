@@ -413,10 +413,9 @@ namespace PocTrace.DdwTraceBench.Trace
                             hop.Kind = "종료";
                             hop.Action = "종료";
                             hop.TraceStatus = "noz";
-                            string attrOwner = !Hex.IsEmpty(model.Id) ? model.Id : qPoc.OwnerId;
-                            hop.AttributeOwnerId = attrOwner;
-                            hop.Status = "노즐로 종료. 속성은 노즐 객체 id(POC 소유 id). " + (rec.DisplayName ?? "(이름 없음)") + asym;
-                            FillTakeoffAttributes(hop, attrOwner);
+                            hop.AttributeOwnerId = qid;
+                            hop.Status = "노즐로 종료. 속성은 배관과 노즐이 연결된 connected poc id. " + (rec.DisplayName ?? "(이름 없음)") + asym;
+                            FillTakeoffAttributes(hop, qid);
                         }
                         else if (TraceCodes.IsDamper(tpl, model.ModelType))
                         {
