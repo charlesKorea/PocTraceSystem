@@ -80,7 +80,7 @@
 
 읽는 법:
 
-- `pipe_type` 17301760은 Takeoff(17301768)가 아닌 일반 배관이다.
+- `pipe_type` 17301760은 standard다. Takeoff는 17301768, bending은 17301771이다.
 - `length1` 1154.445와 `posz` 15050은 크기로 보아 mm로 보이나 추정이다. SLOW-05의 최소·평균·최대로 확정한다.
 - 이 실행의 `tb_pocinstances`와 `tb_pipeinstances`에는 `operationtype`을 뺀 형태로 선택했다. `version_sequence`는 담당자 확인으로 모든 `tb_*`에 있어서 10 샘플과 SLOW-01이 두 테이블에서도 그 열을 읽는다.
 

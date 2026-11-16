@@ -391,20 +391,20 @@ namespace PocTrace.DdwTraceBench.Trace
                             PassThrough = pass,
                             TemplateModelType = tpl == null ? (long?)null : tpl.ModelType
                         };
-                        hop.ModelTypeText = TraceCodes.ModelTypeText(rec.TemplateModelType);
+                        hop.ModelTypeText = TraceCodes.ModelTypeText(rec.TemplateModelType ?? model.ModelType);
                         result.Objects.Add(rec);
                         expandedOwners.Add(model.Id);
                         objectCount++;
 
-                        if (TraceCodes.IsNozzle(tpl))
+                        if (TraceCodes.IsNozzle(tpl) && !TraceCodes.IsDamper(tpl, model.ModelType))
                         {
                             rec.Role = "종료(노즐)";
                             hop.Kind = "종료";
                             hop.Action = "종료";
                             hop.TraceStatus = "noz";
-                            hop.Status = "노즐로 종료: " + (rec.DisplayName ?? "(이름 없음)") + asym;
+                            hop.Status = "노즐로 종료: 이름에 노즐, bim_yn=1. " + (rec.DisplayName ?? "(이름 없음)") + asym;
                         }
-                        else if (TraceCodes.IsDamper(tpl))
+                        else if (TraceCodes.IsDamper(tpl, model.ModelType))
                         {
                             PipeRow fromPipe;
                             bool fromTakeoff = s.OwnerTable == TPipes && _pipes.TryGetValue(s.OwnerId, out fromPipe) && fromPipe.PipeType == TraceCodes.TakeoffPipeType;
@@ -571,7 +571,7 @@ namespace PocTrace.DdwTraceBench.Trace
             TemplateRow tpl = null;
             if (model.TemplateId != null)
                 _templates.TryGetValue(model.TemplateId, out tpl);
-            if (!TraceCodes.IsDamper(tpl))
+            if (!TraceCodes.IsDamper(tpl, model.ModelType))
                 return false;
             hit = new DamperHit
             {
@@ -594,7 +594,7 @@ namespace PocTrace.DdwTraceBench.Trace
             hop.DamperName = damper.Name;
             hop.AttributeOwnerId = damper.PocId;
             if (string.IsNullOrEmpty(hop.ModelTypeText))
-                hop.ModelTypeText = TraceCodes.ModelTypeText(damper.TemplateModelType);
+                hop.ModelTypeText = TraceCodes.ModelTypeText(damper.TemplateModelType ?? damper.InstanceModelType);
             hop.Status = "Takeoff: pipe_type 17301768, damper 객체와 연결. 속성 owner는 damper 쪽 connected poc" + asym;
             FillTakeoffAttributes(hop, damper.PocId);
 

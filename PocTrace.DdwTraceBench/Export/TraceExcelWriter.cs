@@ -83,7 +83,7 @@ namespace PocTrace.DdwTraceBench.Export
                 + ", family_key=" + (o.EquipByFamilyKey ? o.EquipmentFamilyKey : "(끔)")
                 + ", bim_yn=0 " + (o.EquipByBimYnZero ? "(켬)" : "(끔)") + ". 하나만 만족해도 설비" });
             rows.Add(new object[] { "종료 조건", "다른 설비, modeltemplates.bim_yn=" + o.EndBimYn.ToString(CultureInfo.InvariantCulture)
-                + " 객체, 이름에 nozzle 이 있는 객체, damper 이름 객체와 pipe_type 17301768 배관의 연결(Takeoff)" });
+                + " 객체, 이름에 노즐이 있고 bim_yn=1인 객체, model_type 51382287 damper와 pipe_type 17301768 배관의 연결(Takeoff)" });
             rows.Add(new object[] { "pass-through model_type", string.Join("/", o.PassThroughModelTypes) + " (설비 판정에서 제외하고 통과)" });
             rows.Add(new object[] { "한도", "객체 " + o.MaxObjects.ToString(CultureInfo.InvariantCulture) + "개, 단계 " + o.MaxDepth.ToString(CultureInfo.InvariantCulture) });
             rows.Add(new object[] { "한도 도달", result.LimitHit ? "예" : "아니오" });
@@ -126,8 +126,86 @@ namespace PocTrace.DdwTraceBench.Export
                 ws.Cells[r, 11].Value = t.Note;
                 r++;
             }
+
+            WritePocLengths(ws, result, r + 2);
             ws.Column(1).Width = 40;
             ws.Column(2).Width = 60;
+        }
+
+        private static void WritePocLengths(ExcelWorksheet ws, TraceResult result, int startRow)
+        {
+            ws.Cells[startRow, 1].Value = "POC별 배관 길이 (length2)";
+            ws.Cells[startRow, 1].Style.Font.Bold = true;
+            string[] headers = { "시작설비 id", "설비 이름", "출발 POC id", "출발 POC 이름", "배관 수", "length2 합(mm)", "length2 합(m)" };
+            int headerRow = startRow + 1;
+            for (int c = 0; c < headers.Length; c++)
+            {
+                ws.Cells[headerRow, c + 1].Value = headers[c];
+                ws.Cells[headerRow, c + 1].Style.Font.Bold = true;
+            }
+
+            var ordered = OrderHopsForReading(result);
+            int row = headerRow + 1;
+            string rootEq = null;
+            string rootPoc = null;
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int count = 0;
+            double sum2 = 0;
+            foreach (var item in ordered)
+            {
+                HopRecord hop = item.Hop;
+                bool newRoot = hop.Depth == 0 || rootPoc == null;
+                if (newRoot && rootPoc != null)
+                {
+                    WritePocLengthRow(ws, result, row, rootEq, rootPoc, count, sum2);
+                    row++;
+                    seen.Clear();
+                    count = 0;
+                    sum2 = 0;
+                }
+                if (newRoot)
+                {
+                    rootEq = hop.StartEquipmentId;
+                    rootPoc = hop.FromPocId;
+                }
+                if (!string.Equals(hop.ToPocOwnerTable, "tb_pipeinstances", StringComparison.OrdinalIgnoreCase) || Hex.IsEmpty(hop.ToPocOwnerId))
+                    continue;
+                if (!seen.Add(hop.ToPocOwnerId))
+                    continue;
+                PipeRecord pipe = FindPipe(result, hop.ToPocOwnerId);
+                count++;
+                if (pipe != null && pipe.Pipe.Length2.HasValue)
+                    sum2 += pipe.Pipe.Length2.Value;
+            }
+            if (rootPoc != null)
+                WritePocLengthRow(ws, result, row, rootEq, rootPoc, count, sum2);
+        }
+
+        private static void WritePocLengthRow(ExcelWorksheet ws, TraceResult result, int row, string eqId, string pocId, int count, double sum2)
+        {
+            string eqName = null;
+            foreach (var t in result.TagOwners)
+            {
+                if (t.Owner != null && string.Equals(t.Owner.OwnerId, eqId, StringComparison.OrdinalIgnoreCase) && t.Template != null)
+                    eqName = t.Template.DisplayName;
+            }
+            ws.Cells[row, 1].Value = eqId;
+            ws.Cells[row, 2].Value = eqName;
+            ws.Cells[row, 3].Value = pocId;
+            ws.Cells[row, 4].Value = PocTemplateName(result, pocId);
+            ws.Cells[row, 5].Value = count;
+            ws.Cells[row, 6].Value = Math.Round(sum2, 3);
+            ws.Cells[row, 7].Value = Math.Round(sum2 / 1000d, 3);
+        }
+
+        private static PipeRecord FindPipe(TraceResult result, string pipeId)
+        {
+            for (int i = 0; i < result.Pipes.Count; i++)
+            {
+                if (string.Equals(result.Pipes[i].Pipe.Id, pipeId, StringComparison.OrdinalIgnoreCase))
+                    return result.Pipes[i];
+            }
+            return null;
         }
 
         private static void WriteTagOwners(ExcelWorksheet ws, TraceResult result)
@@ -143,7 +221,7 @@ namespace PocTrace.DdwTraceBench.Export
                 rows.Add(new object[]
                 {
                     t.Owner.OwnerId, N(t.Owner.OwnerType), N(t.Owner.VersionSequence), YesNo(t.Model != null),
-                    t.Model == null ? null : N(t.Model.ModelType), t.Model == null ? null : t.Model.TemplateId,
+                    t.Model == null ? null : TraceCodes.ModelTypeText(t.Model.ModelType), t.Model == null ? null : t.Model.TemplateId,
                     t.Template == null ? null : t.Template.DisplayName, t.Template == null ? null : t.Template.FamilyKey,
                     t.Template == null ? null : N(t.Template.BimYn),
                     t.Template == null ? null : TraceCodes.ModelTypeText(t.Template.ModelType),
@@ -163,9 +241,9 @@ namespace PocTrace.DdwTraceBench.Export
             {
                 "순번", "단계", "시작설비 id",
                 "출발 POC id", "출발 POC 이름",
-                "출발 POC 소유 id", "출발 소유 이름", "출발 소유 table",
+                "출발 POC 소유 id", "출발 소유 이름",
                 "connected poc id", "도착 POC poc_template_id", "도착 POC owner_type",
-                "도착 POC 소유 id", "도착 객체 이름", "도착 소유 table",
+                "도착 POC 소유 id", "도착 객체 이름",
                 "종류", "동작",
                 "Status", "pipe_type", "model_type", "damper", "tag", "connectiontag", "hookup number", "속성 owner id",
                 "지나온 객체", "비고(status)"
@@ -186,9 +264,9 @@ namespace PocTrace.DdwTraceBench.Export
                 {
                     seq, x.Depth, x.StartEquipmentId,
                     x.FromPocId, PocTemplateName(result, x.FromPocId),
-                    x.FromPocOwnerId, FromOwnerName(result, x), x.FromPocOwnerTable,
+                    x.FromPocOwnerId, FromOwnerName(result, x),
                     x.ToPocId, x.ToPocTemplateId, N(x.ToPocOwnerType),
-                    x.ToPocOwnerId, ArrivalOwnerName(result, x), x.ToPocOwnerTable,
+                    x.ToPocOwnerId, ArrivalOwnerName(result, x),
                     x.Kind, x.Action,
                     x.TraceStatus, x.PipeTypeText, x.ModelTypeText, x.DamperName,
                     x.TakeoffTag, x.TakeoffConnectionTag, x.TakeoffHookup, x.AttributeOwnerId,
@@ -351,8 +429,17 @@ namespace PocTrace.DdwTraceBench.Export
             if (Hex.IsEmpty(hop.ToPocOwnerId))
                 return null;
             if (string.Equals(hop.ToPocOwnerTable, "tb_pipeinstances", StringComparison.OrdinalIgnoreCase) || Hex.IsEmpty(hop.ToPocTemplateId))
-                return "pipe";
+                return PipeArrivalName(result, hop.ToPocOwnerId);
             return ModelName(result, hop.ToPocOwnerId);
+        }
+
+        private static string PipeArrivalName(TraceResult result, string pipeId)
+        {
+            PipeRecord pipe = FindPipe(result, pipeId);
+            if (pipe == null || !pipe.Pipe.PipeType.HasValue)
+                return "pipe";
+            string meaning = TraceCodes.PipeTypeMeaning(pipe.Pipe.PipeType.Value);
+            return string.IsNullOrEmpty(meaning) ? "pipe" : meaning;
         }
 
         private static bool IsPipeFrom(TraceResult result, HopRecord hop)
@@ -451,7 +538,7 @@ namespace PocTrace.DdwTraceBench.Export
             {
                 rows.Add(new object[]
                 {
-                    x.StartEquipmentId, x.Depth, x.Id, x.Table, x.Role, x.ArrivedPocId, N(x.ModelType), TraceCodes.ModelTypeText(x.TemplateModelType), x.TemplateId, x.DisplayName, x.FamilyKey, N(x.BimYn),
+                    x.StartEquipmentId, x.Depth, x.Id, x.Table, x.Role, x.ArrivedPocId, TraceCodes.ModelTypeText(x.ModelType), TraceCodes.ModelTypeText(x.TemplateModelType), x.TemplateId, x.DisplayName, x.FamilyKey, N(x.BimYn),
                     YesNo(x.ByModelType), YesNo(x.ByFamilyKey), YesNo(x.ByBimYnZero), YesNo(x.PassThrough), x.PocCount, x.Note
                 });
             }
