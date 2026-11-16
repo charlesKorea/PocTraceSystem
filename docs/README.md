@@ -26,6 +26,7 @@
 | `DDW_Cache_Strategy_KO.md` | 한국어 | **DDW DB로 같은 공유 캐시를 만드는 전략**. S5D 캐시는 유지하고 폴더 키를 분리한다. 12절이 SVDI 조회 순서 |
 | `ddw-svdi-queries/` | SQL | **remote_monami 조회 팩**. 사무실에는 이 폴더를 가져간다 |
 | `DDW_Trace_Flow_KO.md` | 한국어 | **DDW에서 설비 Tag가 배관 길이까지 이어지는 추적 flow**(담당자 설명 2026-11-12), S5D·현재 코드와의 차이, 질문 Q-01~Q-12와 담당자 답변, SVDI 시험 도구 `PocTrace.DdwTraceBench` 설명 |
+| `DDW_PocTrace_Design_KO.md` | 한국어 | **DDW POC 추적 최초 설계**(2026-11-16). 엔진은 하나, 로더와 규칙만 S5D/DDW로 가른다. 캐시 라인 `x2_m`. live는 `version_sequence` |
 | `DDW_SVDI_Results_KO.md` | 한국어 | **SVDI에서 받은 DDW 조회 결과와 결정 기록**. 확정 사실, 진행 표, 코드 영향, 열린 질문을 쌓는다 |
 | `WORKFLOW_KO.md` | 한국어 | **작업 반영 방식**. 별도 요청이 없는 한 코드·문서를 고치면 main에 반영한다(2026-11-12 지시) |
 

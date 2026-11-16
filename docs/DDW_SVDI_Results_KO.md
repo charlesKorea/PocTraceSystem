@@ -147,12 +147,13 @@
 | D-12 | 배관 길이 열은 `length2`(mm)이고 `length1`은 예비 | 확정 2026-11-12 | 담당자 답변. T05-A/B는 두 값 차이를 보는 참고 쿼리로 남는다 |
 | D-13 | 설비 판정은 `model_type`, `family_key`, `bim_yn` 중 하나만 만족하면 설비. 변경 가능 | 확정 2026-11-12(변경 가능) | 담당자 답변. 설비 판정에 `bim_yn = 0`을 켜면 2차 설계 객체가 대부분 설비가 되어 `bim_yn = 1` 끝점과 역할이 겹친다. 시험 도구는 이 조건을 기본 꺼짐으로 두고 화면에서 켠다 |
 | D-14 | 시험 도구 `PocTrace.DdwTraceBench`로 Tag의 모든 POC에서 추적해 id와 table을 Excel에 남긴다 | 구현 2026-11-12, SVDI 시험 대기 | 규칙은 `DDW_Trace_Flow_KO.md` 6절 |
+| D-15 | 추적 설계를 `DDW_PocTrace_Design_KO.md`로 고정한다. 엔진은 하나, 캐시 라인은 `x2_m`, live는 `version_sequence`만, DDW Cap은 `bim_yn = 0`, 설비는 division 세 값, 배관은 `poc_template_id = 0` | 확정 2026-11-16 | D-13의 `bim_yn = 0`을 설비로 보는 설명은 시험 도구의 옛 스위치다. 설계에서는 Cap이다. 코드의 `OPERATIONTYPE`은 아직 남아 있다 |
 | 쿼리 팩 | `operationtype`을 쓰던 쿼리를 전부 고쳤다(rev2). `01B`를 추가했다 | 완료 2026-11-11 | 삭제 행이 세어지는 쿼리가 있다 |
 | 쿼리 팩 rev4 | T01~T06 추가(Tag flow, Tag 속성, 설비 판정, POC 모양, 배관 길이와 삭제 행, 이력 행) | 완료 2026-11-12 | 모든 T 쿼리는 `version_sequence < 1000000000`. T05-C, T05-D, T06은 삭제 행·전체 행 기준 |
 
 ## 5. 코드 영향 (아직 고치지 않음)
 
-전략 문서 2절의 방침대로 이 단계에서는 C#을 바꾸지 않는다. 아래는 `monami`에서 DDW 캐시를 만들기 전에 닫아야 할 목록이다.
+아래는 `monami`에서 DDW 캐시를 만들기 전에 닫을 목록이다. 구현 순서와 규칙은 `DDW_PocTrace_Design_KO.md` 6절, 7절이다. 첫 변경은 `OPERATIONTYPE`을 `version_sequence < 1000000000`으로 바꾸는 것이다.
 
 | 위치 | 현재 | 문제 |
 |---|---|---|

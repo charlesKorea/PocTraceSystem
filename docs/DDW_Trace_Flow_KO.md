@@ -135,11 +135,10 @@ SVDI에서 위 규칙이 맞는지 보기 위한 WinForms 도구다(`PocTrace.Dd
 
 도구는 `tb_*`를 키 목록 `IN`으로 200개씩 읽고 원격 조인을 하지 않는다. 열 이름이 다르면 `연결·스키마 확인`이 필요한 열을 알려 준다. SQL 로그인은 PocTrace.UI 실행 폴더의 `PocTrace.Viewer.exe.config`와 `config\db.secret`을 다른 exe(`SecretConfigStore`의 `SourceDb`)와 같은 형식으로 읽는다. 서버와 암호를 따로 받지 않는다.
 
-## 7. 코드에 닿는 변경 후보 (아직 고치지 않음)
+## 7. 다음 설계
 
-- live 문: `version_sequence < 1000000000`을 `DdwSql`의 모델, POC, 배관, 속성, 마스터 조인 전부에 건다. `DdwGraphMapping`의 `OperationType >= 2` 판정과 `DdwAcceptance` 검사 문자열도 바꾼다.
-- Tag: `attributes`에서 `attribute_nm = 'tag'`를 읽어 노드 Tag에 채운다. 큰 테이블(약 1,195만 행)이므로 이름 목록 `IN` 한 번으로 읽고 OWNER별 상관 서브쿼리를 만들지 않는다.
-- 길이: `length2`(확정). `length1`은 예비 값으로 DTO에 같이 담는다.
-- 설비 판정과 connector_pipe 분류: 시험 도구 결과(객체 시트의 `model_type` 분포)를 본 뒤 `DdwGraphMapping.Classify`에 반영한다.
+2026-11-16 설계는 `DDW_PocTrace_Design_KO.md`다. 추적 엔진은 하나 두고, S5D와 DDW의 차이는 로더와 규칙 객체에만 둔다. 캐시 라인은 `x2_m`이다.
 
-이 항목들은 `DDW_Cache_Strategy_KO.md`의 C0 방침(이 단계에서는 C# 변경 없음)에 따라 쿼리 결과가 모일 때까지 보류한다.
+운영 DDW 조회의 `OPERATIONTYPE`은 모두 `version_sequence < 1000000000`으로 바꾼다. DDW에 그 열이 없어 지금 쿼리는 이 사이트에서 실패한다. 그 교체가 첫 구현이고, 이 문서 작성 시점에는 코드가 아직 남아 있다.
+
+설비 분류는 division 세 값, 건설코드는 `tb_attributes`의 `Construction-code`, 배관은 `poc_template_id = 0`, Cap은 `bim_yn = 0`이다. Water와 MainLine은 DDW에서 보류한다. 배관이 아닌 끊김도 `ing`이고, 시작 설비로 돌아오는 처리와 Takeoff Tag 비교는 S5D와 같다. `owner_type = 256`은 보류다.
