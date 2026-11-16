@@ -26,12 +26,7 @@ namespace PocTrace.DdwTraceBench.Trace
         {
             "tag",
             "ConnectionTag",
-            "connectiontag",
-            "HOOKUPNUMBER",
-            "HookupNumber",
-            "Hookup Number",
-            "hookup number",
-            "HOOKUP NUMBER"
+            "S5_LATERAL_NUMBER"
         };
 
         public static string PipeTypeText(long? type)
@@ -98,6 +93,13 @@ namespace PocTrace.DdwTraceBench.Trace
         public static bool IsNozzle(TemplateRow tpl)
         {
             return tpl != null && tpl.BimYn.HasValue && tpl.BimYn.Value == 1 && Has(tpl.DisplayName, "노즐");
+        }
+
+        public static bool IsNozzleModel(TemplateRow tpl, long? instanceModelType)
+        {
+            if (instanceModelType.HasValue && instanceModelType.Value == NozzleModelType)
+                return true;
+            return tpl != null && tpl.ModelType.HasValue && tpl.ModelType.Value == NozzleModelType;
         }
 
         private static bool IsDamperModel(TemplateRow tpl, long? instanceModelType)

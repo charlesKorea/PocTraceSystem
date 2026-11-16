@@ -65,13 +65,16 @@ namespace PocTrace.DdwTraceBench.Export
             return Hex.ToDdwId(id);
         }
 
-        private static void DivisionOf(TraceResult result, HopRecord hop, out string division, out string sub1, out string sub2)
+        private static void DivisionOf(TraceResult result, HopRecord hop, out string divisionId, out string sub1Id, out string sub2Id, out string division, out string sub1, out string sub2)
         {
             TemplateRow tpl = null;
             if (hop.ToPocOwnerTable != null && !string.Equals(hop.ToPocOwnerTable, "tb_pipeinstances", StringComparison.OrdinalIgnoreCase))
                 tpl = TemplateFor(result, hop.ToPocOwnerId);
             if (tpl == null)
                 tpl = TemplateFor(result, hop.FromPocOwnerId);
+            divisionId = tpl == null ? null : tpl.DivisionId;
+            sub1Id = tpl == null ? null : tpl.Subdivision1Id;
+            sub2Id = tpl == null ? null : tpl.Subdivision2Id;
             division = tpl == null ? null : tpl.Division;
             sub1 = tpl == null ? null : tpl.Subdivision1;
             sub2 = tpl == null ? null : tpl.Subdivision2;
@@ -99,14 +102,34 @@ namespace PocTrace.DdwTraceBench.Export
 
         private static string DivisionText(TraceResult result, string templateId, int which)
         {
-            TemplateRow tpl;
-            if (result == null || Hex.IsEmpty(templateId) || !result.Templates.TryGetValue(templateId, out tpl))
+            TemplateRow tpl = TemplateById(result, templateId);
+            if (tpl == null)
                 return null;
             if (which == 1)
                 return tpl.Subdivision1;
             if (which == 2)
                 return tpl.Subdivision2;
             return tpl.Division;
+        }
+
+        private static string DivisionId(TraceResult result, string templateId, int which)
+        {
+            TemplateRow tpl = TemplateById(result, templateId);
+            if (tpl == null)
+                return null;
+            if (which == 1)
+                return tpl.Subdivision1Id;
+            if (which == 2)
+                return tpl.Subdivision2Id;
+            return tpl.DivisionId;
+        }
+
+        private static TemplateRow TemplateById(TraceResult result, string templateId)
+        {
+            TemplateRow tpl;
+            if (result == null || Hex.IsEmpty(templateId) || !result.Templates.TryGetValue(templateId, out tpl))
+                return null;
+            return tpl;
         }
 
         private static string N(long? v)
@@ -264,7 +287,10 @@ namespace PocTrace.DdwTraceBench.Export
             string[] h =
             {
                 "owner db id", "owner ddw id", "owner_type", "attr version_sequence", "tb_modelinstances 있음", "model_type", "model_template db id", "model_template ddw id",
-                "display_nm", "family_key", "bim_yn", "template model_type", "division", "subdivision_1", "subdivision_2", "model_type 판정", "family_key 판정", "bim_yn=0 판정", "설비", "추적함", "비고"
+                "display_nm", "family_key", "bim_yn", "template model_type",
+                "division db id", "subdivision_1 db id", "subdivision_2 db id",
+                "division ddw id", "subdivision_1 ddw id", "subdivision_2 ddw id",
+                "division", "subdivision_1", "subdivision_2", "model_type 판정", "family_key 판정", "bim_yn=0 판정", "설비", "추적함", "비고"
             };
             var rows = new List<object[]>();
             foreach (var t in result.TagOwners)
@@ -276,6 +302,8 @@ namespace PocTrace.DdwTraceBench.Export
                     t.Template == null ? null : t.Template.DisplayName, t.Template == null ? null : t.Template.FamilyKey,
                     t.Template == null ? null : N(t.Template.BimYn),
                     t.Template == null ? null : TraceCodes.ModelTypeText(t.Template.ModelType),
+                    t.Template == null ? null : t.Template.DivisionId, t.Template == null ? null : t.Template.Subdivision1Id, t.Template == null ? null : t.Template.Subdivision2Id,
+                    t.Template == null ? null : Ddw(t.Template.DivisionId), t.Template == null ? null : Ddw(t.Template.Subdivision1Id), t.Template == null ? null : Ddw(t.Template.Subdivision2Id),
                     t.Template == null ? null : t.Template.Division, t.Template == null ? null : t.Template.Subdivision1, t.Template == null ? null : t.Template.Subdivision2,
                     YesNo(t.ByModelType), YesNo(t.ByFamilyKey), YesNo(t.ByBimYnZero), YesNo(t.IsEquipment), YesNo(t.Traced), t.Note
                 });
@@ -296,7 +324,10 @@ namespace PocTrace.DdwTraceBench.Export
                 "시작설비 ddw id", "출발 POC ddw id", "출발 소유 ddw id", "connected poc ddw id", "도착 소유 ddw id", "속성 owner ddw id",
                 "출발 POC 이름", "출발 소유 이름", "도착 객체 이름",
                 "종류", "동작",
-                "Status", "pipe_type", "model_type", "division", "subdivision_1", "subdivision_2",
+                "Status", "pipe_type", "model_type",
+                "division db id", "subdivision_1 db id", "subdivision_2 db id",
+                "division ddw id", "subdivision_1 ddw id", "subdivision_2 ddw id",
+                "division", "subdivision_1", "subdivision_2",
                 "damper", "tag", "connectiontag", "hookup number",
                 "지나온 객체", "비고(status)"
             };
@@ -315,10 +346,13 @@ namespace PocTrace.DdwTraceBench.Export
             foreach (var item in ordered)
             {
                 var x = item.Hop;
+                string divisionId;
+                string sub1Id;
+                string sub2Id;
                 string division;
                 string sub1;
                 string sub2;
-                DivisionOf(result, x, out division, out sub1, out sub2);
+                DivisionOf(result, x, out divisionId, out sub1Id, out sub2Id, out division, out sub1, out sub2);
                 object[] values =
                 {
                     seq, x.Depth,
@@ -326,7 +360,8 @@ namespace PocTrace.DdwTraceBench.Export
                     Ddw(x.StartEquipmentId), Ddw(x.FromPocId), Ddw(x.FromPocOwnerId), Ddw(x.ToPocId), Ddw(x.ToPocOwnerId), Ddw(x.AttributeOwnerId),
                     PocTemplateName(result, x.FromPocId), FromOwnerName(result, x), ArrivalOwnerName(result, x),
                     x.Kind, x.Action,
-                    x.TraceStatus, x.PipeTypeText, x.ModelTypeText, division, sub1, sub2,
+                    x.TraceStatus, x.PipeTypeText, x.ModelTypeText,
+                    divisionId, sub1Id, sub2Id, Ddw(divisionId), Ddw(sub1Id), Ddw(sub2Id), division, sub1, sub2,
                     x.DamperName, x.TakeoffTag, x.TakeoffConnectionTag, x.TakeoffHookup,
                     item.PassedNames, x.Status
                 };
@@ -588,7 +623,10 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "시작설비 db id", "시작설비 ddw id", "단계", "객체 db id", "객체 ddw id", "table", "역할", "도착 POC db id", "도착 POC ddw id", "model_type", "template model_type", "model_template db id", "model_template ddw id", "display_nm", "family_key", "bim_yn", "division", "subdivision_1", "subdivision_2",
+                "시작설비 db id", "시작설비 ddw id", "단계", "객체 db id", "객체 ddw id", "table", "역할", "도착 POC db id", "도착 POC ddw id", "model_type", "template model_type", "model_template db id", "model_template ddw id", "display_nm", "family_key", "bim_yn",
+                "division db id", "subdivision_1 db id", "subdivision_2 db id",
+                "division ddw id", "subdivision_1 ddw id", "subdivision_2 ddw id",
+                "division", "subdivision_1", "subdivision_2",
                 "model_type 판정", "family_key 판정", "bim_yn=0 판정", "pass-through", "POC 수", "비고"
             };
             var rows = new List<object[]>();
@@ -597,6 +635,8 @@ namespace PocTrace.DdwTraceBench.Export
                 rows.Add(new object[]
                 {
                     x.StartEquipmentId, Ddw(x.StartEquipmentId), x.Depth, x.Id, Ddw(x.Id), x.Table, x.Role, x.ArrivedPocId, Ddw(x.ArrivedPocId), TraceCodes.ModelTypeText(x.ModelType), TraceCodes.ModelTypeText(x.TemplateModelType), x.TemplateId, Ddw(x.TemplateId), x.DisplayName, x.FamilyKey, N(x.BimYn),
+                    DivisionId(result, x.TemplateId, 0), DivisionId(result, x.TemplateId, 1), DivisionId(result, x.TemplateId, 2),
+                    Ddw(DivisionId(result, x.TemplateId, 0)), Ddw(DivisionId(result, x.TemplateId, 1)), Ddw(DivisionId(result, x.TemplateId, 2)),
                     DivisionText(result, x.TemplateId, 0), DivisionText(result, x.TemplateId, 1), DivisionText(result, x.TemplateId, 2),
                     YesNo(x.ByModelType), YesNo(x.ByFamilyKey), YesNo(x.ByBimYnZero), YesNo(x.PassThrough), x.PocCount, x.Note
                 });

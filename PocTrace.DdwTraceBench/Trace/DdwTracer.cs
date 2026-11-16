@@ -407,15 +407,16 @@ namespace PocTrace.DdwTraceBench.Trace
                         expandedOwners.Add(model.Id);
                         objectCount++;
 
-                        if (TraceCodes.IsNozzle(tpl) && !TraceCodes.IsDamper(tpl, model.ModelType))
+                        if ((TraceCodes.IsNozzle(tpl) || TraceCodes.IsNozzleModel(tpl, model.ModelType)) && !TraceCodes.IsDamper(tpl, model.ModelType))
                         {
                             rec.Role = "종료(노즐)";
                             hop.Kind = "종료";
                             hop.Action = "종료";
                             hop.TraceStatus = "noz";
-                            hop.AttributeOwnerId = model.Id;
-                            hop.Status = "노즐로 종료: 이름에 노즐, bim_yn=1. 속성은 노즐 소유 id. " + (rec.DisplayName ?? "(이름 없음)") + asym;
-                            FillTakeoffAttributes(hop, model.Id);
+                            string attrOwner = !Hex.IsEmpty(model.Id) ? model.Id : qPoc.OwnerId;
+                            hop.AttributeOwnerId = attrOwner;
+                            hop.Status = "노즐로 종료. 속성은 노즐 객체 id(POC 소유 id). " + (rec.DisplayName ?? "(이름 없음)") + asym;
+                            FillTakeoffAttributes(hop, attrOwner);
                         }
                         else if (TraceCodes.IsDamper(tpl, model.ModelType))
                         {
@@ -622,12 +623,12 @@ namespace PocTrace.DdwTraceBench.Trace
                     if (hop.TakeoffTag == null)
                         hop.TakeoffTag = a.Value;
                 }
-                else if (name.IndexOf("connection", StringComparison.OrdinalIgnoreCase) >= 0)
+                else if (string.Equals(name, "ConnectionTag", StringComparison.OrdinalIgnoreCase))
                 {
                     if (hop.TakeoffConnectionTag == null)
                         hop.TakeoffConnectionTag = a.Value;
                 }
-                else if (name.IndexOf("hookup", StringComparison.OrdinalIgnoreCase) >= 0)
+                else if (string.Equals(name, "S5_LATERAL_NUMBER", StringComparison.OrdinalIgnoreCase))
                 {
                     if (hop.TakeoffHookup == null)
                         hop.TakeoffHookup = a.Value;

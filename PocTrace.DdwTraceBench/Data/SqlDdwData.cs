@@ -182,6 +182,17 @@ namespace PocTrace.DdwTraceBench.Data
             return "CAST(NULL AS varbinary(16)) AS [" + asName + "]";
         }
 
+        /// <summary>
+        /// tb_modeltemplates 의 division 열은 GUID 문자열이다. CONVERT(varbinary(16), 문자열)은 글자 바이트를 잘라 잘못된 id가 된다.
+        /// TRY_CAST(... AS uniqueidentifier) 뒤에 varbinary 로 받으면 CONVERT(uniqueidentifier, 열) 과 같은 DDW id가 된다.
+        /// </summary>
+        private string GuidIdSel(string alias, string table, string column, string asName)
+        {
+            if (column != null && Has(table, column))
+                return "CONVERT(varbinary(16), TRY_CAST(" + alias + ".[" + column + "] AS uniqueidentifier)) AS [" + asName + "]";
+            return "CAST(NULL AS varbinary(16)) AS [" + asName + "]";
+        }
+
         private string ValSel(string alias, string table, string column, string asName)
         {
             if (column != null && Has(table, column))
@@ -368,9 +379,9 @@ namespace PocTrace.DdwTraceBench.Data
         {
             string select = IdSel("x", TTemplates, "model_template_id", "model_template_id") + ", x.[display_nm] AS display_nm, x.[family_key] AS family_key, x.[bim_yn] AS bim_yn, "
                 + ValSel("x", TTemplates, "model_type", "model_type") + ", "
-                + IdSel("x", TTemplates, "division_id", "division_id") + ", "
-                + IdSel("x", TTemplates, "subdivision_1_id", "subdivision_1_id") + ", "
-                + IdSel("x", TTemplates, "subdivision_2_id", "subdivision_2_id") + ", x.[version_sequence] AS version_sequence";
+                + GuidIdSel("x", TTemplates, "division_id", "division_id") + ", "
+                + GuidIdSel("x", TTemplates, "subdivision_1_id", "subdivision_1_id") + ", "
+                + GuidIdSel("x", TTemplates, "subdivision_2_id", "subdivision_2_id") + ", x.[version_sequence] AS version_sequence";
             var map = new Dictionary<string, TemplateRow>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in ByIds("모델 템플릿", TTemplates, "model_template_id", select, modelTemplateIds))
             {
@@ -616,8 +627,8 @@ namespace PocTrace.DdwTraceBench.Data
             for (int i = 0; i < guids.Count; i += BatchSize)
             {
                 var chunk = guids.Skip(i).Take(BatchSize).ToList();
-                string sql = "SELECT CONVERT(varbinary(16), x.[division_id]) AS division_id, x.[division_value] AS division_value FROM "
-                    + _prefix + "tb_division AS x WITH (NOLOCK) WHERE CONVERT(uniqueidentifier, x.[division_id]) IN ("
+                string sql = "SELECT CONVERT(varbinary(16), TRY_CAST(x.[division_id] AS uniqueidentifier)) AS division_id, CONVERT(nvarchar(400), x.[division_value]) AS division_value FROM "
+                    + _prefix + "tb_division AS x WITH (NOLOCK) WHERE TRY_CAST(x.[division_id] AS uniqueidentifier) IN ("
                     + string.Join(",", chunk) + ")" + live;
                 foreach (var r in Run("division (" + chunk.Count.ToString(CultureInfo.InvariantCulture) + ")", sql))
                 {
