@@ -277,7 +277,7 @@ D-07(캐시 writer가 v9 3슬롯만 쓴다)은 현재 코드 기준으로 닫혀
 
 이제 원본은 Linked Server `remote_monami.monami.dbo`로 읽는다. SSMS는 이 링크가 등록된 FRM 서버에 붙는다. monami 창에 직접 붙는 접속이 아니다. 이 경로로 테이블 명세와 집계, 잘린 샘플을 받고, 그 회신으로 캐시 SQL을 고정한다. 아래 문장은 캐시 작성기가 아니다. 큰 테이블을 통째로 내리지 않는다.
 
-쿼리 파일은 `docs/ddw-svdi-queries/`에 있고, 같은 내용의 zip은 `docs/DDW-SVDI-Queries.zip`이다. 사무실에는 zip만 가져간다. 본문은 13절과 같다.
+쿼리 파일은 `docs/ddw-svdi-queries/`에 있다. 사무실에는 이 폴더를 가져간다. 본문은 13절과 같다.
 
 한 번에 파일 하나. 비밀번호, 로그인, 전화, 메일, BLOB는 읽지 않는다. GUID와 설비 이름은 앞자리나 길이만 나온다. 결과에 그런 전문이 보이면 지우고 보낸다. 링크 이름이 `remote_monami`가 아니면 01의 `linked_server`만 보고, 그 이름으로 4-part의 첫 조각만 바꾼다. 테이블 이름은 에러가 나도 추측해서 바꾸지 않는다. 에러는 앞 300자만 보낸다. SLOW 파일은 10분이 넘으면 취소하고 `TIMEOUT`이라고 보낸다.
 
@@ -328,7 +328,7 @@ Q=07
 
 ## 13. 쿼리 본문
 
-아래 본문은 `docs/ddw-svdi-queries` 와 `docs/DDW-SVDI-Queries.zip` 과 같다(rev4, 2026-11-12). SSMS에는 zip 안의 파일을 연다.
+아래 본문은 `docs/ddw-svdi-queries`와 같다(rev4, 2026-11-12). SSMS에는 그 폴더의 파일을 연다.
 
 ### 00-README.txt
 

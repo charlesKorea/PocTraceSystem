@@ -438,3 +438,10 @@ PocTrace.Core/Templates/assets/js/vfs_fonts.js
 PocTrace.Core/Templates/assets/css/*.min.css
 PocTrace.Core/Templates/assets/css/bootstrap-icons.css
 PocTrace.Core/Templates/**/*.bak
+
+# 로컬 빌드·미리보기 로그. 저장소에 두지 않는다.
+/_build_summary.txt
+/_build_exits.txt
+/_build_report_en.txt
+/_cs_errors_cp949.txt
+/setup-preview-log.txt
