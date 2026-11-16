@@ -151,25 +151,264 @@ namespace PocTrace.DdwTraceBench.Export
             WriteSheet(ws, h, rows);
         }
 
+        private static readonly System.Drawing.Color PipeFill = System.Drawing.Color.FromArgb(91, 155, 213);
+        private static readonly System.Drawing.Color ComponentFill = System.Drawing.Color.FromArgb(255, 192, 0);
+        private static readonly System.Drawing.Color EquipmentFill = System.Drawing.Color.FromArgb(255, 199, 206);
+
         private static void WriteHops(ExcelWorksheet ws, TraceResult result)
         {
-            string[] h =
+            string[] headers =
             {
-                "순번", "단계", "시작설비 id", "출발 POC id (tb_pocinstances)", "출발 POC 소유 id", "출발 소유 table",
-                "도착 POC id (tb_pocinstances.connected_poc_id)", "도착 POC poc_template_id", "도착 POC owner_type", "도착 POC 소유 id", "도착 소유 table",
-                "종류", "동작", "비고(status)"
+                "순번", "단계", "시작설비 id",
+                "출발 POC id", "출발 POC 이름",
+                "출발 POC 소유 id", "출발 소유 이름", "출발 소유 table",
+                "connected poc id", "도착 POC poc_template_id", "도착 POC owner_type",
+                "도착 POC 소유 id", "도착 객체 이름", "도착 소유 table",
+                "종류", "동작", "지나온 객체", "비고(status)"
             };
-            var rows = new List<object[]>();
-            foreach (var x in result.Hops)
+            for (int c = 0; c < headers.Length; c++)
             {
-                rows.Add(new object[]
-                {
-                    x.Seq, x.Depth, x.StartEquipmentId, x.FromPocId, x.FromPocOwnerId, x.FromPocOwnerTable,
-                    x.ToPocId, x.ToPocTemplateId, N(x.ToPocOwnerType), x.ToPocOwnerId, x.ToPocOwnerTable,
-                    x.Kind, x.Action, x.Status
-                });
+                ws.Cells[1, c + 1].Value = headers[c];
+                ws.Cells[1, c + 1].Style.Font.Bold = true;
             }
-            WriteSheet(ws, h, rows);
+
+            var ordered = OrderHopsForReading(result);
+            int row = 2;
+            int seq = 1;
+            foreach (var item in ordered)
+            {
+                var x = item.Hop;
+                object[] values =
+                {
+                    seq, x.Depth, x.StartEquipmentId,
+                    x.FromPocId, PocTemplateName(result, x.FromPocId),
+                    x.FromPocOwnerId, FromOwnerName(result, x), x.FromPocOwnerTable,
+                    x.ToPocId, x.ToPocTemplateId, N(x.ToPocOwnerType),
+                    x.ToPocOwnerId, ArrivalOwnerName(result, x), x.ToPocOwnerTable,
+                    x.Kind, x.Action, item.PassedNames, x.Status
+                };
+                for (int c = 0; c < values.Length; c++)
+                    ws.Cells[row, c + 1].Value = values[c];
+
+                var fill = FromOwnerFill(result, x);
+                if (fill.HasValue)
+                {
+                    var cell = ws.Cells[row, 6];
+                    cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    cell.Style.Fill.BackgroundColor.SetColor(fill.Value);
+                }
+                row++;
+                seq++;
+            }
+
+            ws.View.FreezePanes(2, 1);
+            if (ws.Dimension != null)
+                ws.Cells[ws.Dimension.Address].AutoFitColumns(8, 60);
+        }
+
+        private sealed class HopLine
+        {
+            public HopRecord Hop;
+            public string PassedNames;
+        }
+
+        private static List<HopLine> OrderHopsForReading(TraceResult result)
+        {
+            IList<HopRecord> hops = result.Hops;
+            var lines = new List<HopLine>();
+            var groups = new List<List<HopRecord>>();
+            var indexByStart = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < hops.Count; i++)
+            {
+                string key = hops[i].StartEquipmentId ?? "";
+                int at;
+                if (!indexByStart.TryGetValue(key, out at))
+                {
+                    at = groups.Count;
+                    indexByStart[key] = at;
+                    groups.Add(new List<HopRecord>());
+                }
+                groups[at].Add(hops[i]);
+            }
+            for (int g = 0; g < groups.Count; g++)
+                AppendEquipmentChain(result, groups[g], lines);
+            return lines;
+        }
+
+        private static void AppendEquipmentChain(TraceResult result, List<HopRecord> hops, List<HopLine> lines)
+        {
+            var children = new Dictionary<int, List<int>>();
+            var enteredBy = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var roots = new List<int>();
+            for (int i = 0; i < hops.Count; i++)
+            {
+                HopRecord hop = hops[i];
+                int parent;
+                if (hop.Depth == 0 || Hex.IsEmpty(hop.FromPocOwnerId) || !enteredBy.TryGetValue(hop.FromPocOwnerId, out parent))
+                    roots.Add(i);
+                else
+                {
+                    List<int> list;
+                    if (!children.TryGetValue(parent, out list))
+                    {
+                        list = new List<int>();
+                        children[parent] = list;
+                    }
+                    list.Add(i);
+                }
+                if (string.Equals(hop.Action, "계속", StringComparison.Ordinal) && !Hex.IsEmpty(hop.ToPocOwnerId) && !enteredBy.ContainsKey(hop.ToPocOwnerId))
+                    enteredBy[hop.ToPocOwnerId] = i;
+            }
+
+            var ids = new List<string>();
+            var names = new List<string>();
+            for (int r = 0; r < roots.Count; r++)
+                WalkChain(result, hops, children, roots[r], ids, names, lines);
+        }
+
+        private static void WalkChain(
+            TraceResult result,
+            List<HopRecord> hops,
+            Dictionary<int, List<int>> children,
+            int index,
+            List<string> ids,
+            List<string> names,
+            List<HopLine> lines)
+        {
+            HopRecord hop = hops[index];
+            bool pushed = PushOwner(ids, names, hop.FromPocOwnerId, FromOwnerName(result, hop));
+            string passed = null;
+            if (IsEnd(hop))
+            {
+                var pathIds = new List<string>(ids);
+                var pathNames = new List<string>(names);
+                PushOwner(pathIds, pathNames, hop.ToPocOwnerId, ArrivalOwnerName(result, hop));
+                passed = string.Join(", ", pathNames);
+            }
+            lines.Add(new HopLine { Hop = hop, PassedNames = passed });
+
+            List<int> next;
+            if (children.TryGetValue(index, out next))
+            {
+                for (int i = 0; i < next.Count; i++)
+                    WalkChain(result, hops, children, next[i], ids, names, lines);
+            }
+            if (pushed)
+            {
+                ids.RemoveAt(ids.Count - 1);
+                names.RemoveAt(names.Count - 1);
+            }
+        }
+
+        private static bool IsEnd(HopRecord hop)
+        {
+            return string.Equals(hop.Kind, "종료", StringComparison.Ordinal)
+                || string.Equals(hop.Action, "종료", StringComparison.Ordinal);
+        }
+
+        private static bool PushOwner(List<string> ids, List<string> names, string id, string name)
+        {
+            if (Hex.IsEmpty(id) && string.IsNullOrEmpty(name))
+                return false;
+            if (ids.Count > 0 && string.Equals(ids[ids.Count - 1], id ?? "", StringComparison.OrdinalIgnoreCase))
+                return false;
+            ids.Add(id ?? "");
+            names.Add(string.IsNullOrEmpty(name) ? "(이름 없음)" : name);
+            return true;
+        }
+
+        private static string PocTemplateName(TraceResult result, string pocId)
+        {
+            if (result == null || Hex.IsEmpty(pocId))
+                return null;
+            PocRow poc;
+            if (!result.Pocs.TryGetValue(pocId, out poc))
+                return null;
+            if (Hex.IsEmpty(poc.PocTemplateId))
+                return "pipe";
+            PocTemplateRow template;
+            if (result.PocTemplates.TryGetValue(poc.PocTemplateId, out template) && !string.IsNullOrEmpty(template.Name))
+                return template.Name;
+            return null;
+        }
+
+        private static string FromOwnerName(TraceResult result, HopRecord hop)
+        {
+            if (IsPipeFrom(result, hop))
+                return "pipe";
+            return ModelName(result, hop.FromPocOwnerId);
+        }
+
+        private static string ArrivalOwnerName(TraceResult result, HopRecord hop)
+        {
+            if (Hex.IsEmpty(hop.ToPocOwnerId))
+                return null;
+            if (string.Equals(hop.ToPocOwnerTable, "tb_pipeinstances", StringComparison.OrdinalIgnoreCase) || Hex.IsEmpty(hop.ToPocTemplateId))
+                return "pipe";
+            return ModelName(result, hop.ToPocOwnerId);
+        }
+
+        private static bool IsPipeFrom(TraceResult result, HopRecord hop)
+        {
+            if (string.Equals(hop.FromPocOwnerTable, "tb_pipeinstances", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (result == null || Hex.IsEmpty(hop.FromPocId))
+                return false;
+            PocRow poc;
+            return result.Pocs.TryGetValue(hop.FromPocId, out poc) && Hex.IsEmpty(poc.PocTemplateId);
+        }
+
+        private static string ModelName(TraceResult result, string ownerId)
+        {
+            if (result == null || Hex.IsEmpty(ownerId))
+                return null;
+            for (int i = 0; i < result.Objects.Count; i++)
+            {
+                ObjectRecord obj = result.Objects[i];
+                if (string.Equals(obj.Id, ownerId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(obj.DisplayName))
+                    return obj.DisplayName;
+            }
+            for (int i = 0; i < result.TagOwners.Count; i++)
+            {
+                TagOwnerInfo tag = result.TagOwners[i];
+                if (tag.Owner != null && string.Equals(tag.Owner.OwnerId, ownerId, StringComparison.OrdinalIgnoreCase) && tag.Template != null && !string.IsNullOrEmpty(tag.Template.DisplayName))
+                    return tag.Template.DisplayName;
+            }
+            return null;
+        }
+
+        private static System.Drawing.Color? FromOwnerFill(TraceResult result, HopRecord hop)
+        {
+            if (IsPipeFrom(result, hop))
+                return PipeFill;
+            if (IsEquipmentOrEnd(result, hop))
+                return EquipmentFill;
+            if (string.Equals(hop.FromPocOwnerTable, "tb_modelinstances", StringComparison.OrdinalIgnoreCase) || ModelName(result, hop.FromPocOwnerId) != null)
+                return ComponentFill;
+            return null;
+        }
+
+        private static bool IsEquipmentOrEnd(TraceResult result, HopRecord hop)
+        {
+            if (result == null || Hex.IsEmpty(hop.FromPocOwnerId))
+                return false;
+            for (int i = 0; i < result.TagOwners.Count; i++)
+            {
+                TagOwnerInfo tag = result.TagOwners[i];
+                if (tag.Owner != null && string.Equals(tag.Owner.OwnerId, hop.FromPocOwnerId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            for (int i = 0; i < result.Objects.Count; i++)
+            {
+                ObjectRecord obj = result.Objects[i];
+                if (!string.Equals(obj.Id, hop.FromPocOwnerId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (obj.Role != null && (obj.Role.StartsWith("시작", StringComparison.Ordinal) || obj.Role.StartsWith("종료", StringComparison.Ordinal)))
+                    return true;
+                if (!obj.PassThrough && (obj.ByModelType || obj.ByFamilyKey || obj.ByBimYnZero))
+                    return true;
+            }
+            return false;
         }
 
         private static void WritePipes(ExcelWorksheet ws, TraceResult result)
