@@ -18,5 +18,10 @@ namespace PocTrace.DdwTraceBench.Data
         IDictionary<string, PipeRow> GetPipes(IList<string> pipeInstanceIds);
         IDictionary<string, PipeSizeRow> GetPipeSizes(IList<string> pipeSizeIds);
         IDictionary<string, PocTemplateRow> GetPocTemplates(IList<string> pocTemplateIds);
+
+        /// <summary>
+        /// tb_attributes 를 owner_id 와 attribute_nm 목록으로 읽는다. Takeoff 종료 행의 tag, connectiontag, hookup number 용이다.
+        /// </summary>
+        IList<AttributeRow> GetAttributes(IList<string> ownerIds, IList<string> attributeNames);
     }
 }

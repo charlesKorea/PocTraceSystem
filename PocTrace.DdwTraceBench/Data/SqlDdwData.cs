@@ -105,6 +105,8 @@ namespace PocTrace.DdwTraceBench.Data
                 _schemaNotes.Add(TPocTemplates + ".memo 없음.");
             if (!Has(TPocTemplates, "equipment_yn"))
                 _schemaNotes.Add(TPocTemplates + ".equipment_yn 없음.");
+            if (!Has(TTemplates, "model_type"))
+                _schemaNotes.Add(TTemplates + ".model_type 없음. 템플릿 model_type은 비운다.");
             if (!Has(TPocs, "owner_type"))
                 _schemaNotes.Add(TPocs + ".owner_type 없음.");
             if (!Has(TPocs, "utility_id"))
@@ -354,7 +356,8 @@ namespace PocTrace.DdwTraceBench.Data
 
         public IDictionary<string, TemplateRow> GetTemplates(IList<string> modelTemplateIds)
         {
-            string select = IdSel("x", TTemplates, "model_template_id", "model_template_id") + ", x.[display_nm] AS display_nm, x.[family_key] AS family_key, x.[bim_yn] AS bim_yn, x.[version_sequence] AS version_sequence";
+            string select = IdSel("x", TTemplates, "model_template_id", "model_template_id") + ", x.[display_nm] AS display_nm, x.[family_key] AS family_key, x.[bim_yn] AS bim_yn, "
+                + ValSel("x", TTemplates, "model_type", "model_type") + ", x.[version_sequence] AS version_sequence";
             var map = new Dictionary<string, TemplateRow>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in ByIds("모델 템플릿", TTemplates, "model_template_id", select, modelTemplateIds))
             {
@@ -364,6 +367,7 @@ namespace PocTrace.DdwTraceBench.Data
                     Id = id,
                     DisplayName = S(r["display_nm"]),
                     FamilyKey = S(r["family_key"]),
+                    ModelType = L(r["model_type"]),
                     BimYn = L(r["bim_yn"]),
                     VersionSequence = L(r["version_sequence"])
                 }, TTemplates);
@@ -524,6 +528,55 @@ namespace PocTrace.DdwTraceBench.Data
                 }, TPocTemplates);
             }
             return map;
+        }
+
+        public IList<AttributeRow> GetAttributes(IList<string> ownerIds, IList<string> attributeNames)
+        {
+            var list = new List<AttributeRow>();
+            if (_attrValue == null || ownerIds == null || attributeNames == null)
+                return list;
+            var names = new List<string>();
+            foreach (var name in attributeNames)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+                bool seen = false;
+                foreach (var have in names)
+                {
+                    if (string.Equals(have, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (!seen)
+                    names.Add(name.Trim());
+            }
+            if (names.Count == 0)
+                return list;
+
+            var quoted = new List<string>();
+            foreach (var name in names)
+                quoted.Add("N'" + name.Replace("'", "''") + "'");
+            string nameList = string.Join(",", quoted);
+            string valueSel = "CONVERT(nvarchar(4000), a.[" + _attrValue + "]) AS attribute_val";
+            string select = IdSel("a", TAttributes, "owner_id", "owner_id") + ", a.[attribute_nm] AS attribute_nm, " + valueSel;
+
+            foreach (var chunk in Chunks(ownerIds))
+            {
+                string sql = "SELECT " + select + " FROM " + _prefix + TAttributes + " AS a WITH (NOLOCK) WHERE a.[owner_id] IN ("
+                    + InList(chunk) + ") AND a.[attribute_nm] IN (" + nameList + ") AND a.[version_sequence] < " + Live;
+                foreach (var r in Run("속성(owner " + chunk.Count.ToString(CultureInfo.InvariantCulture) + "개)", sql))
+                {
+                    list.Add(new AttributeRow
+                    {
+                        OwnerId = H(r["owner_id"]),
+                        Name = S(r["attribute_nm"]),
+                        Value = S(r["attribute_val"])
+                    });
+                }
+            }
+            return list;
         }
     }
 }

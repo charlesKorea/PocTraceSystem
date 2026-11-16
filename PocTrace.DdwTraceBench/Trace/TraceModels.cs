@@ -50,6 +50,14 @@ namespace PocTrace.DdwTraceBench.Trace
         public string Kind;
         public string Action;
         public string Status;
+        public string TraceStatus;
+        public string PipeTypeText;
+        public string ModelTypeText;
+        public string DamperName;
+        public string TakeoffTag;
+        public string TakeoffConnectionTag;
+        public string TakeoffHookup;
+        public string AttributeOwnerId;
     }
 
     public sealed class ObjectRecord
@@ -61,6 +69,7 @@ namespace PocTrace.DdwTraceBench.Trace
         public string Role;
         public string ArrivedPocId;
         public long? ModelType;
+        public long? TemplateModelType;
         public string TemplateId;
         public string DisplayName;
         public string FamilyKey;

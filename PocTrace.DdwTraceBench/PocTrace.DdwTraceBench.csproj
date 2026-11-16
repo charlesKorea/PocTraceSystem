@@ -52,6 +52,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Trace\DdwTracer.cs" />
+    <Compile Include="Trace\TraceCodes.cs" />
     <Compile Include="Trace\TraceModels.cs" />
   </ItemGroup>
   <ItemGroup>

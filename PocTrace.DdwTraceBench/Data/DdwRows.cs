@@ -77,8 +77,16 @@ namespace PocTrace.DdwTraceBench.Data
         public string Id;
         public string DisplayName;
         public string FamilyKey;
+        public long? ModelType;
         public long? BimYn;
         public long? VersionSequence;
+    }
+
+    public sealed class AttributeRow
+    {
+        public string OwnerId;
+        public string Name;
+        public string Value;
     }
 
     public sealed class PocRow

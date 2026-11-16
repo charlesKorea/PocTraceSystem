@@ -82,7 +82,8 @@ namespace PocTrace.DdwTraceBench.Export
             rows.Add(new object[] { "설비 판정", "model_type " + (o.EquipByModelType ? string.Join("/", o.EquipmentModelTypes) : "(끔)")
                 + ", family_key=" + (o.EquipByFamilyKey ? o.EquipmentFamilyKey : "(끔)")
                 + ", bim_yn=0 " + (o.EquipByBimYnZero ? "(켬)" : "(끔)") + ". 하나만 만족해도 설비" });
-            rows.Add(new object[] { "종료 조건", "다른 설비 또는 modeltemplates.bim_yn=" + o.EndBimYn.ToString(CultureInfo.InvariantCulture) + " 객체" });
+            rows.Add(new object[] { "종료 조건", "다른 설비, modeltemplates.bim_yn=" + o.EndBimYn.ToString(CultureInfo.InvariantCulture)
+                + " 객체, 이름에 nozzle 이 있는 객체, damper 이름 객체와 pipe_type 17301768 배관의 연결(Takeoff)" });
             rows.Add(new object[] { "pass-through model_type", string.Join("/", o.PassThroughModelTypes) + " (설비 판정에서 제외하고 통과)" });
             rows.Add(new object[] { "한도", "객체 " + o.MaxObjects.ToString(CultureInfo.InvariantCulture) + "개, 단계 " + o.MaxDepth.ToString(CultureInfo.InvariantCulture) });
             rows.Add(new object[] { "한도 도달", result.LimitHit ? "예" : "아니오" });
@@ -134,7 +135,7 @@ namespace PocTrace.DdwTraceBench.Export
             string[] h =
             {
                 "owner_id (tb_attributes)", "owner_type", "attr version_sequence", "tb_modelinstances 있음", "model_type", "model_template_id",
-                "display_nm", "family_key", "bim_yn", "model_type 판정", "family_key 판정", "bim_yn=0 판정", "설비", "추적함", "비고"
+                "display_nm", "family_key", "bim_yn", "template model_type", "model_type 판정", "family_key 판정", "bim_yn=0 판정", "설비", "추적함", "비고"
             };
             var rows = new List<object[]>();
             foreach (var t in result.TagOwners)
@@ -145,6 +146,7 @@ namespace PocTrace.DdwTraceBench.Export
                     t.Model == null ? null : N(t.Model.ModelType), t.Model == null ? null : t.Model.TemplateId,
                     t.Template == null ? null : t.Template.DisplayName, t.Template == null ? null : t.Template.FamilyKey,
                     t.Template == null ? null : N(t.Template.BimYn),
+                    t.Template == null ? null : TraceCodes.ModelTypeText(t.Template.ModelType),
                     YesNo(t.ByModelType), YesNo(t.ByFamilyKey), YesNo(t.ByBimYnZero), YesNo(t.IsEquipment), YesNo(t.Traced), t.Note
                 });
             }
@@ -164,7 +166,9 @@ namespace PocTrace.DdwTraceBench.Export
                 "출발 POC 소유 id", "출발 소유 이름", "출발 소유 table",
                 "connected poc id", "도착 POC poc_template_id", "도착 POC owner_type",
                 "도착 POC 소유 id", "도착 객체 이름", "도착 소유 table",
-                "종류", "동작", "지나온 객체", "비고(status)"
+                "종류", "동작",
+                "Status", "pipe_type", "model_type", "damper", "tag", "connectiontag", "hookup number", "속성 owner id",
+                "지나온 객체", "비고(status)"
             };
             for (int c = 0; c < headers.Length; c++)
             {
@@ -185,7 +189,10 @@ namespace PocTrace.DdwTraceBench.Export
                     x.FromPocOwnerId, FromOwnerName(result, x), x.FromPocOwnerTable,
                     x.ToPocId, x.ToPocTemplateId, N(x.ToPocOwnerType),
                     x.ToPocOwnerId, ArrivalOwnerName(result, x), x.ToPocOwnerTable,
-                    x.Kind, x.Action, item.PassedNames, x.Status
+                    x.Kind, x.Action,
+                    x.TraceStatus, x.PipeTypeText, x.ModelTypeText, x.DamperName,
+                    x.TakeoffTag, x.TakeoffConnectionTag, x.TakeoffHookup, x.AttributeOwnerId,
+                    item.PassedNames, x.Status
                 };
                 for (int c = 0; c < values.Length; c++)
                     ws.Cells[row, c + 1].Value = values[c];
@@ -415,7 +422,7 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "시작설비 id", "단계", "도착 POC id", "배관 id (tb_pipeinstances)", "pipe_type", "length2 (mm, 기준)", "length1 (예비)",
+                "시작설비 id", "단계", "도착 POC id", "배관 id (tb_pipeinstances)", "pipe_type", "pipe_type 의미", "length2 (mm, 기준)", "length1 (예비)",
                 "pipesize_id", "pipesize_nm", "last_update", "version_sequence"
             };
             var rows = new List<object[]>();
@@ -423,7 +430,9 @@ namespace PocTrace.DdwTraceBench.Export
             {
                 rows.Add(new object[]
                 {
-                    p.StartEquipmentId, p.Depth, p.ViaPocId, p.Pipe.Id, N(p.Pipe.PipeType), p.Pipe.Length2, p.Pipe.Length1,
+                    p.StartEquipmentId, p.Depth, p.ViaPocId, p.Pipe.Id, N(p.Pipe.PipeType),
+                    p.Pipe.PipeType.HasValue ? TraceCodes.PipeTypeMeaning(p.Pipe.PipeType.Value) : null,
+                    p.Pipe.Length2, p.Pipe.Length1,
                     p.Pipe.PipeSizeId, p.SizeName, p.Pipe.LastUpdate, N(p.Pipe.VersionSequence)
                 });
             }
@@ -434,7 +443,7 @@ namespace PocTrace.DdwTraceBench.Export
         {
             string[] h =
             {
-                "시작설비 id", "단계", "객체 id", "table", "역할", "도착 POC id", "model_type", "model_template_id", "display_nm", "family_key", "bim_yn",
+                "시작설비 id", "단계", "객체 id", "table", "역할", "도착 POC id", "model_type", "template model_type", "model_template_id", "display_nm", "family_key", "bim_yn",
                 "model_type 판정", "family_key 판정", "bim_yn=0 판정", "pass-through", "POC 수", "비고"
             };
             var rows = new List<object[]>();
@@ -442,7 +451,7 @@ namespace PocTrace.DdwTraceBench.Export
             {
                 rows.Add(new object[]
                 {
-                    x.StartEquipmentId, x.Depth, x.Id, x.Table, x.Role, x.ArrivedPocId, N(x.ModelType), x.TemplateId, x.DisplayName, x.FamilyKey, N(x.BimYn),
+                    x.StartEquipmentId, x.Depth, x.Id, x.Table, x.Role, x.ArrivedPocId, N(x.ModelType), TraceCodes.ModelTypeText(x.TemplateModelType), x.TemplateId, x.DisplayName, x.FamilyKey, N(x.BimYn),
                     YesNo(x.ByModelType), YesNo(x.ByFamilyKey), YesNo(x.ByBimYnZero), YesNo(x.PassThrough), x.PocCount, x.Note
                 });
             }
