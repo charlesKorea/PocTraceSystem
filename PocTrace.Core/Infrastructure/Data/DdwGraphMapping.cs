@@ -269,20 +269,22 @@ namespace PocTrace.Core.Infrastructure.Data
                         continue;
                     }
                     DdwTypeCodes.ObserveModel(row.ModelType);
+                    if (string.IsNullOrEmpty(row.ConstructionCode))
+                        row.ConstructionCode = Lookup(constructions, row.InstanceId);
+                    if (string.IsNullOrEmpty(row.Tag))
+                        row.Tag = Lookup(tags, row.InstanceId);
+                    if (row.Tag != null)
+                        row.Tag = row.Tag.Trim();
                     if (DdwTypeCodes.IsArchitecture(row.ModelType))
                     {
                         diag.SkippedArchitecture++;
                         continue;
                     }
-                    if (row.BimYn == 1 && !IsBimTerminal(row))
+                    if (row.BimYn == 1 && !IsBimTerminal(row) && !IsBenchEquipment(row))
                     {
                         diag.SkippedBimYn1++;
                         continue;
                     }
-                    if (string.IsNullOrEmpty(row.ConstructionCode))
-                        row.ConstructionCode = Lookup(constructions, row.InstanceId);
-                    if (string.IsNullOrEmpty(row.Tag))
-                        row.Tag = Lookup(tags, row.InstanceId);
                     string unresolved;
                     var type = Classify(row, out unresolved);
                     if (type == NodeType.Unknown)
@@ -605,10 +607,24 @@ namespace PocTrace.Core.Infrastructure.Data
             return string.Equals((row.FamilyKey ?? "").Trim(), "equipment", StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsBenchEquipment(DdwModelRow row)
+        {
+            if (DdwTypeCodes.IsArchitecture(row.ModelType))
+                return false;
+            if (IsFamilyEquipment(row))
+                return true;
+            return IsEquipmentModelType(row);
+        }
+
         private static bool IsModelTypeEquipment(DdwModelRow row)
         {
             if (row.BimYn == 1 || DdwTypeCodes.IsArchitecture(row.ModelType))
                 return false;
+            return IsEquipmentModelType(row);
+        }
+
+        private static bool IsEquipmentModelType(DdwModelRow row)
+        {
             if (row.ModelType != (int)DdwTypeCodes.Equipment
                 && row.ModelType != (int)DdwTypeCodes.Equipments
                 && row.ModelType != (int)DdwTypeCodes.EtcEquipment)

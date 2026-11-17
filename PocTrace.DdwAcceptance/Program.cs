@@ -420,6 +420,21 @@ namespace PocTrace.DdwAcceptance
             var trace = new TraceAlgorithm(cache, null) { EnableDetailedDebug = false };
             var results = trace.TracePath(new PocData { InstanceId = G(117), OwnerId = equip, Outlet = pipeId }, "EQP_A");
             Check(results.Any(r => r.EndType == EndPointType.Takeoff), "GRAPH-01 forward reaches takeoff past slot 3");
+
+            var ddw = new GraphCacheManager();
+            var eq = G(130);
+            ddw.Initialize(
+                "x2_m",
+                new[] { new NodeInfo { InstanceId = eq, Tag = "rme010n03", Type = NodeType.Equipment, Name = "RME", Sub1Name = "" } },
+                new[] { new PocData { InstanceId = G(131), OwnerId = eq } },
+                new PipeData[0],
+                new TakeoffData[0],
+                new DynamicPropertiesData[0],
+                null,
+                false);
+            var engine = new PocTrace.Core.Engine.TraceEngine(ddw, new TraceAlgorithm(ddw, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None);
+            var found = engine.RunTrace("rme010n03", 0, false, System.Threading.CancellationToken.None);
+            Check(found.Count > 0, "x2_m equipment starts without S5D subdivision");
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)

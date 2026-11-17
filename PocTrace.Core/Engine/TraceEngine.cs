@@ -7,6 +7,7 @@ using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Engine.Logic;
 using PocTrace.Core.Engine.Validation;
 using PocTrace.Core.Enums;
+using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Models;
 using Serilog;
 
@@ -144,9 +145,13 @@ namespace PocTrace.Core.Engine
       return PocTrace.Core.Infrastructure.UtMapAlias.Resolve(_cache.UtilityMaps, _cache.DbName);
     }
 
-    private static bool IsRealEquipment(NodeInfo node)
+    private bool IsRealEquipment(NodeInfo node)
     {
-      if (node == null || string.IsNullOrEmpty(node.Sub1Name))
+      if (node == null)
+        return false;
+      if (DdwLine.IsCacheKey(_cache.DbName))
+        return node.Type == NodeType.Equipment;
+      if (string.IsNullOrEmpty(node.Sub1Name))
         return false;
 
       return node.Sub1Name.StartsWith("1-") ||
