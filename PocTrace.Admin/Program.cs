@@ -2,10 +2,8 @@
 using System.IO;
 using System.Windows.Forms;
 
-using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Infrastructure.Diagnostics;
 using PocTrace.Core.Licensing;
-using PocTrace.Startup;
 using Serilog;
 using Serilog.Events;
 
@@ -19,19 +17,16 @@ namespace PocTrace.Admin
         [STAThread]
         static int Main()
         {
-            string boot = null;
             try
             {
-                boot = ExeBootFile.Start(PocTraceLocalPaths.Admin);
                 return RunCore();
             }
             catch (Exception ex)
             {
-                ExeBootFile.Fail(boot, ex);
                 try
                 {
                     MessageBox.Show(
-                        "시작에 실패했습니다. 같은 빌드의 PocTrace.Core.dll 만 exe 옆에 두세요.\r\nJLic와 Serilog는 exe 안에 있습니다. 폴더에 예전 DLL이 남아 있으면 그 파일이 먼저 열립니다.\r\n" + boot + "\r\n\r\n" + ex,
+                        "시작에 실패했습니다. 같은 빌드의 PocTrace.Core.dll 만 exe 옆에 두세요.\r\nJLic와 Serilog는 exe 안에 있습니다. 폴더에 예전 DLL이 남아 있으면 그 파일이 먼저 열립니다.\r\n\r\n" + ex,
                         "PocTrace Admin",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
@@ -43,14 +38,10 @@ namespace PocTrace.Admin
 
         static int RunCore()
         {
-            ExeUseSession use = null;
-            try { use = ExeUseLog.Open(PocTraceLocalPaths.Admin); }
-            catch { }
-
-            // 1. 로그 설정 (사용자별 LocalAppData — 공유 폴더에 쓰지 않음)
-            string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Admin);
+            AdminLog.DeleteStartupRecords();
+            string logDirectory = AdminLog.DirectoryPath();
             MemoryLoadLog.Initialize(logDirectory);
-            string logPath = Path.Combine(logDirectory, "admin_log-.txt");
+            string logPath = Path.Combine(logDirectory, "admin-.txt");
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
@@ -68,9 +59,8 @@ namespace PocTrace.Admin
 
             try
             {
-                Log.Information("==================================================");
-                Log.Information(">>> PocTrace.Admin Scheduler Started");
-                Log.Information($"Execution Path: {AppDomain.CurrentDomain.BaseDirectory}");
+                Log.Information("로그 파일: {Path}", logPath);
+                Log.Information("실행 폴더: {Path}", AppDomain.CurrentDomain.BaseDirectory);
 
                 var lic = PocTraceLicense.VerifyAdmin();
                 if (!lic.Success)
@@ -80,8 +70,6 @@ namespace PocTrace.Admin
                     return 2;
                 }
                 Log.Information("License ok user={User} group={Group}", lic.UserName, lic.Group);
-                if (use != null)
-                    use.SetLicenseUser(lic.UserName);
 
                 // Admin regenerates cache — do not hard-block on age; log freshness only.
                 var freshness = PocTrace.Core.Infrastructure.CacheFreshnessGuard.EvaluateViewerStartup();
@@ -104,9 +92,6 @@ namespace PocTrace.Admin
             }
             finally
             {
-                try { if (use != null) use.Dispose(); }
-                catch { }
-                Log.Information(">>> PocTrace.Admin Scheduler Stopped");
                 Log.CloseAndFlush();
             }
         }

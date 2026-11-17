@@ -27,7 +27,7 @@ S5D의 Outlet1~3은 로더가 POC와 연결로 풀어 같은 걸음에 올린다
 
 규칙 객체만 스키마별로 둔다. Water, MainLine처럼 나중에 켤 분기는 `DdwRules` 안의 빈 자리로 남겨 두고, 엔진을 복제하지 않는다.
 
-id는 쿼리 경계에서 `uniqueidentifier`로 맞춘다. 캐시와 엔진은 `Guid`만 본다. `0x` 문자열은 시험 도구 Excel에만 남긴다. 템플릿의 division 세 열은 GUID 문자열이므로 `TRY_CAST(열 AS uniqueidentifier)`로 `tb_division`에 맞추고, 노드에는 `division_value` 세 글자를 붙인다. 글자가 빈 노드는 Sub 어휘 판정이 같이 빈다.
+id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier, …)`로 맞춘다. 이 변환은 `new Guid(byte[16])`과 같은 바이트 순서다. 캐시와 엔진은 `Guid`만 본다. 정수와 길이는 `int`, `float`로 맞춘다. `decimal`, `bigint`, `bit`을 그대로 넘기면 그 열에서 파싱 오류가 난다. `0x` 문자열은 시험 도구 Excel에만 남긴다. 템플릿의 division 세 열은 `TRY_CONVERT(열 AS uniqueidentifier)`로 `tb_division`에 맞추고, 노드에는 `division_value` 세 글자를 붙인다. 글자가 빈 노드는 Sub 어휘 판정이 같이 빈다.
 
 ## 2. 확정
 

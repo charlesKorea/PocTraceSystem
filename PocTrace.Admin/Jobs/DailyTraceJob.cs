@@ -83,7 +83,7 @@ namespace PocTrace.Admin.Jobs
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
                 // [신규] 로그 파일 삭제 (매 실행 시 기존 로그 삭제)
-                string logDirectory = PocTraceLocalPaths.LogsDirectory(PocTraceLocalPaths.Admin);
+                string logDirectory = PocTrace.Admin.AdminLog.DirectoryPath();
                 if (Directory.Exists(logDirectory))
                 {
                     try

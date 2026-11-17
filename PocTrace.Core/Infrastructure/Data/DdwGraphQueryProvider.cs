@@ -49,18 +49,19 @@ namespace PocTrace.Core.Infrastructure.Data
                 await RequireWebColumns(connection, quoted).ConfigureAwait(false);
             }
 
-            progress?.Report("   - Fetching DDW POCs...");
-            var modelPocs = (await Query<DdwPocRow>(connection, DdwSql.SelectModelPocs(quoted, _kind)).ConfigureAwait(false)).ToList();
-            var pipePocs = (await Query<DdwPocRow>(connection, DdwSql.SelectPipePocs(quoted)).ConfigureAwait(false)).ToList();
+            progress?.Report("   - Fetching DDW model POCs...");
+            var modelPocs = await QueryStep<DdwPocRow>(connection, "model POC", DdwSql.SelectModelPocs(quoted, _kind)).ConfigureAwait(false);
+            progress?.Report("   - Fetching DDW pipe POCs...");
+            var pipePocs = await QueryStep<DdwPocRow>(connection, "pipe POC", DdwSql.SelectPipePocs(quoted)).ConfigureAwait(false);
 
             progress?.Report("   - Fetching DDW Pipes...");
-            var pipeRows = (await Query<DdwPipeRow>(connection, DdwSql.SelectPipes(quoted)).ConfigureAwait(false)).ToList();
+            var pipeRows = await QueryStep<DdwPipeRow>(connection, "pipe", DdwSql.SelectPipes(quoted)).ConfigureAwait(false);
 
             progress?.Report("   - Fetching DDW Nodes...");
-            var models = (await Query<DdwModelRow>(connection, DdwSql.SelectModels(quoted, _kind)).ConfigureAwait(false)).ToList();
+            var models = await QueryStep<DdwModelRow>(connection, "model", DdwSql.SelectModels(quoted, _kind)).ConfigureAwait(false);
 
             progress?.Report("   - Fetching DDW attributes...");
-            var attributes = (await Query<DdwAttributeRow>(connection, DdwSql.SelectAttributes(quoted)).ConfigureAwait(false)).ToList();
+            var attributes = await QueryStep<DdwAttributeRow>(connection, "attribute", DdwSql.SelectAttributes(quoted)).ConfigureAwait(false);
 
             var bundle = DdwGraphNormalizer.Build(models, modelPocs, pipePocs, pipeRows, attributes);
             var diag = bundle.Diagnostics;
@@ -89,14 +90,26 @@ namespace PocTrace.Core.Infrastructure.Data
                 Log.Information("[DDW] unresolved vocabulary samples={Count} first={Sample}",
                     diag.UnknownVocabulary, diag.UnknownSamples[0]);
             }
-            Log.Information("[DDW] Hookup/ConnectorUse is empty until owner-domain D-03. Lookup stays Y when ConnectorUse is blank.");
-            progress?.Report("   - DDW graph mapped (hookup deferred)");
+            Log.Information("[DDW] hookups={Hookups}. id는 uniqueidentifier로 변환해 읽었다.", bundle.HookupNumbers == null ? 0 : bundle.HookupNumbers.Count);
+            progress?.Report("   - DDW graph mapped");
             return bundle;
         }
 
-        private static async Task<System.Collections.Generic.IEnumerable<T>> Query<T>(IDbConnection connection, string sql)
+        private static async Task<System.Collections.Generic.List<T>> QueryStep<T>(IDbConnection connection, string step, string sql)
         {
-            return await connection.QueryAsync<T>(new CommandDefinition(sql, commandTimeout: 0)).ConfigureAwait(false);
+            Log.Information("[DDW] 단계 {Step} 조회 시작", step);
+            try
+            {
+                var rows = (await connection.QueryAsync<T>(new CommandDefinition(sql, commandTimeout: 0)).ConfigureAwait(false)).ToList();
+                Log.Information("[DDW] 단계 {Step} 조회 {Count}행", step, rows.Count);
+                return rows;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "DDW 캐시 단계 " + step + " 에서 열을 읽지 못했다. id는 uniqueidentifier, 정수와 길이는 int와 float 로 맞춰 둔다. " + ex.Message,
+                    ex);
+            }
         }
 
         private static async Task RequireWebColumns(IDbConnection connection, string quotedDb)

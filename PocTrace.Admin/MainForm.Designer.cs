@@ -44,8 +44,6 @@
 
             this.btnCacheOnly = new System.Windows.Forms.Button();
 
-            this.btnSchemaProbe = new System.Windows.Forms.Button();
-
             this.btnDdwCache = new System.Windows.Forms.Button();
 
             this.lblStatus = new System.Windows.Forms.Label();
@@ -156,45 +154,21 @@
 
             // 
 
-            // btnSchemaProbe
-
-            // 
-
-            this.btnSchemaProbe.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-
-            this.btnSchemaProbe.ForeColor = System.Drawing.Color.DarkSlateBlue;
-
-            this.btnSchemaProbe.Location = new System.Drawing.Point(648, 16);
-
-            this.btnSchemaProbe.Name = "btnSchemaProbe";
-
-            this.btnSchemaProbe.Size = new System.Drawing.Size(220, 48);
-
-            this.btnSchemaProbe.TabIndex = 8;
-
-            this.btnSchemaProbe.Text = "사전점검 (엑셀)";
-
-            this.btnSchemaProbe.UseVisualStyleBackColor = true;
-
-            this.btnSchemaProbe.Click += new System.EventHandler(this.BtnSchemaProbe_Click);
-
-            // 
-
             // btnDdwCache
 
             // 
 
-            this.btnDdwCache.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDdwCache.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
 
             this.btnDdwCache.ForeColor = System.Drawing.Color.DarkGreen;
 
-            this.btnDdwCache.Location = new System.Drawing.Point(16, 72);
+            this.btnDdwCache.Location = new System.Drawing.Point(648, 16);
 
             this.btnDdwCache.Name = "btnDdwCache";
 
-            this.btnDdwCache.Size = new System.Drawing.Size(220, 28);
+            this.btnDdwCache.Size = new System.Drawing.Size(220, 48);
 
-            this.btnDdwCache.TabIndex = 9;
+            this.btnDdwCache.TabIndex = 8;
 
             this.btnDdwCache.Text = "DDW Cache (x2_m)";
 
@@ -212,11 +186,11 @@
 
             this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
 
-            this.lblStatus.Location = new System.Drawing.Point(248, 76);
+            this.lblStatus.Location = new System.Drawing.Point(16, 76);
 
             this.lblStatus.Name = "lblStatus";
 
-            this.lblStatus.Size = new System.Drawing.Size(636, 24);
+            this.lblStatus.Size = new System.Drawing.Size(868, 24);
 
             this.lblStatus.TabIndex = 4;
 
@@ -308,8 +282,6 @@
 
             this.Controls.Add(this.btnDdwCache);
 
-            this.Controls.Add(this.btnSchemaProbe);
-
             this.Controls.Add(this.btnCacheOnly);
 
             this.Controls.Add(this.btnRunNow);
@@ -343,8 +315,6 @@
         private System.Windows.Forms.Button btnRunNow;
 
         private System.Windows.Forms.Button btnCacheOnly;
-
-        private System.Windows.Forms.Button btnSchemaProbe;
 
         private System.Windows.Forms.Button btnDdwCache;
 
