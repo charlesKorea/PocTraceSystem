@@ -54,6 +54,7 @@ SELECT
     " + IntNull("mi.COMPOSITE_YN") + @" AS CompositeYn,
     " + GuidNull("mi.PARENT_INSTANCE_ID") + @" AS ParentInstanceId,
     " + Text("mt.FAMILY_KEY", 256) + @" AS FamilyKey,
+    " + IntNull("mt.BIM_YN") + @" AS BimYn,
     " + IntNull("div0.DIVISION_TYPE") + @" AS DivisionType,
     " + sub1 + @" AS Sub1Name,
     " + sub2 + @" AS Sub2Name,

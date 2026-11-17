@@ -37,6 +37,18 @@ namespace PocTrace.DdwTraceBench.Trace
         public const long DamperModelType = 51382287L;
         public const long ElbowModelType = 50856193L;
         public const long ReducerModelType = 50857988L;
+        public const long TakeoffModelType = 50856200L;
+        public const long EndcapModelType = 50856198L;
+        public const long TeeModelType = 50856194L;
+        public const long EtcFittingModelType = 50856447L;
+        public const long AccessoryModelType = 51380735L;
+        public const long StructureBimModelType = 50462976L;
+        public const long ArchitectureModelType = 50465023L;
+        public const long BeamModelType = 50462981L;
+        public const long StructureFloorModelType = 50462977L;
+        public const long StructureWallModelType = 50462978L;
+        public const long StructureColumnModelType = 50462980L;
+        public const long LadderCableTrayType = 17302528L;
 
         public static readonly string[] TakeoffAttributeNames =
         {
@@ -78,6 +90,8 @@ namespace PocTrace.DdwTraceBench.Trace
                 return "flange";
             if (type == BendingPipeType)
                 return "bending";
+            if (type == LadderCableTrayType)
+                return "ladder_cable_tray";
             return null;
         }
 
@@ -114,6 +128,28 @@ namespace PocTrace.DdwTraceBench.Trace
                 return "elbow";
             if (type == ReducerModelType)
                 return "reducer";
+            if (type == TakeoffModelType)
+                return "takeoff(pipe)";
+            if (type == EndcapModelType)
+                return "endcap(pipe)";
+            if (type == TeeModelType)
+                return "tee(pipe)";
+            if (type == EtcFittingModelType)
+                return "etc_fitting(pipe)";
+            if (type == AccessoryModelType)
+                return "accessory(etc)";
+            if (type == StructureBimModelType)
+                return "structure(bim)";
+            if (type == ArchitectureModelType)
+                return "architecture(etc)";
+            if (type == BeamModelType)
+                return "beam";
+            if (type == StructureFloorModelType)
+                return "structure(floor)";
+            if (type == StructureWallModelType)
+                return "structure(wall)";
+            if (type == StructureColumnModelType)
+                return "structure(column)";
             return null;
         }
 

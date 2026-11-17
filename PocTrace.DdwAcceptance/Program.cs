@@ -287,6 +287,26 @@ namespace PocTrace.DdwAcceptance
             Check(!bundle.Nodes.Any(n => n.Type == NodeType.Equipment && n.Sub1Name == "GRATING"), "model type alone is not equipment");
             Check(bundle.Diagnostics.UnknownVocabulary >= 1, "unknown vocabulary counted");
             Check(bundle.Diagnostics.UnknownSamples.Exists(s => s.Contains("GRATING") && s.Contains("50594049")), "grating sample");
+            var ddwEquip = DdwGraphNormalizer.Build(new[]
+            {
+                new DdwModelRow { InstanceId = G(80), Name = "RME", FamilyKey = "equipment", ModelType = 50594049, BimYn = 0, OperationType = 0, Tag = "rme010n03" },
+                new DdwModelRow { InstanceId = G(81), Name = "WALL", ModelType = 50462978, BimYn = 1, FamilyKey = "wall", OperationType = 0 },
+                new DdwModelRow { InstanceId = G(82), Name = "NOZ", ModelType = 50856202, BimYn = 1, OperationType = 0 },
+                new DdwModelRow { InstanceId = G(83), Name = "VALVE", ModelType = 51380481, BimYn = 0, OperationType = 0 },
+                new DdwModelRow { InstanceId = G(84), Name = "BIMVALVE", ModelType = 51380481, BimYn = 1, OperationType = 0 }
+            }, null, null, new[]
+            {
+                new DdwPipeRow { InstanceId = G(85), PipeType = 17301760, Length = 12, OperationType = 0 },
+                new DdwPipeRow { InstanceId = G(86), PipeType = 17303552, Length = 9, OperationType = 0 },
+                new DdwPipeRow { InstanceId = G(87), PipeType = 17302528, Length = 4, OperationType = 0 }
+            }, null);
+            Check(ddwEquip.Nodes.Any(n => n.Tag == "rme010n03" && n.Type == NodeType.Equipment), "family equipment is a start node");
+            Check(!ddwEquip.Nodes.Any(n => n.InstanceId == G(81)), "architecture stays out of the cache");
+            Check(ddwEquip.Nodes.Any(n => n.InstanceId == G(82) && n.Type == NodeType.Nozzle), "bim nozzle stays as a stop");
+            Check(ddwEquip.Nodes.Any(n => n.InstanceId == G(83) && n.Type == NodeType.Fitting), "hookup valve stays");
+            Check(!ddwEquip.Nodes.Any(n => n.InstanceId == G(84)), "bim_yn 1 accessory stays out");
+            Check(ddwEquip.Pipes.Count == 1 && ddwEquip.Pipes[0].PipeId == G(85), "duct and cable tray stay out");
+            Check(DdwTypeCodes.ModelMeaning(50462976) == "structure(bim)" && DdwTypeCodes.PipeMeaning(17302528) == "ladder_cable_tray", "undefined type meanings");
             Check(bundle.Diagnostics.DeletedRowsSkipped >= 2, "DDW-05 operation type 2 skipped");
             Check(bundle.Pipes.Count == 0, "deleted pipe omitted");
             Check(bundle.Nodes[0].InstanceNumericId == PocTrace.Core.Utils.DotNetGuidHash.FromGuid(G(70)), "numeric id from guid");

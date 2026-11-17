@@ -4,7 +4,7 @@
 
 2026-11-17에 `bim_yn` 규칙을 고쳤다. `bim_yn = 0`은 우리가 추적하는 2차 훅업 배관이다. 노즐과 덕트는 `bim_yn = 1`인 1차 배관이고 BIM을 통해 DDW에 들어온다. `bim_yn = 0`을 Cap으로 쓰지 않는다.
 
-같은 날 타입 상수를 `DdwTypeCodes`에 두었다. 8자리이고 17로 시작하면 `pipe_type`, 5로 시작하면 `model_type`이다. 목록에 없는 값은 로그와 `GraphCache_x2_m/ddw-undefined-types.xlsx`에 남기고, 뜻을 받으면 상수에 추가한다. Admin의 DDW Cache 버튼이 `remote_monami.monami`를 읽어 `GraphCache_x2_m`만 쓴다. UI 콤보의 `x2_m`은 그 캐시를 읽는다. `UtMapping.csv`에 `x2_m`이 없으면 `x2` 매핑을 쓴다. Cap은 이름이나 division 세 칸에 `cap`이 있고 `equipment`가 아닐 때다. 기타, vac, flange END, 미사용 같은 S5D 목록은 DDW에 쓰지 않는다. Water와 MainLine은 아직 S5D 그대로다.
+같은 날 타입 상수를 `DdwTypeCodes`에 두었다. 8자리이고 17로 시작하면 `pipe_type`, 5로 시작하면 `model_type`이다. 목록에 없는 값은 로그와 `GraphCache_x2_m/ddw-undefined-types.xlsx`에 남기고, 뜻을 받으면 상수에 추가한다. Admin의 DDW Cache 버튼이 `remote_monami.monami`를 읽어 `GraphCache_x2_m`만 쓴다. UI 콤보의 `x2_m`은 그 캐시를 읽는다. 캐시에는 2차 훅업만 담는다. `bim_yn = 1`인 1차 배관 부속과 건축 구조(`structure`, `architecture`, `beam`, `floor`, `wall`, `column`)는 넣지 않는다. 노즐과 damper는 추적 끝으로 남긴다. 덕트와 `ladder_cable_tray` 배관도 넣지 않는다. `family_key = equipment`인 모델은 설비다. 설비 POC의 출구는 연결된 배관 id다. `UtMapping.csv`에 `x2_m`이 없으면 `x2` 매핑을 쓴다. Cap은 이름이나 division 세 칸에 `cap`이 있고 `equipment`가 아닐 때다. 기타, vac, flange END, 미사용 같은 S5D 목록은 DDW에 쓰지 않는다. Water와 MainLine은 아직 S5D 그대로다.
 
 ## 1. 구조
 

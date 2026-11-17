@@ -17,6 +17,9 @@ namespace PocTrace.Core.Infrastructure.Data
         public int MaxEndpoints;
         public int DuplicateConnectionOrders;
         public int UnknownNodesEmitted;
+        public int SkippedBimYn1;
+        public int SkippedArchitecture;
+        public int SkippedOutsidePipes;
         public int UnknownVocabulary;
         public int ModuleChildrenSkipped;
         public int DeletedRowsSkipped;
@@ -36,6 +39,7 @@ namespace PocTrace.Core.Infrastructure.Data
         public int? CompositeYn { get; set; }
         public Guid? ParentInstanceId { get; set; }
         public string FamilyKey { get; set; }
+        public int? BimYn { get; set; }
         public int? DivisionType { get; set; }
         public string Sub1Name { get; set; }
         public string Sub2Name { get; set; }
@@ -134,6 +138,11 @@ namespace PocTrace.Core.Infrastructure.Data
                         continue;
                     }
                     DdwTypeCodes.ObservePipe(row.PipeType);
+                    if (DdwTypeCodes.IsOutsideHookupPipe(row.PipeType))
+                    {
+                        diag.SkippedOutsidePipes++;
+                        continue;
+                    }
                     if (row.PipeType == TakeoffPipeType || row.PipeType == DdwTypeCodes.TakeoffDuct)
                         continue;
                     pipeRows.Add(row);
@@ -223,7 +232,7 @@ namespace PocTrace.Core.Infrastructure.Data
                     if (row.OwnerType != ModelOwnerType)
                         continue;
                     diag.ModelPocCount++;
-                    var resolved = Resolve(row, diag);
+                    var resolved = Resolve(row, pipeIds, diag);
                     string module = LookupModule(modules, row.InstanceId, row.OwnerInstanceId);
                     string utility = FirstNonEmpty(row.InstanceUtilityName, row.TemplateUtilityName);
                     string group = !string.IsNullOrEmpty(row.InstanceUtilityName)
@@ -260,6 +269,16 @@ namespace PocTrace.Core.Infrastructure.Data
                         continue;
                     }
                     DdwTypeCodes.ObserveModel(row.ModelType);
+                    if (DdwTypeCodes.IsArchitecture(row.ModelType))
+                    {
+                        diag.SkippedArchitecture++;
+                        continue;
+                    }
+                    if (row.BimYn == 1 && !IsBimTerminal(row))
+                    {
+                        diag.SkippedBimYn1++;
+                        continue;
+                    }
                     if (string.IsNullOrEmpty(row.ConstructionCode))
                         row.ConstructionCode = Lookup(constructions, row.InstanceId);
                     if (string.IsNullOrEmpty(row.Tag))
@@ -453,10 +472,10 @@ namespace PocTrace.Core.Infrastructure.Data
             };
         }
 
-        private static Guid? Resolve(DdwPocRow row, DdwLoadDiagnostics diag)
+        private static Guid? Resolve(DdwPocRow row, ISet<Guid> pipeIds, DdwLoadDiagnostics diag)
         {
             Guid? target;
-            var resolution = ResolveRaw(row, null, out target, diag);
+            var resolution = ResolveRaw(row, pipeIds, out target, diag);
             if (resolution == PipeEndpointResolution.Connected)
                 return target;
             return null;
@@ -478,6 +497,14 @@ namespace PocTrace.Core.Infrastructure.Data
             if (row.TargetOwnerType == ModelOwnerType)
             {
                 target = row.TargetInstanceId;
+                diag.ConnectedCount++;
+                return PipeEndpointResolution.Connected;
+            }
+            if (row.TargetOwnerType == PipeOwnerType
+                && row.TargetOwnerInstanceId.HasValue
+                && row.TargetOwnerInstanceId.Value != Guid.Empty)
+            {
+                target = row.TargetOwnerInstanceId;
                 diag.ConnectedCount++;
                 return PipeEndpointResolution.Connected;
             }
@@ -545,16 +572,54 @@ namespace PocTrace.Core.Infrastructure.Data
                 unresolved = "delete";
                 return NodeType.Unknown;
             }
-            if (NameIs(sub1, "Damper"))
+            if (NameIs(sub1, "Damper") || row.ModelType == (int)DdwTypeCodes.Damper)
                 return NodeType.Damper;
-            if (IsNozzle(sub1, sub2, row.Sub1DivisionType))
+            if (IsNozzle(sub1, sub2, row.Sub1DivisionType)
+                || row.ModelType == (int)DdwTypeCodes.Nozzle
+                || Contains(row.Name, "노즐")
+                || Contains(row.Name, "nozzle"))
                 return NodeType.Nozzle;
             if (IsEquipment(row))
                 return NodeType.Equipment;
             if (IsFitting(row))
                 return NodeType.Fitting;
+            if (IsFamilyEquipment(row) || IsModelTypeEquipment(row))
+                return NodeType.Equipment;
+            if (DdwTypeCodes.IsHookupComponent(row.ModelType))
+                return NodeType.Fitting;
             unresolved = sub1 + "|" + sub2 + "|" + (row.ModelType.HasValue ? row.ModelType.Value.ToString() : "");
             return NodeType.Unknown;
+        }
+
+        private static bool IsBimTerminal(DdwModelRow row)
+        {
+            if (row.ModelType == (int)DdwTypeCodes.Nozzle || row.ModelType == (int)DdwTypeCodes.Damper)
+                return true;
+            if (NameIs(row.Sub1Name, "Damper"))
+                return true;
+            return Contains(row.Name, "노즐") || Contains(row.Name, "nozzle");
+        }
+
+        private static bool IsFamilyEquipment(DdwModelRow row)
+        {
+            return string.Equals((row.FamilyKey ?? "").Trim(), "equipment", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsModelTypeEquipment(DdwModelRow row)
+        {
+            if (row.BimYn == 1 || DdwTypeCodes.IsArchitecture(row.ModelType))
+                return false;
+            if (row.ModelType != (int)DdwTypeCodes.Equipment
+                && row.ModelType != (int)DdwTypeCodes.Equipments
+                && row.ModelType != (int)DdwTypeCodes.EtcEquipment)
+                return false;
+            string sub = row.Sub1Name ?? "";
+            if (NameIs(sub, "GRATING") || NameIs(sub, "BIM"))
+                return false;
+            if (Contains(sub, "structure") || Contains(sub, "wall") || Contains(sub, "floor")
+                || Contains(sub, "column") || Contains(sub, "beam"))
+                return false;
+            return true;
         }
 
         private static bool IsNozzle(string sub1, string sub2, int? sub1Division)

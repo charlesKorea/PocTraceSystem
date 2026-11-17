@@ -66,7 +66,7 @@ namespace PocTrace.Core.Infrastructure.Data
             var bundle = DdwGraphNormalizer.Build(models, modelPocs, pipePocs, pipeRows, attributes);
             var diag = bundle.Diagnostics;
             Log.Information(
-                "[DDW] {Profile} nodes={Nodes} pocs={Pocs} pipes={Pipes} takeoffs={Takeoffs} modelPocs={ModelPocs} pipePocs={PipePocs} connected={Connected} unconnected={Unconnected} dangling={Dangling} pipes4plus={Pipes4} maxEnds={MaxEnds} orderDup={OrderDup} unknown={Unknown} unknownEmitted={UnknownEmitted} moduleChildren={ModuleChildren} deletedSkipped={Deleted} attrDup={AttrDup}",
+                "[DDW] {Profile} nodes={Nodes} pocs={Pocs} pipes={Pipes} takeoffs={Takeoffs} modelPocs={ModelPocs} pipePocs={PipePocs} connected={Connected} unconnected={Unconnected} dangling={Dangling} pipes4plus={Pipes4} maxEnds={MaxEnds} orderDup={OrderDup} unknown={Unknown} unknownEmitted={UnknownEmitted} moduleChildren={ModuleChildren} deletedSkipped={Deleted} attrDup={AttrDup} skipBim1={SkipBim1} skipArchitecture={SkipArch} skipDuctTray={SkipDuct}",
                 _kind,
                 bundle.Nodes.Count,
                 bundle.Pocs.Count,
@@ -84,7 +84,10 @@ namespace PocTrace.Core.Infrastructure.Data
                 diag.UnknownNodesEmitted,
                 diag.ModuleChildrenSkipped,
                 diag.DeletedRowsSkipped,
-                diag.AttributeDuplicates);
+                diag.AttributeDuplicates,
+                diag.SkippedBimYn1,
+                diag.SkippedArchitecture,
+                diag.SkippedOutsidePipes);
             if (diag.UnknownSamples.Count > 0)
             {
                 Log.Information("[DDW] unresolved vocabulary samples={Count} first={Sample}",

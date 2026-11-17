@@ -28,6 +28,7 @@ namespace PocTrace.Core.Infrastructure.Data
         public const long EndcapDuct = 17303558L;
         public const long ReducerDuct = 17303566L;
         public const long TakeoffDuct = 17403560L;
+        public const long LadderCableTray = 17302528L;
 
         public const long Equipments = 50694048L;
         public const long Equipment = 50594049L;
@@ -40,6 +41,17 @@ namespace PocTrace.Core.Infrastructure.Data
         public const long Damper = 51382287L;
         public const long Elbow = 50856193L;
         public const long Reducer = 50857988L;
+        public const long TakeoffModel = 50856200L;
+        public const long EndcapModel = 50856198L;
+        public const long TeeModel = 50856194L;
+        public const long EtcFitting = 50856447L;
+        public const long Accessory = 51380735L;
+        public const long StructureBim = 50462976L;
+        public const long Architecture = 50465023L;
+        public const long Beam = 50462981L;
+        public const long StructureFloor = 50462977L;
+        public const long StructureWall = 50462978L;
+        public const long StructureColumn = 50462980L;
 
         public static string PipeMeaning(long code)
         {
@@ -60,6 +72,7 @@ namespace PocTrace.Core.Infrastructure.Data
             if (code == EndcapDuct) return "endcap";
             if (code == ReducerDuct) return "reducer";
             if (code == TakeoffDuct) return "takeoff";
+            if (code == LadderCableTray) return "ladder_cable_tray";
             return null;
         }
 
@@ -67,10 +80,49 @@ namespace PocTrace.Core.Infrastructure.Data
         {
             if (PipeMeaning(code) == null)
                 return null;
+            if (code == LadderCableTray)
+                return "tray";
             string text = code.ToString(CultureInfo.InvariantCulture);
             if (text.StartsWith("173035", StringComparison.Ordinal) || code == TakeoffDuct)
                 return "duct";
             return "pipe";
+        }
+
+        public static bool IsOutsideHookupPipe(long code)
+        {
+            string family = PipeFamily(code);
+            return family == "duct" || family == "tray";
+        }
+
+        public static bool IsArchitecture(int? code)
+        {
+            if (!code.HasValue)
+                return false;
+            long value = code.Value;
+            return value == StructureBim
+                || value == Architecture
+                || value == Beam
+                || value == StructureFloor
+                || value == StructureWall
+                || value == StructureColumn;
+        }
+
+        public static bool IsHookupComponent(int? code)
+        {
+            if (!code.HasValue)
+                return false;
+            long value = code.Value;
+            return value == Connector
+                || value == Valve
+                || value == Clamp
+                || value == Flange
+                || value == Elbow
+                || value == Reducer
+                || value == TakeoffModel
+                || value == EndcapModel
+                || value == TeeModel
+                || value == EtcFitting
+                || value == Accessory;
         }
 
         public static string ModelMeaning(long code)
@@ -86,6 +138,17 @@ namespace PocTrace.Core.Infrastructure.Data
             if (code == Damper) return "damper";
             if (code == Elbow) return "elbow";
             if (code == Reducer) return "reducer";
+            if (code == TakeoffModel) return "takeoff(pipe)";
+            if (code == EndcapModel) return "endcap(pipe)";
+            if (code == TeeModel) return "tee(pipe)";
+            if (code == EtcFitting) return "etc_fitting(pipe)";
+            if (code == Accessory) return "accessory(etc)";
+            if (code == StructureBim) return "structure(bim)";
+            if (code == Architecture) return "architecture(etc)";
+            if (code == Beam) return "beam";
+            if (code == StructureFloor) return "structure(floor)";
+            if (code == StructureWall) return "structure(wall)";
+            if (code == StructureColumn) return "structure(column)";
             return null;
         }
 
