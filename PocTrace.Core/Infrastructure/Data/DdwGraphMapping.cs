@@ -79,6 +79,7 @@ namespace PocTrace.Core.Infrastructure.Data
         public DateTime? OpTime { get; set; }
         public string UserName { get; set; }
         public string CompanyName { get; set; }
+        public string LoginId { get; set; }
         public string Tag { get; set; }
         public int OperationType { get; set; }
     }
@@ -173,7 +174,7 @@ namespace PocTrace.Core.Infrastructure.Data
                     Length = NormalizeLength(row.Length),
                     UtilityName = row.UtilityName ?? "",
                     OpTime = row.OpTime,
-                    UserName = row.UserName ?? "",
+                    UserName = FirstFilled(row.UserName, row.LoginId),
                     CompanyName = row.CompanyName ?? ""
                 };
                 List<PipeEndpoint> eps;

@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using PocTrace.Core.Infrastructure;
 
 namespace PocTrace.Core.Infrastructure.Data
@@ -9,7 +10,9 @@ namespace PocTrace.Core.Infrastructure.Data
     /// 그 변환은 new Guid(byte[16]) 과 같은 바이트 순서다.
     /// 숫자와 길이는 int, float 로 맞춘다. decimal, bigint, bit 이 그대로 오면 다음 열에서 같은 파싱 오류가 난다.
     /// 배관 POC는 poc_template_id 가 0인 날배관만 본다. owner_type 256 은 보류다.
-    /// tb_pipeinstances 에는 user_id, last_update 가 없다. S5D PipeLog 의 작업자·회사·시각 열을 붙이지 않는다.
+    /// 배관 작업자와 시각은 pi.version_sequence = tb_versions.version_number 이다.
+    /// 그 행의 user_id, last_update 를 읽고, user_id 로 tb_new_users 의 login_id, user_name, company_name 을 읽는다.
+    /// tb_pipeinstances.user_id 는 없다.
     /// </summary>
     public static class DdwSql
     {
@@ -153,14 +156,19 @@ SELECT
     " + IntOf("pi.PIPE_TYPE") + @" AS PipeType,
     CAST(CASE WHEN pi.LENGTH2 IS NULL OR pi.LENGTH2 <= 0 THEN 0 ELSE ROUND(pi.LENGTH2, 1) END AS float) AS Length,
     " + Text("u.UTILITY_NM", 256) + @" AS UtilityName,
-    CAST(NULL AS datetime2) AS OpTime,
-    CAST(NULL AS nvarchar(256)) AS UserName,
-    CAST(NULL AS nvarchar(256)) AS CompanyName,
+    TRY_CAST(v.LAST_UPDATE AS datetime2) AS OpTime,
+    " + Text("nu.USER_NAME", 256) + @" AS UserName,
+    " + Text("nu.COMPANY_NAME", 256) + @" AS CompanyName,
+    " + Text("nu.LOGIN_ID", 256) + @" AS LoginId,
     CAST(NULL AS nvarchar(512)) AS Tag,
     " + Op + @"
 FROM " + T(quotedDb, "TB_PIPEINSTANCES") + @" pi
 LEFT JOIN " + T(quotedDb, "TB_UTILITIES") + @" u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u." + Live + @"
+LEFT JOIN " + T(quotedDb, "TB_VERSIONS") + @" v
+    ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
+LEFT JOIN " + T(quotedDb, "TB_NEW_USERS") + @" nu
+    ON nu.USER_ID = v.USER_ID
 WHERE pi." + Live;
         }
 
@@ -175,6 +183,63 @@ SELECT
 FROM " + T(quotedDb, "TB_ATTRIBUTES") + @" a
 WHERE a." + Live + @"
   AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER')";
+        }
+
+        /// <summary>
+        /// SVDI에서 쿼리마다 실행하는 스크립트. 캐시 버튼이 쓰는 SQL과 같다.
+        /// </summary>
+        public static string ReviewScript(string quotedDb)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("-- x2_m 캐시 조회. 배치는 GO 로 나뉜다. SSMS에서 한 배치씩 실행한다.");
+            sb.AppendLine("-- 카탈로그는 " + quotedDb + " 이다. 캐시 폴더 키 x2_m 과 다르다.");
+            sb.AppendLine("-- 01, 02는 열 이름 확인이다. 03은 배관 version_sequence 와 tb_versions.version_number 가 맞는지 본다.");
+            sb.AppendLine("-- 04부터 08은 캐시와 같은 SELECT를 TOP 20으로 감싼 것이다. 열 오류는 여기서 난다.");
+            sb.AppendLine("-- 09부터 13은 캐시 버튼이 제한 없이 실행하는 SQL이다.");
+            sb.AppendLine("SET NOCOUNT ON;");
+            sb.AppendLine("SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;");
+            sb.AppendLine("GO");
+            Batch(sb, "01 versions 열", "SELECT TOP 20 v.VERSION_NUMBER, v.USER_ID, v.LAST_UPDATE FROM " + T(quotedDb, "TB_VERSIONS") + " v");
+            Batch(sb, "02 users 열", "SELECT TOP 20 nu.USER_ID, nu.LOGIN_ID, nu.USER_NAME, nu.COMPANY_NAME FROM " + T(quotedDb, "TB_NEW_USERS") + " nu");
+            Batch(sb, "03 pipe version match", @"
+SELECT TOP 20
+    pi.VERSION_SEQUENCE,
+    v.VERSION_NUMBER,
+    v.USER_ID,
+    v.LAST_UPDATE,
+    nu.LOGIN_ID,
+    nu.USER_NAME,
+    nu.COMPANY_NAME
+FROM " + T(quotedDb, "TB_PIPEINSTANCES") + @" pi
+LEFT JOIN " + T(quotedDb, "TB_VERSIONS") + @" v
+    ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
+LEFT JOIN " + T(quotedDb, "TB_NEW_USERS") + @" nu
+    ON nu.USER_ID = v.USER_ID
+WHERE pi." + Live);
+            Batch(sb, "04 cache model POC TOP 20", Wrap(SelectModelPocs(quotedDb, SchemaKind.TbStar)));
+            Batch(sb, "05 cache pipe POC TOP 20", Wrap(SelectPipePocs(quotedDb)));
+            Batch(sb, "06 cache pipe TOP 20", Wrap(SelectPipes(quotedDb)));
+            Batch(sb, "07 cache model TOP 20", Wrap(SelectModels(quotedDb, SchemaKind.TbStar)));
+            Batch(sb, "08 cache attribute TOP 20", Wrap(SelectAttributes(quotedDb)));
+            Batch(sb, "09 cache model POC", SelectModelPocs(quotedDb, SchemaKind.TbStar));
+            Batch(sb, "10 cache pipe POC", SelectPipePocs(quotedDb));
+            Batch(sb, "11 cache pipe", SelectPipes(quotedDb));
+            Batch(sb, "12 cache model", SelectModels(quotedDb, SchemaKind.TbStar));
+            Batch(sb, "13 cache attribute", SelectAttributes(quotedDb));
+            return sb.ToString();
+        }
+
+        private static string Wrap(string sql)
+        {
+            return "SELECT TOP 20 * FROM (" + sql + ") AS cache_rows";
+        }
+
+        private static void Batch(StringBuilder sb, string title, string sql)
+        {
+            sb.AppendLine();
+            sb.Append("-- ").AppendLine(title);
+            sb.AppendLine(sql.Trim());
+            sb.AppendLine("GO");
         }
 
         public static string ColumnExists(string quotedDb)

@@ -93,7 +93,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 | Tag | `tb_attributes`에서 `attribute_nm = tag` |
 | 건설코드 | `attribute_nm = 'Construction-code'` |
 | 노즐, Takeoff의 tag, connectiontag, hookup | 연결 POC id를 owner로. 이름은 `tag`, `ConnectionTag`, `S5_LATERAL_NUMBER` |
-| 배관 | `poc_template_id = 0`인 POC의 owner, `length2`, `pipe_type`, `utility_id`. `tb_pipeinstances`에 `user_id`와 `last_update`가 없으므로 작업자, 회사, 시각은 비운다 |
+| 배관 | `poc_template_id = 0`인 POC의 owner, `length2`, `pipe_type`, `utility_id`. 작업시각과 작업자는 `version_sequence = tb_versions.version_number`로 `user_id`, `last_update`를 읽고, `tb_new_users`에서 `login_id`, `user_name`, `company_name`을 읽는다. 배관 테이블의 `user_id`는 쓰지 않는다 |
 | Utility | POC의 utility id를 `tb_utilities`, 그 그룹을 `tb_utility_groups` |
 | live | 조인하는 `tb_*`마다 `version_sequence < 1000000000` |
 

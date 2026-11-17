@@ -84,7 +84,8 @@ namespace PocTrace.DdwAcceptance
 
             string pipes = DdwSql.SelectPipes("[fixture]");
             Check(pipes.Contains("ROUND(pi.LENGTH2, 1)"), "DDW length");
-            Check(!pipes.Contains("USER_ID") && !pipes.Contains("TB_NEW_USERS") && !pipes.Contains("LAST_UPDATE"), "DDW pipe SQL has no S5D user columns");
+            Check(!pipes.Contains("pi.USER_ID") && !pipes.Contains("TB_NEW_USERGROUPS") && !pipes.Contains("pi.LAST_UPDATE"), "pipe table has no user_id");
+            Check(pipes.Contains("TB_VERSIONS") && pipes.Contains("VERSION_NUMBER") && pipes.Contains("LOGIN_ID") && pipes.Contains("TB_NEW_USERS"), "version user lookup");
             Check(!pipes.Contains("*1000") && !pipes.Contains("TOP 1") && !pipes.Contains("Origin"), "DDW pipe SQL limits");
             Check(tb.Contains("TRY_CONVERT(uniqueidentifier, mi.INSTANCE_ID)"), "model id is uniqueidentifier");
             Check(pipes.Contains("AS float"), "pipe length is float");
