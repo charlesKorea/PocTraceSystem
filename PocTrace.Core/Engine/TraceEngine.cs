@@ -150,7 +150,7 @@ namespace PocTrace.Core.Engine
       if (node == null)
         return false;
       if (DdwLine.IsCacheKey(_cache.DbName))
-        return node.Type == NodeType.Equipment;
+        return node.Type == NodeType.Equipment || IsFacility(node.Sub1Name);
       if (string.IsNullOrEmpty(node.Sub1Name))
         return false;
 
@@ -158,6 +158,12 @@ namespace PocTrace.Core.Engine
              node.Sub1Name.StartsWith("2-") ||
              node.Sub1Name.StartsWith("4-") ||
              node.Sub1Name.StartsWith("6-");
+    }
+
+    private static bool IsFacility(string sub1)
+    {
+      return !string.IsNullOrEmpty(sub1)
+        && sub1.StartsWith("7-", StringComparison.OrdinalIgnoreCase);
     }
   }
 }

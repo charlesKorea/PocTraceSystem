@@ -293,7 +293,8 @@ namespace PocTrace.DdwAcceptance
                 new DdwModelRow { InstanceId = G(81), Name = "WALL", ModelType = 50462978, BimYn = 1, FamilyKey = "wall", OperationType = 0 },
                 new DdwModelRow { InstanceId = G(82), Name = "NOZ", ModelType = 50856202, BimYn = 1, OperationType = 0 },
                 new DdwModelRow { InstanceId = G(83), Name = "VALVE", ModelType = 51380481, BimYn = 0, OperationType = 0 },
-                new DdwModelRow { InstanceId = G(84), Name = "BIMVALVE", ModelType = 51380481, BimYn = 1, OperationType = 0 }
+                new DdwModelRow { InstanceId = G(84), Name = "BIMVALVE", ModelType = 51380481, BimYn = 1, OperationType = 0 },
+                new DdwModelRow { InstanceId = G(88), Name = "FAC", Sub1Name = "7-FACILITY", CompositeYn = 0, DivisionType = 9, OperationType = 0, Tag = "fac010" }
             }, null, null, new[]
             {
                 new DdwPipeRow { InstanceId = G(85), PipeType = 17301760, Length = 12, OperationType = 0 },
@@ -306,6 +307,7 @@ namespace PocTrace.DdwAcceptance
             Check(ddwEquip.Nodes.Any(n => n.InstanceId == G(83) && n.Type == NodeType.Fitting), "hookup valve stays");
             Check(!ddwEquip.Nodes.Any(n => n.InstanceId == G(84)), "bim_yn 1 accessory stays out");
             Check(ddwEquip.Pipes.Count == 1 && ddwEquip.Pipes[0].PipeId == G(85), "duct and cable tray stay out");
+            Check(ddwEquip.Nodes.Any(n => n.InstanceId == G(88) && n.Type == NodeType.Equipment), "7- facility is equipment");
             Check(DdwTypeCodes.ModelMeaning(50462976) == "structure(bim)" && DdwTypeCodes.PipeMeaning(17302528) == "ladder_cable_tray", "undefined type meanings");
             Check(bundle.Diagnostics.DeletedRowsSkipped >= 2, "DDW-05 operation type 2 skipped");
             Check(bundle.Pipes.Count == 0, "deleted pipe omitted");
@@ -435,6 +437,19 @@ namespace PocTrace.DdwAcceptance
             var engine = new PocTrace.Core.Engine.TraceEngine(ddw, new TraceAlgorithm(ddw, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None);
             var found = engine.RunTrace("rme010n03", 0, false, System.Threading.CancellationToken.None);
             Check(found.Count > 0, "x2_m equipment starts without S5D subdivision");
+            var facility = new GraphCacheManager();
+            var fac = G(132);
+            facility.Initialize(
+                "x2_m",
+                new[] { new NodeInfo { InstanceId = fac, Tag = "fac010", Type = NodeType.Fitting, Name = "FAC", Sub1Name = "7-FACILITY" } },
+                new[] { new PocData { InstanceId = G(133), OwnerId = fac } },
+                new PipeData[0],
+                new TakeoffData[0],
+                new DynamicPropertiesData[0],
+                null,
+                false);
+            var facilityTrace = new PocTrace.Core.Engine.TraceEngine(facility, new TraceAlgorithm(facility, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None);
+            Check(facilityTrace.RunTrace("fac010", 0, false, System.Threading.CancellationToken.None).Count > 0, "x2_m 7- facility starts");
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)

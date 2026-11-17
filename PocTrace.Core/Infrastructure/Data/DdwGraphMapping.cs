@@ -581,6 +581,8 @@ namespace PocTrace.Core.Infrastructure.Data
                 || Contains(row.Name, "노즐")
                 || Contains(row.Name, "nozzle"))
                 return NodeType.Nozzle;
+            if (IsFacility(sub1))
+                return NodeType.Equipment;
             if (IsEquipment(row))
                 return NodeType.Equipment;
             if (IsFitting(row))
@@ -602,6 +604,11 @@ namespace PocTrace.Core.Infrastructure.Data
             return Contains(row.Name, "노즐") || Contains(row.Name, "nozzle");
         }
 
+        private static bool IsFacility(string sub1)
+        {
+            return (sub1 ?? "").StartsWith("7-", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool IsFamilyEquipment(DdwModelRow row)
         {
             return string.Equals((row.FamilyKey ?? "").Trim(), "equipment", StringComparison.OrdinalIgnoreCase);
@@ -611,7 +618,7 @@ namespace PocTrace.Core.Infrastructure.Data
         {
             if (DdwTypeCodes.IsArchitecture(row.ModelType))
                 return false;
-            if (IsFamilyEquipment(row))
+            if (IsFamilyEquipment(row) || IsFacility(row.Sub1Name))
                 return true;
             return IsEquipmentModelType(row);
         }
