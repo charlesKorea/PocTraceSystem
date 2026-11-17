@@ -1,6 +1,7 @@
 ﻿using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Engine.Validation;
 using PocTrace.Core.Enums;
+using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Models;
 using Serilog;
 using System;
@@ -161,7 +162,8 @@ namespace PocTrace.Core.Engine.Logic
                         currentSteps.Add(newStep);
                         lastProcessedStep = newStep; 
 
-                        if (sub1.Equals("FLANGE", StringComparison.OrdinalIgnoreCase) && 
+                        if (!DdwLine.IsCacheKey(_cache.DbName) &&
+                            sub1.Equals("FLANGE", StringComparison.OrdinalIgnoreCase) && 
                             (sub2.Equals("MF FLANGE", StringComparison.OrdinalIgnoreCase) || sub2.Equals("KF FLANGE", StringComparison.OrdinalIgnoreCase)) &&
                             nodeName.IndexOf("END", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
@@ -181,7 +183,8 @@ namespace PocTrace.Core.Engine.Logic
                             nodeType = NodeType.Nozzle; 
                         }
 
-                        if (nodeName.IndexOf("미사용", StringComparison.OrdinalIgnoreCase) >= 0 && 
+                        if (!DdwLine.IsCacheKey(_cache.DbName) &&
+                            nodeName.IndexOf("미사용", StringComparison.OrdinalIgnoreCase) >= 0 && 
                             sub2.Equals("기타", StringComparison.OrdinalIgnoreCase))
                         {
                             LogDetailed("  🛑 [마감] '미사용' 및 '기타' 조건 도달. CAP으로 정상 종료. ({Name})", nodeName);
@@ -493,6 +496,7 @@ namespace PocTrace.Core.Engine.Logic
             }
 
             int changedValveCount = 0;
+            if (!DdwLine.IsCacheKey(_cache.DbName))
             foreach (var r in results.Where(x => x.STATUS == "ING"))
             {
                 var lastStep = r.Steps.LastOrDefault();

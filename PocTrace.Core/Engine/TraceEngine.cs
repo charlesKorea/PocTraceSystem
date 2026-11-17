@@ -141,14 +141,7 @@ namespace PocTrace.Core.Engine
 
     private Dictionary<string, Dictionary<string, string>> ResolveUtilityMap()
     {
-      var currentDbMap = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-      if (_cache.UtilityMaps != null &&
-          _cache.UtilityMaps.TryGetValue(_cache.DbName, out var map))
-      {
-        currentDbMap = map;
-      }
-
-      return currentDbMap;
+      return PocTrace.Core.Infrastructure.UtMapAlias.Resolve(_cache.UtilityMaps, _cache.DbName);
     }
 
     private static bool IsRealEquipment(NodeInfo node)

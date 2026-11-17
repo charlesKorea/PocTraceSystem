@@ -1,5 +1,6 @@
 ﻿using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Enums;
+using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Models;
 using Serilog;
 using System;
@@ -26,8 +27,15 @@ namespace PocTrace.Core.Engine.Logic
             }
         }
 
+        private bool IsDdwLine()
+        {
+            return DdwLine.IsCacheKey(_cache.DbName);
+        }
+
         private bool IsCapName(string targetNodeName, string targetDiv, string targetSubDiv1, string targetSubDiv2)
         {
+            if (IsDdwLine())
+                return DdwCapRule.IsCap(targetNodeName, targetDiv, targetSubDiv1, targetSubDiv2);
             if (string.IsNullOrEmpty(targetNodeName)) return false;
             if (targetNodeName.IndexOf("TEE", StringComparison.OrdinalIgnoreCase) >= 0) return false;
             if (targetNodeName.IndexOf("Nozzle", StringComparison.OrdinalIgnoreCase) >= 0 &&

@@ -205,6 +205,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 Log.Warning("⚠️ UtMapping.csv file not found in execution directory.");
             }
 
+            UtMapAlias.CopyX2WhenX2mMissing(map);
             return map;
         }
     }

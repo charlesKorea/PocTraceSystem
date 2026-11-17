@@ -85,6 +85,7 @@
     <Compile Include="Engine\TraceAlgorithm.MainLineTakeoff.cs" />
     <Compile Include="Engine\TraceAlgorithm.Bfs.cs" />
     <Compile Include="Engine\TraceAlgorithm.Helpers.cs" />
+    <Compile Include="Engine\Logic\DdwCapRule.cs" />
     <Compile Include="Engine\Validation\EquipmentTagMatcher.cs" />
     <Compile Include="Engine\Validation\MainLineTraceHelper.cs" />
     <Compile Include="Engine\Validation\Rules\IValidationRule.cs" />
@@ -127,6 +128,7 @@
     <Compile Include="Infrastructure\GlobalConfig.cs" />
     <Compile Include="Infrastructure\SchemaKind.cs" />
     <Compile Include="Infrastructure\SqlIdentifier.cs" />
+    <Compile Include="Infrastructure\UtMapAlias.cs" />
     <Compile Include="Infrastructure\PipeSectionFormat.cs" />
     <Compile Include="Engine\TraceAlgorithm.cs" />
     <Compile Include="Models\EquipmentTraceSummary.cs" />

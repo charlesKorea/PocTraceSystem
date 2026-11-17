@@ -153,7 +153,7 @@
 
 ## 5. 코드 영향
 
-2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. 같은 날 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 전 배치가 SVDI SSMS에서 오류 없이 끝났다. Admin의 DDW Cache 버튼이 그 09~13 조회를 실행해 `GraphCache_x2_m`만 쓴다. Cache Only는 S5D다. UI는 그 폴더를 읽어 추적한다. 추적 엔진의 Water, MainLine, Cap은 아직 S5D 규칙이다.
+2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. 같은 날 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 전 배치가 SVDI SSMS에서 오류 없이 끝났다. Admin의 DDW Cache 버튼이 그 09~13 조회를 실행해 `GraphCache_x2_m`만 쓴다. Cache Only는 S5D다. UI는 그 폴더를 읽어 추적한다. `x2_m` UT 매핑이 없으면 `x2`를 따른다. Cap은 이름과 division의 `cap`만 보고 S5D 특수 목록은 쓰지 않는다. Water와 MainLine은 아직 S5D 규칙이다.
 
 ## 6. 열린 질문
 

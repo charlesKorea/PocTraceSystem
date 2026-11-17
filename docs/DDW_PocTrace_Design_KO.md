@@ -4,7 +4,7 @@
 
 2026-11-17에 `bim_yn` 규칙을 고쳤다. `bim_yn = 0`은 우리가 추적하는 2차 훅업 배관이다. 노즐과 덕트는 `bim_yn = 1`인 1차 배관이고 BIM을 통해 DDW에 들어온다. `bim_yn = 0`을 Cap으로 쓰지 않는다.
 
-같은 날 타입 상수를 `DdwTypeCodes`에 두었다. 8자리이고 17로 시작하면 `pipe_type`, 5로 시작하면 `model_type`이다. 목록에 없는 값은 로그와 `GraphCache_x2_m/ddw-undefined-types.xlsx`에 남기고, 뜻을 받으면 상수에 추가한다. Admin의 DDW Cache 버튼이 `remote_monami.monami`를 읽어 `GraphCache_x2_m`만 쓴다. UI 콤보의 `x2_m`은 그 캐시를 읽는다. 추적 엔진의 Water, MainLine, Cap 분기는 아직 S5D 그대로다.
+같은 날 타입 상수를 `DdwTypeCodes`에 두었다. 8자리이고 17로 시작하면 `pipe_type`, 5로 시작하면 `model_type`이다. 목록에 없는 값은 로그와 `GraphCache_x2_m/ddw-undefined-types.xlsx`에 남기고, 뜻을 받으면 상수에 추가한다. Admin의 DDW Cache 버튼이 `remote_monami.monami`를 읽어 `GraphCache_x2_m`만 쓴다. UI 콤보의 `x2_m`은 그 캐시를 읽는다. `UtMapping.csv`에 `x2_m`이 없으면 `x2` 매핑을 쓴다. Cap은 이름이나 division 세 칸에 `cap`이 있고 `equipment`가 아닐 때다. 기타, vac, flange END, 미사용 같은 S5D 목록은 DDW에 쓰지 않는다. Water와 MainLine은 아직 S5D 그대로다.
 
 ## 1. 구조
 
@@ -66,13 +66,14 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 
 `S5dRules`에만 두는 것.
 
-- Cap은 지금 `IsCapName` 이름 목록이다.
+- Cap은 `IsCapName` 이름 목록이다. 기타, Valve Box, vac, bulk, nw25 pot, flange END, 미사용이 여기 있다.
 - live는 `OperationType`.
 - Water, MainLine continuation은 지금 엔진 그대로다.
 - 설비 목록은 Sub1 `1-%`, `6-%`, Tag 있음, 건설코드 Delete 제외다.
 
 `DdwRules`에 두는 것.
 
+- Cap은 이름, division, subdivision_1, subdivision_2 중 하나에 `cap`이 있고, 그 세 칸에 `equipment`가 없을 때다. S5D Cap 목록과 ING를 Cap으로 바꾸는 보정은 쓰지 않는다.
 - `bim_yn = 0`은 추적하는 2차 훅업 배관이다. `bim_yn = 1`은 BIM에서 들어온 노즐과 덕트다. 이 값을 Cap이나 설비 스위치로 쓰지 않는다.
 - 설비는 division, subdivision_1, subdivision_2가 S5D 설비 어휘일 때다. `model_type` 50594049만으로 설비를 만들지 않는다. 건설코드에 delete 글자가 있으면 철거로 보고 제외한다. 당분간 그 행은 없을 것으로 본다.
 - 노즐, Takeoff, 연결 POC 속성은 2절의 시험 도구 규칙이다.
@@ -124,7 +125,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 | `PocTrace.Core/Infrastructure/Data/DdwSql.cs` | live는 `version_sequence`. 길이는 `length2`. 배관은 `poc_template_id = 0` | 추적 엔진의 Cap과 Water는 아직 이 쿼리를 규칙으로 쓰지 않는다 |
 | `DdwGraphMapping.cs` | 배관 끝은 배관 id 집합으로 본다. Tag와 건설코드는 속성 | `bim_yn`은 캐시 필드가 아니다. 규칙은 이 문서에만 있다 |
 | `PocTrace.DdwAcceptance` | `version_sequence < 1000000000`과 날배관 GUID 0을 검사 | `OPERATIONTYPE <` 필터가 없어야 한다 |
-| `TraceAlgorithm` Cap, ING, Takeoff | S5D 이름 목록, 배관 끊김 위주, Water와 MainLine이 항상 켜짐 | 호출 전에 `DdwRules`를 고른다. DDW에서는 Water, MainLine을 호출하지 않는다 |
+| `TraceAlgorithm` Cap, ING, Takeoff | DDW Cap은 이름과 division의 `cap`만 본다. Water와 MainLine은 아직 켜져 있다 | DDW에서는 Water, MainLine을 호출하지 않는다 |
 | 캐시 폴더 | 예전에 `ddw_x2m` 예시 | 라인 이름은 `x2_m` |
 
 ## 8. 확인이 남은 것

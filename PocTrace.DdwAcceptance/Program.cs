@@ -98,6 +98,13 @@ namespace PocTrace.DdwAcceptance
             Check(!pipePocs.Contains("OWNER_TYPE = 256"), "owner type 256 stays off the pipe filter");
             Check(DdwLine.CatalogPrefix() == "[remote_monami].[monami]", "DDW catalog prefix");
             Check(DdwLine.IsCacheKey("X2_M") && !DdwLine.IsCacheKey("x2"), "x2_m cache key");
+            Check(DdwCapRule.IsCap("End Cap", "2-PIP", "", "") && DdwCapRule.IsCap("pipe", "2-PIP", "cap", ""), "DDW cap name or division");
+            Check(!DdwCapRule.IsCap("VAC-012", "2-PIP", "기타", "") && !DdwCapRule.IsCap("End Cap", "equipment", "", ""), "DDW cap skips S5D names and equipment");
+            var ut = new Dictionary<string, Dictionary<string, Dictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+            ut["x2"] = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+            ut["x2"]["g"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            UtMapAlias.CopyX2WhenX2mMissing(ut);
+            Check(ut.ContainsKey("x2_m") && ReferenceEquals(ut["x2_m"], ut["x2"]), "x2_m follows x2 UT map");
         }
 
         private static void S5dSlots()
