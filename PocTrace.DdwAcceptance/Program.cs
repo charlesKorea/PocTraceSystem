@@ -83,7 +83,8 @@ namespace PocTrace.DdwAcceptance
             Check(!web.Contains("*1000"), "WebDdw model SQL has no scale");
 
             string pipes = DdwSql.SelectPipes("[fixture]");
-            Check(pipes.Contains("USER_GROUP_NAME") && pipes.Contains("ROUND(pi.LENGTH2, 1)"), "DDW length and company");
+            Check(pipes.Contains("ROUND(pi.LENGTH2, 1)"), "DDW length");
+            Check(!pipes.Contains("USER_ID") && !pipes.Contains("TB_NEW_USERS") && !pipes.Contains("LAST_UPDATE"), "DDW pipe SQL has no S5D user columns");
             Check(!pipes.Contains("*1000") && !pipes.Contains("TOP 1") && !pipes.Contains("Origin"), "DDW pipe SQL limits");
             Check(tb.Contains("TRY_CONVERT(uniqueidentifier, mi.INSTANCE_ID)"), "model id is uniqueidentifier");
             Check(pipes.Contains("AS float"), "pipe length is float");

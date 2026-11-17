@@ -9,6 +9,7 @@ namespace PocTrace.Core.Infrastructure.Data
     /// 그 변환은 new Guid(byte[16]) 과 같은 바이트 순서다.
     /// 숫자와 길이는 int, float 로 맞춘다. decimal, bigint, bit 이 그대로 오면 다음 열에서 같은 파싱 오류가 난다.
     /// 배관 POC는 poc_template_id 가 0인 날배관만 본다. owner_type 256 은 보류다.
+    /// tb_pipeinstances 에는 user_id, last_update 가 없다. S5D PipeLog 의 작업자·회사·시각 열을 붙이지 않는다.
     /// </summary>
     public static class DdwSql
     {
@@ -152,18 +153,14 @@ SELECT
     " + IntOf("pi.PIPE_TYPE") + @" AS PipeType,
     CAST(CASE WHEN pi.LENGTH2 IS NULL OR pi.LENGTH2 <= 0 THEN 0 ELSE ROUND(pi.LENGTH2, 1) END AS float) AS Length,
     " + Text("u.UTILITY_NM", 256) + @" AS UtilityName,
-    TRY_CAST(pi.LAST_UPDATE AS datetime2) AS OpTime,
-    " + Text("nu.USER_NAME", 256) + @" AS UserName,
-    " + Text("ug.USER_GROUP_NAME", 256) + @" AS CompanyName,
+    CAST(NULL AS datetime2) AS OpTime,
+    CAST(NULL AS nvarchar(256)) AS UserName,
+    CAST(NULL AS nvarchar(256)) AS CompanyName,
     CAST(NULL AS nvarchar(512)) AS Tag,
     " + Op + @"
 FROM " + T(quotedDb, "TB_PIPEINSTANCES") + @" pi
 LEFT JOIN " + T(quotedDb, "TB_UTILITIES") + @" u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u." + Live + @"
-LEFT JOIN " + T(quotedDb, "TB_NEW_USERS") + @" nu
-    ON nu.USER_ID = pi.USER_ID
-LEFT JOIN " + T(quotedDb, "TB_NEW_USERGROUPS") + @" ug
-    ON ug.USER_GROUP_ID = nu.USER_GROUP_ID
 WHERE pi." + Live;
         }
 

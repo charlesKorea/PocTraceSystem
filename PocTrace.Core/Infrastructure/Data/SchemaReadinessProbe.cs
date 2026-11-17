@@ -29,7 +29,7 @@ namespace PocTrace.Core.Infrastructure.Data
             "TB_MODELINSTANCES", "TB_MODELTEMPLATES", "TB_DIVISION",
             "TB_POCINSTANCES", "TB_POCTEMPLATES", "TB_PIPESIZE",
             "TB_UTILITIES", "TB_UTILITY_GROUPS", "TB_PIPEINSTANCES",
-            "TB_NEW_USERS", "TB_NEW_USERGROUPS", "TB_ATTRIBUTES"
+            "TB_ATTRIBUTES"
         };
 
         public static readonly string[][] WebColumns = new[]
