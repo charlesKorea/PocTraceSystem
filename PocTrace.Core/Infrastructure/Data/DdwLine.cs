@@ -10,6 +10,11 @@ namespace PocTrace.Core.Infrastructure.Data
     public static class DdwLine
     {
         public const string CacheKey = "x2_m";
+
+        public static bool IsCacheKey(string dbName)
+        {
+            return string.Equals((dbName ?? "").Trim(), CacheKey, StringComparison.OrdinalIgnoreCase);
+        }
         public const string ZeroTemplateId = "00000000-0000-0000-0000-000000000000";
 
         public static string Catalog

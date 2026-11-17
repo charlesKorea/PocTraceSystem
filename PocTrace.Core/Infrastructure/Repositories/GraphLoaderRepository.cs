@@ -71,6 +71,13 @@ namespace PocTrace.Core.Infrastructure.Repositories
                     + " message=" + ex.Message);
                 Log.Warning(ex, "⚠️ Cache load failed for {Db}. AllowDatabaseFallback={Fallback}", dbName, GlobalConfig.AllowDatabaseFallback);
 
+                if (DdwLine.IsCacheKey(dbName))
+                {
+                    throw new FileNotFoundException(
+                        "x2_m 캐시는 Admin의 DDW Cache 버튼만 만든다. UI는 GraphCache_x2_m 만 읽는다.",
+                        ex);
+                }
+
                 if (!GlobalConfig.AllowDatabaseFallback)
                 {
                     throw new FileNotFoundException(

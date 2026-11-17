@@ -97,6 +97,7 @@ namespace PocTrace.DdwAcceptance
             Check(pipePocs.Contains("00000000-0000-0000-0000-000000000000"), "bare pipe template");
             Check(!pipePocs.Contains("OWNER_TYPE = 256"), "owner type 256 stays off the pipe filter");
             Check(DdwLine.CatalogPrefix() == "[remote_monami].[monami]", "DDW catalog prefix");
+            Check(DdwLine.IsCacheKey("X2_M") && !DdwLine.IsCacheKey("x2"), "x2_m cache key");
         }
 
         private static void S5dSlots()

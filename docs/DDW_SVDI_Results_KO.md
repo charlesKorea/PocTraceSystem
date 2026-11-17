@@ -105,7 +105,7 @@
 | `tb_utilities` | 44,482 | Utility |
 | `tb_utility_groups` | 48 | Utility 그룹 |
 | `tb_utility_compatible` | 254 | 현재 캐시 SQL에 없음 |
-| `tb_versions` | 4,591 | 워터마크 후보(미구현). live 판정에 조인하지 않는다 |
+| `tb_versions` | 4,591 | 배관 `version_sequence` = `version_number`. `user_id`, `last_update`를 읽고 `tb_new_users`로 작업자를 붙인다 |
 
 읽는 법:
 
@@ -153,7 +153,7 @@
 
 ## 5. 코드 영향
 
-2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. Admin의 DDW Cache 버튼이 `GraphCache_x2_m`만 쓴다. 추적 엔진의 Water, MainLine, Cap은 아직 S5D 규칙이다. 한 설비 대조는 캐시가 생긴 뒤에 한다.
+2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. 같은 날 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 전 배치가 SVDI SSMS에서 오류 없이 끝났다. Admin의 DDW Cache 버튼이 그 09~13 조회를 실행해 `GraphCache_x2_m`만 쓴다. Cache Only는 S5D다. UI는 그 폴더를 읽어 추적한다. 추적 엔진의 Water, MainLine, Cap은 아직 S5D 규칙이다.
 
 ## 6. 열린 질문
 

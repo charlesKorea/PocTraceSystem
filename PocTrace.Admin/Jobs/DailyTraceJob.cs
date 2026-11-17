@@ -145,6 +145,11 @@ namespace PocTrace.Admin.Jobs
                 // ==========================================
                 foreach (var dbName in targetDbs)
                 {
+                    if (DdwLine.IsCacheKey(dbName))
+                    {
+                        Log.Information("[DailyTraceJob] {Db} 는 DDW Cache 버튼이 monami를 읽어 쓴다. S5D 조회는 건너뛴다.", dbName);
+                        continue;
+                    }
                     GraphCacheManager manager = null;
                     int dbBase = 0;
                     int dbSpan = 100;
@@ -784,7 +789,8 @@ namespace PocTrace.Admin.Jobs
         }
 
         /// <summary>
-        /// monami를 읽어 GraphCache_x2_m 만 쓴다. S5D 사이드카와 전체 추적은 하지 않는다.
+        /// monami를 읽어 GraphCache_x2_m 만 쓴다. SQL은 docs/ddw-svdi-queries/12-x2m-cache.sql 의 09~13과 같다.
+        /// 2026-11-17에 그 파일의 전 배치가 SVDI SSMS에서 오류 없이 끝났다. S5D 사이드카와 전체 추적은 하지 않는다.
         /// </summary>
         private static async Task RunDdwCacheAsync(string connString)
         {
@@ -831,6 +837,11 @@ namespace PocTrace.Admin.Jobs
 
             foreach (var dbName in targetDbs)
             {
+                if (DdwLine.IsCacheKey(dbName))
+                {
+                    Log.Information("[CacheOnly] {Db} 는 DDW Cache 버튼이 쓴다. S5D 캐시 갱신에서 뺀다.", dbName);
+                    continue;
+                }
                 dbIndex++;
                 int pctBase = ((dbIndex - 1) * 100) / dbCount;
                 int pctSpan = 100 / dbCount;

@@ -111,7 +111,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 
 1. `DdwSql`의 live 조건은 `version_sequence < 1000000000`이다. 배관 POC는 `poc_template_id = 0`만 보고 길이는 `length2`다.
 2. 노드 Tag와 건설코드, POC의 tag와 ConnectionTag, hookup은 `tb_attributes`에서 채운다. `owner_type = 256` 필터는 주석이다.
-3. Admin DDW Cache 버튼이 `x2_m`에만 캐시를 쓴다. UI 콤보에서 그 캐시를 고른다.
+3. Admin의 DDW Cache 버튼이 `x2_m`에만 캐시를 쓴다. 조회는 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 09~13과 같고, 2026-11-17에 그 파일의 전 배치가 SVDI에서 오류 없이 끝났다. Cache Only와 전체 배치는 S5D라 `x2_m`을 건너뛴다. UI 콤보는 그 캐시만 읽는다.
 4. 시험 도구에 넣었던 Tag 하나를 캐시로 다시 걷는다. 끝 status, 지난 배관의 `length2` 합, Takeoff와 노즐의 속성 owner가 시험 도구 Excel과 같은지 본다.
 5. 맞는 설비가 늘어난 뒤에만 일배치 목록을 연다. Water와 MainLine은 그 뒤에 빈 자리에 넣는다. GCS IN/OUT은 POC 이름 규칙으로 이미 채운다.
 
