@@ -97,7 +97,7 @@ namespace PocTrace.Core.Infrastructure.Data
     public static class DdwGraphNormalizer
     {
         public const int ModelOwnerType = 768;
-        public const int PipeOwnerType = 256;
+        public const int PipeOwnerType = 256; // 보류. 날배관은 poc_template_id = 0 만 본다.
         public const int TakeoffPipeType = 17301768;
         public const int SquarePocShape = 1312;
         public const string ElementIdNumberAttribute = "Element ID_Number";
@@ -113,7 +113,11 @@ namespace PocTrace.Core.Infrastructure.Data
             var diag = new DdwLoadDiagnostics();
             var elementIds = new Dictionary<Guid, string>();
             var modules = new Dictionary<Guid, string>();
-            AbsorbAttributes(attributes, elementIds, modules, diag);
+            var tags = new Dictionary<Guid, string>();
+            var constructions = new Dictionary<Guid, string>();
+            var connectionTags = new Dictionary<Guid, string>();
+            var hookups = new List<DynamicPropertiesData>();
+            AbsorbAttributes(attributes, elementIds, modules, tags, constructions, connectionTags, hookups, diag);
 
             var pipeRows = new List<DdwPipeRow>();
             var pipeIds = new HashSet<Guid>();
@@ -128,7 +132,8 @@ namespace PocTrace.Core.Infrastructure.Data
                         diag.DeletedRowsSkipped++;
                         continue;
                     }
-                    if (row.PipeType == TakeoffPipeType)
+                    DdwTypeCodes.ObservePipe(row.PipeType);
+                    if (row.PipeType == TakeoffPipeType || row.PipeType == DdwTypeCodes.TakeoffDuct)
                         continue;
                     pipeRows.Add(row);
                     pipeIds.Add(row.InstanceId);
@@ -147,8 +152,6 @@ namespace PocTrace.Core.Infrastructure.Data
                         diag.DeletedRowsSkipped++;
                         continue;
                     }
-                    if (row.OwnerType != PipeOwnerType)
-                        continue;
                     diag.PipeOwnedPocCount++;
                     List<PipeEndpoint> list;
                     if (!endpointsByPipe.TryGetValue(row.OwnerInstanceId, out list))
@@ -156,7 +159,7 @@ namespace PocTrace.Core.Infrastructure.Data
                         list = new List<PipeEndpoint>();
                         endpointsByPipe[row.OwnerInstanceId] = list;
                     }
-                    list.Add(ToEndpoint(row, diag));
+                    list.Add(ToEndpoint(row, pipeIds, diag));
                 }
             }
 
@@ -231,10 +234,10 @@ namespace PocTrace.Core.Infrastructure.Data
                         OwnerId = row.OwnerInstanceId,
                         Outlet = resolved,
                         PointID = Guid.Empty,
-                        Tag = row.Tag ?? "",
-                        ReferenceTag = row.ConnectionTag ?? "",
+                        Tag = FirstFilled(row.Tag, Lookup(tags, row.InstanceId)),
+                        ReferenceTag = FirstFilled(row.ConnectionTag, Lookup(connectionTags, row.InstanceId)),
                         PocName = row.PocTemplateName ?? "",
-                        Information = row.Memo ?? "",
+                        Information = DdwGcsEnd.Information(row.Memo, row.PocTemplateName),
                         Size = ResolveSize(row),
                         UtilityName = utility ?? "",
                         UtilityGroupName = group ?? "",
@@ -255,6 +258,11 @@ namespace PocTrace.Core.Infrastructure.Data
                         diag.DeletedRowsSkipped++;
                         continue;
                     }
+                    DdwTypeCodes.ObserveModel(row.ModelType);
+                    if (string.IsNullOrEmpty(row.ConstructionCode))
+                        row.ConstructionCode = Lookup(constructions, row.InstanceId);
+                    if (string.IsNullOrEmpty(row.Tag))
+                        row.Tag = Lookup(tags, row.InstanceId);
                     string unresolved;
                     var type = Classify(row, out unresolved);
                     if (type == NodeType.Unknown)
@@ -278,14 +286,14 @@ namespace PocTrace.Core.Infrastructure.Data
                     {
                         InstanceId = row.InstanceId,
                         InstanceNumericId = DotNetGuidHash.FromGuid(row.InstanceId),
-                        Tag = row.Tag ?? "",
+                        Tag = FirstFilled(row.Tag, Lookup(tags, row.InstanceId)),
                         Name = row.Name ?? "",
                         Type = type,
                         Division = row.DivisionType ?? 0,
                         Sub1Name = row.Sub1Name ?? "",
                         Sub2Name = row.Sub2Name ?? "",
                         QCode = row.FamilyKey ?? "",
-                        ConstructionCode = row.ConstructionCode,
+                        ConstructionCode = FirstFilled(row.ConstructionCode, Lookup(constructions, row.InstanceId)),
                         BimId = bim,
                         PZ = row.Pz
                     });
@@ -298,7 +306,7 @@ namespace PocTrace.Core.Infrastructure.Data
                 Pocs = pocDtos,
                 Pipes = pipeDtos,
                 Takeoffs = takeoffs,
-                HookupNumbers = new List<DynamicPropertiesData>(),
+                HookupNumbers = hookups,
                 Diagnostics = diag
             };
         }
@@ -350,6 +358,10 @@ namespace PocTrace.Core.Infrastructure.Data
             IEnumerable<DdwAttributeRow> attributes,
             Dictionary<Guid, string> elementIds,
             Dictionary<Guid, string> modules,
+            Dictionary<Guid, string> tags,
+            Dictionary<Guid, string> constructions,
+            Dictionary<Guid, string> connectionTags,
+            List<DynamicPropertiesData> hookups,
             DdwLoadDiagnostics diag)
         {
             if (attributes == null)
@@ -364,12 +376,7 @@ namespace PocTrace.Core.Infrastructure.Data
                     continue;
                 }
                 if (string.Equals(row.Name, ElementIdNumberAttribute, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (elementIds.ContainsKey(row.OwnerId))
-                        diag.AttributeDuplicates++;
-                    else if (!string.IsNullOrEmpty(row.Value))
-                        elementIds[row.OwnerId] = row.Value;
-                }
+                    Put(elementIds, row, diag);
                 else if (string.Equals(row.Name, ModuleInfoAttribute, StringComparison.OrdinalIgnoreCase))
                 {
                     var module = ParseModuleName(row.Value);
@@ -380,7 +387,46 @@ namespace PocTrace.Core.Infrastructure.Data
                     else
                         modules[row.OwnerId] = module;
                 }
+                else if (string.Equals(row.Name, "tag", StringComparison.OrdinalIgnoreCase))
+                    Put(tags, row, diag);
+                else if (string.Equals(row.Name, "Construction-code", StringComparison.OrdinalIgnoreCase))
+                    Put(constructions, row, diag);
+                else if (string.Equals(row.Name, "ConnectionTag", StringComparison.OrdinalIgnoreCase))
+                    Put(connectionTags, row, diag);
+                else if (string.Equals(row.Name, "S5_LATERAL_NUMBER", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(row.Value))
+                {
+                    hookups.Add(new DynamicPropertiesData
+                    {
+                        PointID = row.OwnerId,
+                        HookupNumber = row.Value
+                    });
+                }
             }
+        }
+
+        private static void Put(Dictionary<Guid, string> map, DdwAttributeRow row, DdwLoadDiagnostics diag)
+        {
+            if (string.IsNullOrEmpty(row.Value))
+                return;
+            if (map.ContainsKey(row.OwnerId))
+                diag.AttributeDuplicates++;
+            else
+                map[row.OwnerId] = row.Value;
+        }
+
+        private static string Lookup(Dictionary<Guid, string> map, Guid id)
+        {
+            string value;
+            if (map != null && map.TryGetValue(id, out value))
+                return value;
+            return null;
+        }
+
+        private static string FirstFilled(string first, string second)
+        {
+            if (!string.IsNullOrEmpty(first))
+                return first;
+            return second ?? "";
         }
 
         private static string LookupModule(Dictionary<Guid, string> modules, Guid pocId, Guid ownerId)
@@ -393,10 +439,10 @@ namespace PocTrace.Core.Infrastructure.Data
             return null;
         }
 
-        private static PipeEndpoint ToEndpoint(DdwPocRow row, DdwLoadDiagnostics diag)
+        private static PipeEndpoint ToEndpoint(DdwPocRow row, ISet<Guid> pipeIds, DdwLoadDiagnostics diag)
         {
             Guid? target;
-            var resolution = ResolveRaw(row, out target, diag);
+            var resolution = ResolveRaw(row, pipeIds, out target, diag);
             return new PipeEndpoint
             {
                 PocInstanceId = row.InstanceId,
@@ -409,13 +455,13 @@ namespace PocTrace.Core.Infrastructure.Data
         private static Guid? Resolve(DdwPocRow row, DdwLoadDiagnostics diag)
         {
             Guid? target;
-            var resolution = ResolveRaw(row, out target, diag);
+            var resolution = ResolveRaw(row, null, out target, diag);
             if (resolution == PipeEndpointResolution.Connected)
                 return target;
             return null;
         }
 
-        private static PipeEndpointResolution ResolveRaw(DdwPocRow row, out Guid? target, DdwLoadDiagnostics diag)
+        private static PipeEndpointResolution ResolveRaw(DdwPocRow row, ISet<Guid> pipeIds, out Guid? target, DdwLoadDiagnostics diag)
         {
             target = null;
             if (!row.ConnectedPocId.HasValue || row.ConnectedPocId.Value == Guid.Empty)
@@ -434,13 +480,11 @@ namespace PocTrace.Core.Infrastructure.Data
                 diag.ConnectedCount++;
                 return PipeEndpointResolution.Connected;
             }
-            if (row.TargetOwnerType == PipeOwnerType)
+            if (row.TargetOwnerInstanceId.HasValue
+                && row.TargetOwnerInstanceId.Value != Guid.Empty
+                && pipeIds != null
+                && pipeIds.Contains(row.TargetOwnerInstanceId.Value))
             {
-                if (!row.TargetOwnerInstanceId.HasValue || row.TargetOwnerInstanceId.Value == Guid.Empty)
-                {
-                    diag.DanglingCount++;
-                    return PipeEndpointResolution.Dangling;
-                }
                 target = row.TargetOwnerInstanceId;
                 diag.ConnectedCount++;
                 return PipeEndpointResolution.Connected;
@@ -494,6 +538,12 @@ namespace PocTrace.Core.Infrastructure.Data
             }
             string sub1 = row.Sub1Name ?? "";
             string sub2 = row.Sub2Name ?? "";
+            if (!string.IsNullOrEmpty(row.ConstructionCode)
+                && row.ConstructionCode.IndexOf("Delete", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                unresolved = "delete";
+                return NodeType.Unknown;
+            }
             if (NameIs(sub1, "Damper"))
                 return NodeType.Damper;
             if (IsNozzle(sub1, sub2, row.Sub1DivisionType))

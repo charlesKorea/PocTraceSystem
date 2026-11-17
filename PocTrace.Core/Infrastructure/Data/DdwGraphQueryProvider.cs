@@ -10,7 +10,7 @@ namespace PocTrace.Core.Infrastructure.Data
 {
     /// <summary>
     /// TbStar 또는 WebDdw 한 프로파일만 실행한다. 컬럼이 없으면 다른 프로파일로 넘어가지 않는다.
-    /// Hookup은 D-03 전까지 빈 목록이다.
+    /// Hookup은 tb_attributes 의 S5_LATERAL_NUMBER 를 POC owner 로 채운다.
     /// </summary>
     public sealed class DdwGraphQueryProvider : IGraphQueryProvider
     {
@@ -25,14 +25,24 @@ namespace PocTrace.Core.Infrastructure.Data
 
         public SchemaKind Kind { get { return _kind; } }
 
-        public async Task<GraphLoadBundle> LoadAsync(IDbConnection connection, string dbName, IProgress<string> progress)
+        public Task<GraphLoadBundle> LoadAsync(IDbConnection connection, string dbName, IProgress<string> progress)
+        {
+            return LoadCore(connection, SqlIdentifier.QuoteDatabase(dbName), progress);
+        }
+
+        public Task<GraphLoadBundle> LoadFromPrefixAsync(IDbConnection connection, string catalogPrefix, IProgress<string> progress)
+        {
+            if (string.IsNullOrWhiteSpace(catalogPrefix))
+                throw new ArgumentException("catalogPrefix is required", nameof(catalogPrefix));
+            return LoadCore(connection, catalogPrefix, progress);
+        }
+
+        private async Task<GraphLoadBundle> LoadCore(IDbConnection connection, string quoted, IProgress<string> progress)
         {
             if (connection == null)
                 throw new ArgumentNullException(nameof(connection));
             if (connection.State != ConnectionState.Open)
                 connection.Open();
-
-            string quoted = SqlIdentifier.QuoteDatabase(dbName);
             if (_kind == SchemaKind.WebDdw)
             {
                 progress?.Report("   - WebDdw 컬럼 확인...");

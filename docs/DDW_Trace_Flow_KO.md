@@ -70,8 +70,8 @@ for E in equip:
 
 | 항목 | S5D | 현재 DDW 코드 | 이 flow가 말하는 것 |
 |---|---|---|---|
-| 삭제 판정 | `OperationType` 0/1/2, 2가 삭제 | 모든 SELECT가 `OPERATIONTYPE < 2` | 이 DB에 열이 없다. `version_sequence < 1000000000`으로 바꾼다 |
-| 설비 Tag | 설비 로그 열 | TbStar는 `NULL`, WebDdw는 `mi.[tag]` 열 | Tag는 `attributes`의 `tag` 행이다. 둘 다 아니다. 속성 읽기를 추가해야 한다 |
+| 삭제 판정 | `OperationType` 0/1/2, 2가 삭제 | `DdwSql`은 `version_sequence < 1000000000` | 이 DB에 `OPERATIONTYPE` 열이 없다 |
+| 설비 Tag | 설비 로그 열 | TbStar는 `tb_attributes`의 `tag`를 노드에 붙인다 | Tag는 `attributes`의 `tag` 행이다 |
 | 설비 판정 | Division/Sub 어휘, 건설코드 등 | `MODEL_TYPE` 50594049/50594048만으로 설비를 만들지 않는다(Grating이 섞인다고 가정) | 담당자는 `model_type = 50594049`와 `family_key = equipment`로 설비를 본다. 두 가정이 충돌한다. 질문 Q-03 |
 | 배관 길이 | `PipeLog`의 길이 | `length1`을 `NormalizeLength`로 읽는다 | 담당자는 `length2`(mm)라고 한다. 질문 Q-01 |
 | 배관 끝점 | 배관 Outlet1~3 | `owner_type = 256`인 POC가 배관 끝점 | 담당자는 `poc_template_id = 0`으로 배관을 알아본다. 두 기준이 같은 집합인지 질문 Q-06 |
@@ -139,6 +139,6 @@ SVDI에서 위 규칙이 맞는지 보기 위한 WinForms 도구다(`PocTrace.Dd
 
 2026-11-16 설계는 `DDW_PocTrace_Design_KO.md`다. 추적 엔진은 하나 두고, S5D와 DDW의 차이는 로더와 규칙 객체에만 둔다. 캐시 라인은 `x2_m`이다.
 
-운영 DDW 조회의 `OPERATIONTYPE`은 모두 `version_sequence < 1000000000`으로 바꾼다. DDW에 그 열이 없어 지금 쿼리는 이 사이트에서 실패한다. 그 교체가 첫 구현이고, 이 문서 작성 시점에는 코드가 아직 남아 있다.
+운영 DDW 조회의 live 조건은 `version_sequence < 1000000000`이다. `DdwSql`은 그 조건을 쓴다.
 
-설비 분류는 division 세 값, 건설코드는 `tb_attributes`의 `Construction-code`, 배관은 `poc_template_id = 0`, Cap은 `bim_yn = 0`이다. Water와 MainLine은 DDW에서 보류한다. 배관이 아닌 끊김도 `ing`이고, 시작 설비로 돌아오는 처리와 Takeoff Tag 비교는 S5D와 같다. `owner_type = 256`은 보류다.
+설비 분류는 division 세 값이다. DDW division은 x2를 복사했으므로 `1-%` 어휘를 따른다. 건설코드는 `Construction-code`이고 delete 글자는 철거다. 배관은 `poc_template_id = 0`만이다. `bim_yn = 0`은 2차 훅업, `bim_yn = 1`은 노즐과 덕트다. Water와 MainLine은 DDW에서 보류한다. `owner_type = 256`은 보류다.

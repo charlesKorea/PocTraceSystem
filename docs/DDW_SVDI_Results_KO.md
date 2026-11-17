@@ -147,25 +147,13 @@
 | D-12 | 배관 길이 열은 `length2`(mm)이고 `length1`은 예비 | 확정 2026-11-12 | 담당자 답변. T05-A/B는 두 값 차이를 보는 참고 쿼리로 남는다 |
 | D-13 | 설비 판정은 `model_type`, `family_key`, `bim_yn` 중 하나만 만족하면 설비. 변경 가능 | 확정 2026-11-12(변경 가능) | 담당자 답변. 설비 판정에 `bim_yn = 0`을 켜면 2차 설계 객체가 대부분 설비가 되어 `bim_yn = 1` 끝점과 역할이 겹친다. 시험 도구는 이 조건을 기본 꺼짐으로 두고 화면에서 켠다 |
 | D-14 | 시험 도구 `PocTrace.DdwTraceBench`로 Tag의 모든 POC에서 추적해 id와 table을 Excel에 남긴다 | 구현 2026-11-12, SVDI 시험 대기 | 규칙은 `DDW_Trace_Flow_KO.md` 6절 |
-| D-15 | 추적 설계를 `DDW_PocTrace_Design_KO.md`로 고정한다. 엔진은 하나, 캐시 라인은 `x2_m`, live는 `version_sequence`만, DDW Cap은 `bim_yn = 0`, 설비는 division 세 값, 배관은 `poc_template_id = 0` | 확정 2026-11-16 | D-13의 `bim_yn = 0`을 설비로 보는 설명은 시험 도구의 옛 스위치다. 설계에서는 Cap이다. 코드의 `OPERATIONTYPE`은 아직 남아 있다 |
+| D-15 | 추적 설계를 `DDW_PocTrace_Design_KO.md`로 고정한다. 엔진은 하나, 캐시 라인은 `x2_m`, live는 `version_sequence`만, 설비는 division 세 값, 배관은 `poc_template_id = 0` | 확정 2026-11-16, `bim_yn` 정정 2026-11-17 | `bim_yn = 0`은 2차 훅업 추적 대상이고 `bim_yn = 1`은 BIM 노즐과 덕트다. Cap이 아니다 |
 | 쿼리 팩 | `operationtype`을 쓰던 쿼리를 전부 고쳤다(rev2). `01B`를 추가했다 | 완료 2026-11-11 | 삭제 행이 세어지는 쿼리가 있다 |
 | 쿼리 팩 rev4 | T01~T06 추가(Tag flow, Tag 속성, 설비 판정, POC 모양, 배관 길이와 삭제 행, 이력 행) | 완료 2026-11-12 | 모든 T 쿼리는 `version_sequence < 1000000000`. T05-C, T05-D, T06은 삭제 행·전체 행 기준 |
 
-## 5. 코드 영향 (아직 고치지 않음)
+## 5. 코드 영향
 
-아래는 `monami`에서 DDW 캐시를 만들기 전에 닫을 목록이다. 구현 순서와 규칙은 `DDW_PocTrace_Design_KO.md` 6절, 7절이다. 첫 변경은 `OPERATIONTYPE`을 `version_sequence < 1000000000`으로 바꾸는 것이다.
-
-| 위치 | 현재 | 문제 |
-|---|---|---|
-| `PocTrace.Core/Infrastructure/Data/DdwSql.cs` | 모델, POC, 배관, 속성, 마스터 조인 전부 `OPERATIONTYPE < 2`이고 `AS OperationType`을 선택한다 | 이 사이트에서는 열이 없어 쿼리 오류 |
-| `DdwSql.cs` 모델 SQL | TbStar에서 Tag가 `NULL`. 속성은 `Element ID_Number`, `__MODULE_INFO`만 | 설비 Tag는 `attributes`의 `tag` 행이다(D-11). 노드 Tag를 이것으로 채워야 `FindStartPocs`가 설비를 찾는다 |
-| `DdwSql.cs` 배관 SQL | `LENGTH1`을 길이로 읽는다 | 담당자는 `length2`가 길이라고 한다(D-12) |
-| `DdwGraphMapping.cs` Classify | `MODEL_TYPE` 50594049/50594048만으로 설비를 만들지 않는다. connector_pipe(51380485) 처리가 없다 | Q-03, Q-07 |
-| `DdwGraphMapping.cs` 끝점 | `OWNER_TYPE = 256`을 배관 끝점으로 본다 | 담당자는 `poc_template_id = 0`으로 배관을 알아본다. 같은 집합인지 Q-06 |
-| `PocTrace.Core/Infrastructure/Data/DdwGraphMapping.cs` | `OperationType >= 2`인 행을 버린다 | live 판정 열이 바뀌면 값의 의미를 다시 정해야 한다 |
-| `PocTrace.DdwAcceptance/Program.cs` | `OPERATIONTYPE < 2`가 SQL에 있는지 검사한다 | 기대가 바뀐다 |
-
-방향: 프로파일이 live 문을 `version_sequence < 1000000000`으로 만든다. 모든 `tb_*`에 열이 있으므로 마스터 테이블(템플릿, 유틸리티 등) 조인에도 같은 조건을 건다.
+2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. Admin의 DDW Cache 버튼이 `GraphCache_x2_m`만 쓴다. 추적 엔진의 Water, MainLine, Cap은 아직 S5D 규칙이다. 한 설비 대조는 캐시가 생긴 뒤에 한다.
 
 ## 6. 열린 질문
 

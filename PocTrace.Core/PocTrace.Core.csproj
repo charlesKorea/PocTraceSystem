@@ -106,6 +106,8 @@
     <Compile Include="Infrastructure\Data\S5dGraphQueryProvider.cs" />
     <Compile Include="Infrastructure\Data\DdwSql.cs" />
     <Compile Include="Infrastructure\Data\DdwGraphMapping.cs" />
+    <Compile Include="Infrastructure\Data\DdwTypeCodes.cs" />
+    <Compile Include="Infrastructure\Data\DdwLine.cs" />
     <Compile Include="Infrastructure\Data\DdwGraphQueryProvider.cs" />
     <Compile Include="Infrastructure\Data\SchemaReadinessReport.cs" />
     <Compile Include="Infrastructure\Data\SchemaReadinessProbe.cs" />

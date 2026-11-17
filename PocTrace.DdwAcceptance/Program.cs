@@ -73,21 +73,25 @@ namespace PocTrace.DdwAcceptance
             Check(!s5dPipes.Contains("TB_PIPEINSTANCES"), "S5D pipe SQL is not DDW");
 
             string tb = DdwSql.SelectModels("[fixture]", SchemaKind.TbStar);
-            Check(tb.Contains("TB_MODELINSTANCES") && tb.Contains("OPERATIONTYPE < 2"), "TbStar live filter");
+            Check(tb.Contains("TB_MODELINSTANCES") && tb.Contains("version_sequence < 1000000000"), "TbStar live filter");
+            Check(!tb.Contains("OPERATIONTYPE <"), "TbStar does not filter OPERATIONTYPE");
             Check(!tb.Contains("s5_eqcode") && !tb.Contains("[tag]") && !tb.Contains("*1000"), "TbStar has no projected columns or scale");
-            Check(!tb.Contains("TOP 1") && !tb.Contains("VERSION_SEQUENCE"), "TbStar has no TOP 1 or version join");
+            Check(!tb.Contains("TOP 1"), "TbStar has no TOP 1");
 
             string web = DdwSql.SelectModels("[fixture]", SchemaKind.WebDdw);
             Check(web.Contains("s5_eqcode") && web.Contains("Subdivision_1_name") && web.Contains("elementId_number"), "WebDdw projected columns");
             Check(!web.Contains("*1000"), "WebDdw model SQL has no scale");
 
             string pipes = DdwSql.SelectPipes("[fixture]");
-            Check(pipes.Contains("USER_GROUP_NAME") && pipes.Contains("ROUND(pi.LENGTH1, 1)"), "DDW length and company");
+            Check(pipes.Contains("USER_GROUP_NAME") && pipes.Contains("ROUND(pi.LENGTH2, 1)"), "DDW length and company");
             Check(!pipes.Contains("*1000") && !pipes.Contains("TOP 1") && !pipes.Contains("Origin"), "DDW pipe SQL limits");
             Check(DdwSql.SelectModelPocs("[fixture]", SchemaKind.TbStar).Contains("OWNER_TYPE = 768"), "model pocs only");
             Check(!DdwSql.SelectModelPocs("[fixture]", SchemaKind.TbStar).Contains("[tag]"), "TbStar poc has no tag column");
             Check(DdwSql.SelectModelPocs("[fixture]", SchemaKind.WebDdw).Contains("connectionTag"), "WebDdw connectionTag");
-            Check(DdwSql.SelectPipePocs("[fixture]").Contains("OWNER_TYPE = 256"), "pipe pocs");
+            string pipePocs = DdwSql.SelectPipePocs("[fixture]");
+            Check(pipePocs.Contains("00000000-0000-0000-0000-000000000000"), "bare pipe template");
+            Check(!pipePocs.Contains("OWNER_TYPE = 256"), "owner type 256 stays off the pipe filter");
+            Check(DdwLine.CatalogPrefix() == "[remote_monami].[monami]", "DDW catalog prefix");
         }
 
         private static void S5dSlots()

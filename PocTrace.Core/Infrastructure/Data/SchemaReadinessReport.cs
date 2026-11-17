@@ -273,7 +273,7 @@ namespace PocTrace.Core.Infrastructure.Data
                 report.Fills.Add(CountRow("4끝점 이상 배관", diag.PipesWithFourOrMore, "최대 " + diag.MaxEndpoints));
                 report.Fills.Add(CountRow("순번 중복", diag.DuplicateConnectionOrders, "CONNECTION_ORDER 중복 끝점"));
                 report.Fills.Add(CountRow("모듈 자식 생략", diag.ModuleChildrenSkipped, "부모 경유. 독립 Equipment가 아님"));
-                report.Fills.Add(CountRow("삭제 행 제외", diag.DeletedRowsSkipped, "OPERATIONTYPE >= 2"));
+                report.Fills.Add(CountRow("삭제 행 제외", diag.DeletedRowsSkipped, "version_sequence 는 SQL에서 거른다"));
             }
             report.Fills.Add(Info("공유 캐시", 0, 0, "이 점검은 GraphCache를 쓰지 않습니다."));
         }

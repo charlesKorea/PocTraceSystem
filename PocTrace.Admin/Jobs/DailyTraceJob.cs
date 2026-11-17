@@ -36,6 +36,7 @@ namespace PocTrace.Admin.Jobs
         public const string JobDataModeKey = "Mode";
         public const string ModeFull = "Full";
         public const string ModeCacheOnly = "CacheOnly";
+        public const string ModeDdwCache = "DdwCache";
 
         private static int _executionGate;
 
@@ -54,7 +55,9 @@ namespace PocTrace.Admin.Jobs
             try
             {
             Log.Information(">>> [DailyTraceJob] Started. Mode={Mode}", mode);
-            AdminJobProgress.Report(mode == ModeCacheOnly ? "캐시 갱신 시작" : "전체 배치 시작", 0);
+            AdminJobProgress.Report(
+                mode == ModeDdwCache ? "DDW 캐시 시작" : mode == ModeCacheOnly ? "캐시 갱신 시작" : "전체 배치 시작",
+                0);
 
             try
             {
@@ -102,6 +105,12 @@ namespace PocTrace.Admin.Jobs
                 var targetDbs = GlobalConfig.TargetDatabases;
                 if (targetDbs == null || targetDbs.Length == 0)
                     throw new Exception("TargetDatabases가 비어 있습니다.");
+
+                if (string.Equals(mode, ModeDdwCache, StringComparison.OrdinalIgnoreCase))
+                {
+                    await RunDdwCacheAsync(connString).ConfigureAwait(false);
+                    return;
+                }
 
                 if (string.Equals(mode, ModeCacheOnly, StringComparison.OrdinalIgnoreCase))
                 {
@@ -772,6 +781,40 @@ namespace PocTrace.Admin.Jobs
             {
                 System.Threading.Interlocked.Exchange(ref _executionGate, 0);
             }
+        }
+
+        /// <summary>
+        /// monami를 읽어 GraphCache_x2_m 만 쓴다. S5D 사이드카와 전체 추적은 하지 않는다.
+        /// </summary>
+        private static async Task RunDdwCacheAsync(string connString)
+        {
+            string prefix = DdwLine.CatalogPrefix();
+            Log.Information("===== DDW 캐시 시작 {Key} {Prefix} =====", DdwLine.CacheKey, prefix);
+            AdminJobProgress.Report("DDW 캐시", 5, prefix);
+            DdwUnknownTypeLog.Clear();
+            var provider = new DdwGraphQueryProvider(SchemaKind.TbStar);
+            using (var conn = new SqlConnection(connString))
+            {
+                await conn.OpenAsync().ConfigureAwait(false);
+                var bundle = await provider.LoadFromPrefixAsync(conn, prefix, null).ConfigureAwait(false);
+                var cache = new BinaryCacheRepository();
+                cache.SaveToCache(
+                    DdwLine.CacheKey,
+                    bundle.Nodes,
+                    bundle.Pocs,
+                    bundle.Pipes,
+                    bundle.Takeoffs,
+                    bundle.HookupNumbers);
+            }
+
+            var hits = DdwUnknownTypeLog.Snapshot();
+            string excel = DdwUnknownTypeExcel.Write(hits);
+            AdminJobProgress.Report("DDW 캐시 완료", 100, excel);
+            Log.Information(
+                "===== DDW 캐시 완료 {Key}. 정의되지 않은 타입 {Count}종 {Excel} =====",
+                DdwLine.CacheKey,
+                hits.Count,
+                excel ?? "(없음)");
         }
 
         /// <summary>

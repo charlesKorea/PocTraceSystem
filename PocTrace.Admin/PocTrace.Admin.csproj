@@ -61,6 +61,7 @@
     </Compile>
     <Compile Include="Jobs\AdminJobProgress.cs" />
     <Compile Include="Jobs\DailyTraceJob.cs" />
+    <Compile Include="Jobs\DdwUnknownTypeExcel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="..\shared\ExeBootFile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

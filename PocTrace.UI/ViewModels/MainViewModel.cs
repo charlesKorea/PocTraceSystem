@@ -39,9 +39,17 @@ namespace PocTrace.UI.ViewModels
 
         private IGraphCache CurrentCache => _cacheManager;
 
-        public List<string> DbList { get; } = GlobalConfig.TargetDatabases
-            .Select(d => d.ToUpperInvariant())
-            .ToList();
+        public List<string> DbList { get; } = BuildDbList();
+
+        private static List<string> BuildDbList()
+        {
+            var list = GlobalConfig.TargetDatabases
+                .Select(d => d.ToUpperInvariant())
+                .ToList();
+            if (!list.Contains("X2_M"))
+                list.Add("X2_M");
+            return list;
+        }
 
         private string _selectedDb = "x1";
         public string SelectedDb

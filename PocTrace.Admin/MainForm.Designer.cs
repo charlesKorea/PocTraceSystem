@@ -46,6 +46,8 @@
 
             this.btnSchemaProbe = new System.Windows.Forms.Button();
 
+            this.btnDdwCache = new System.Windows.Forms.Button();
+
             this.lblStatus = new System.Windows.Forms.Label();
 
             this.lblStepTime = new System.Windows.Forms.Label();
@@ -178,6 +180,30 @@
 
             // 
 
+            // btnDdwCache
+
+            // 
+
+            this.btnDdwCache.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+
+            this.btnDdwCache.ForeColor = System.Drawing.Color.DarkGreen;
+
+            this.btnDdwCache.Location = new System.Drawing.Point(16, 72);
+
+            this.btnDdwCache.Name = "btnDdwCache";
+
+            this.btnDdwCache.Size = new System.Drawing.Size(220, 28);
+
+            this.btnDdwCache.TabIndex = 9;
+
+            this.btnDdwCache.Text = "DDW Cache (x2_m)";
+
+            this.btnDdwCache.UseVisualStyleBackColor = true;
+
+            this.btnDdwCache.Click += new System.EventHandler(this.BtnDdwCache_Click);
+
+            // 
+
             // lblStatus
 
             // 
@@ -186,11 +212,11 @@
 
             this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
 
-            this.lblStatus.Location = new System.Drawing.Point(16, 76);
+            this.lblStatus.Location = new System.Drawing.Point(248, 76);
 
             this.lblStatus.Name = "lblStatus";
 
-            this.lblStatus.Size = new System.Drawing.Size(868, 24);
+            this.lblStatus.Size = new System.Drawing.Size(636, 24);
 
             this.lblStatus.TabIndex = 4;
 
@@ -280,6 +306,8 @@
 
             this.Controls.Add(this.lblStatus);
 
+            this.Controls.Add(this.btnDdwCache);
+
             this.Controls.Add(this.btnSchemaProbe);
 
             this.Controls.Add(this.btnCacheOnly);
@@ -317,6 +345,8 @@
         private System.Windows.Forms.Button btnCacheOnly;
 
         private System.Windows.Forms.Button btnSchemaProbe;
+
+        private System.Windows.Forms.Button btnDdwCache;
 
         private System.Windows.Forms.Label lblStatus;
 

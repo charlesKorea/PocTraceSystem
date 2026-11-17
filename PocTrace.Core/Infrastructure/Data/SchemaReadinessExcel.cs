@@ -220,7 +220,7 @@ namespace PocTrace.Core.Infrastructure.Data
                 "TbStar Equipment Tag 0% 는 실패가 아닙니다. Tag 속성 이름이 확정되기 전에는 비어 있습니다.",
                 "채움 시트의 배관 연결끝점% 는 유효 NormalizedTarget 이 1개 이상인 배관 비율입니다.",
                 "부족 시트는 분류당 최대 " + GraphFillMetrics.GapCap + "행입니다. 총건수는 채움 시트를 보세요.",
-                "DDW live 건수는 OPERATIONTYPE < 2 입니다. S5D live 건수는 필터 없는 전체 건수입니다. 오류 칸에는 연결 비밀번호를 넣지 않습니다.",
+                "DDW live 건수는 version_sequence < 1000000000 입니다. S5D live 건수는 필터 없는 전체 건수입니다. 오류 칸에는 연결 비밀번호를 넣지 않습니다.",
                 "캐시를 만들려면 이 보고서의 활성 프로파일이 통과한 뒤, v10 을 읽는 프로그램을 먼저 배포하고 Cache Only 를 실행합니다."
             };
             sheet.Cells[1, 1].Value = "항목";

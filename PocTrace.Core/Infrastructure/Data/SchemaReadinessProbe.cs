@@ -281,7 +281,7 @@ namespace PocTrace.Core.Infrastructure.Data
             bool operationTypeFilter)
         {
             var sw = Stopwatch.StartNew();
-            string filter = operationTypeFilter ? " WHERE OPERATIONTYPE < 2" : "";
+            string filter = operationTypeFilter ? " WHERE version_sequence < 1000000000" : "";
             string sql = "SELECT COUNT_BIG(1) FROM " + quotedDb + "." + Bracket(schema) + "." + Bracket(table) + filter;
             try
             {
@@ -293,7 +293,7 @@ namespace PocTrace.Core.Infrastructure.Data
                     Ok = true,
                     ElapsedMs = sw.ElapsedMilliseconds,
                     RowCount = count,
-                    Note = operationTypeFilter ? "OPERATIONTYPE < 2" : "전체 건수"
+                    Note = operationTypeFilter ? "version_sequence < 1000000000" : "전체 건수"
                 });
                 db.Distribution.Add(new DistRow
                 {
@@ -389,7 +389,7 @@ namespace PocTrace.Core.Infrastructure.Data
             var sw = Stopwatch.StartNew();
             string sql = "SELECT CAST(ISNULL(" + Bracket(column) + ", -1) AS nvarchar(40)) AS K, COUNT_BIG(1) AS C FROM "
                 + quotedDb + "." + Bracket(schema) + "." + Bracket(table)
-                + " WHERE OPERATIONTYPE < 2 GROUP BY " + Bracket(column);
+                + " WHERE version_sequence < 1000000000 GROUP BY " + Bracket(column);
             try
             {
                 var rows = (await conn.QueryAsync<DistSqlRow>(new CommandDefinition(sql, commandTimeout: 0)).ConfigureAwait(false)).ToList();

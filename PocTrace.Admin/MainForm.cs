@@ -192,6 +192,16 @@ namespace PocTrace.Admin
 
 
 
+        private async void BtnDdwCache_Click(object sender, EventArgs e)
+
+        {
+
+            await TriggerJobAsync(DailyTraceJob.ModeDdwCache, "DdwCacheJob").ConfigureAwait(true);
+
+        }
+
+
+
         private async void BtnSchemaProbe_Click(object sender, EventArgs e)
 
         {
@@ -454,7 +464,11 @@ namespace PocTrace.Admin
 
             SetJobRunning(true);
 
-            Log(mode == DailyTraceJob.ModeCacheOnly
+            Log(mode == DailyTraceJob.ModeDdwCache
+
+                ? "DDW cache job triggered (monami → GraphCache_x2_m)..."
+
+                : mode == DailyTraceJob.ModeCacheOnly
 
                 ? "Cache-only job triggered (DB → BinaryCache, no trace/excel/html)..."
 
@@ -645,6 +659,8 @@ namespace PocTrace.Admin
             btnRunNow.Enabled = !running;
 
             btnCacheOnly.Enabled = !running;
+
+            btnDdwCache.Enabled = !running;
 
             btnSchemaProbe.Enabled = !running;
 

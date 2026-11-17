@@ -9,9 +9,25 @@ namespace PocTrace.DdwTraceBench.Trace
     /// </summary>
     public static class TraceCodes
     {
+        public const long FittingsPipeType = 17301504L;
         public const long TakeoffPipeType = 17301768L;
         public const long StandardPipeType = 17301760L;
+        public const long ElbowPipeType = 17301761L;
+        public const long TeePipeType = 17301762L;
+        public const long CrossPipeType = 17301763L;
+        public const long ReducerPipeType = 17301764L;
+        public const long FlexiblePipeType = 17301765L;
+        public const long EndcapPipeType = 17301766L;
+        public const long FlangePipeType = 17301769L;
         public const long BendingPipeType = 17301771L;
+        public const long StandardDuctType = 17303552L;
+        public const long ElbowDuctType = 17303553L;
+        public const long TeeDuctType = 17303554L;
+        public const long EndcapDuctType = 17303558L;
+        public const long ReducerDuctType = 17303566L;
+        public const long TakeoffDuctType = 17403560L;
+        public const long EquipmentsModelType = 50694048L;
+        public const long EtcEquipmentModelType = 50594303L;
         public const long EquipmentModelType = 50594049L;
         public const long ConnectorModelType = 51380485L;
         public const long ValveModelType = 51380481L;
@@ -40,10 +56,26 @@ namespace PocTrace.DdwTraceBench.Trace
 
         public static string PipeTypeMeaning(long type)
         {
-            if (type == TakeoffPipeType)
-                return "Takeoff";
-            if (type == StandardPipeType)
+            if (type == FittingsPipeType)
+                return "fittings";
+            if (type == TakeoffPipeType || type == TakeoffDuctType)
+                return "takeoff";
+            if (type == StandardPipeType || type == StandardDuctType)
                 return "standard";
+            if (type == ElbowPipeType || type == ElbowDuctType)
+                return "elbow";
+            if (type == TeePipeType || type == TeeDuctType)
+                return "tee";
+            if (type == CrossPipeType)
+                return "cross";
+            if (type == ReducerPipeType || type == ReducerDuctType)
+                return "reducer";
+            if (type == FlexiblePipeType)
+                return "flexible";
+            if (type == EndcapPipeType || type == EndcapDuctType)
+                return "endcap";
+            if (type == FlangePipeType)
+                return "flange";
             if (type == BendingPipeType)
                 return "bending";
             return null;
@@ -60,8 +92,12 @@ namespace PocTrace.DdwTraceBench.Trace
 
         public static string ModelTypeMeaning(long type)
         {
+            if (type == EquipmentsModelType)
+                return "equipments";
             if (type == EquipmentModelType)
-                return "설비 후보";
+                return "equipment";
+            if (type == EtcEquipmentModelType)
+                return "etc_equipment";
             if (type == ConnectorModelType)
                 return "connector";
             if (type == ValveModelType)
