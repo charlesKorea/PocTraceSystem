@@ -46,6 +46,8 @@ namespace PocTrace.Core.Engine.Validation.Rules
 
       if (string.Equals(r.STATUS, "TOF"))
       {
+        if (ConnectionMissingRule.IsBlankDamperTag(r.TargetNodeTag))
+          return false;
         if (!_util.IsEmptyValue(r.StartEquipmentTag) && !_util.IsEmptyValue(r.TargetNodeTag) &&
             EquipmentTagMatcher.AreMismatched(r.StartEquipmentTag, r.TargetNodeTag))
         {

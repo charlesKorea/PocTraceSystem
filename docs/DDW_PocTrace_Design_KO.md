@@ -114,7 +114,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 2. 노드 Tag와 건설코드, POC의 tag와 ConnectionTag, hookup은 `tb_attributes`에서 채운다. `owner_type = 256` 필터는 주석이다.
 3. Admin의 DDW Cache 버튼이 `x2_m`에만 캐시를 쓴다. 조회는 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 09~13과 같고, 2026-11-17에 그 파일의 전 배치가 SVDI에서 오류 없이 끝났다. Cache Only와 전체 배치는 S5D라 `x2_m`을 건너뛴다. UI 콤보는 그 캐시만 읽는다.
 4. 시험 도구에 넣었던 Tag 하나를 캐시로 다시 걷는다. 끝 status, 지난 배관의 `length2` 합, Takeoff와 노즐의 속성 owner가 시험 도구 Excel과 같은지 본다.
-5. 맞는 설비가 늘어난 뒤에만 일배치 목록을 연다. Water와 MainLine은 그 뒤에 빈 자리에 넣는다. GCS IN/OUT은 POC 이름 규칙으로 이미 채운다.
+5. 맞는 설비가 늘어난 뒤에만 일배치 목록을 연다. Water와 MainLine은 그 뒤에 빈 자리에 넣는다. S와 T의 Connector Information은 `poctemplates.memo`다. PocNo는 `connection_order`다.
 
 시험 도구는 이 순서 동안 기준 결과로 남긴다. 캐시 쪽을 도구에 맞추고, 도구가 아직 없는 규칙(Cap, 비배관 `ing`, division 설비, 건설코드, 시작 설비 복귀, Takeoff Tag 비교)은 캐시 규칙과 도구에 같이 넣는다.
 
@@ -132,7 +132,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 
 - division 세 글자가 S5D의 `1-%`, `6-%`와 같은지. DDW division은 x2 복사본이므로 같은 어휘로 본다. `TRY_CAST`가 실패한 템플릿 비율은 한 설비 캐시에서 확인한다.
 - 건설코드 속성에 delete가 들어 있는 철거 설비가 실제로 있는지. 초기 설계 동안은 없을 것으로 본다.
-- GCS IN/OUT은 POC 이름의 `_in_`과 `stick_` 뒤 숫자다. 한 설비에서 그 이름이 메모보다 맞는지 본다.
+- S: Connector Information과 T: Connector Information은 `poctemplates.memo`만 쓴다. 이름이 `_in_`이거나 `stick_` 뒤가 숫자여도 memo가 비면 칸은 빈다.
 - Takeoff tag 속성이 S5D damper tag와 같은 비교가 되는지는 한 설비 대조에서 건수를 본다.
 - `poc_template_id = 0`만 날배관이다. 다른 값이 날배관으로 보이면 상수 기준을 바꾼다.
 - 정의되지 않은 `pipe_type`, `model_type`은 캐시 폴더의 `ddw-undefined-types.xlsx`에 쌓인다. 뜻을 받으면 `DdwTypeCodes`에 추가한다.

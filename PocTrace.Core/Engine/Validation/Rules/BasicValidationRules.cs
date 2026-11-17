@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PocTrace.Core.Utils;
 
@@ -122,7 +123,7 @@ namespace PocTrace.Core.Engine.Validation.Rules
 
       if (string.Equals(r.STATUS, "TOF"))
       {
-        if (_util.IsEmptyValue(r.TargetNodeTag))
+        if (_util.IsEmptyValue(r.TargetNodeTag) || IsBlankDamperTag(r.TargetNodeTag))
         {
           issueTitle = " 연결정보 누락 ";
           feedback = $"[{r.STATUS}] T.Tag EMPTY ";
@@ -162,6 +163,19 @@ namespace PocTrace.Core.Engine.Validation.Rules
         }
       }
 
+      return false;
+    }
+
+    public static bool IsBlankDamperTag(string tag)
+    {
+      if (string.IsNullOrWhiteSpace(tag))
+        return true;
+      const string prefix = "Damper[";
+      if (tag.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && tag.EndsWith("]", StringComparison.Ordinal))
+      {
+        string inner = tag.Substring(prefix.Length, tag.Length - prefix.Length - 1).Trim();
+        return inner.Length == 0 || inner == "-";
+      }
       return false;
     }
   }

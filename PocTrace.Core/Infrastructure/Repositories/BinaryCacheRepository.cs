@@ -150,7 +150,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
             progress?.Report("캐시: pocs 로드…(缓存: 正在加载 pocs…)");
             var pocs = ReadSectionFile(
                 GlobalConfig.GetSectionFilePathIn(liveDir, CacheSectionKind.Pocs),
-                r => ReadPocs(r), CacheSectionKind.Pocs, manifest);
+                r => ReadPocs(r, manifest.GetSectionVersion(CacheSectionKind.Pocs)), CacheSectionKind.Pocs, manifest);
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized);
 
             progress?.Report("캐시: pipes 로드…(缓存: 正在加载 pipes…)");
@@ -205,7 +205,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
 
                 var nodes = ReadNodes(reader, cacheVersion);
                 BimIdDiagnostics.AnalyzeAndLog("CacheLoadLegacy", dbName, cacheVersion, nodes);
-                var pocs = ReadPocs(reader);
+                var pocs = ReadPocs(reader, cacheVersion);
                 var pipes = ReadPipes(reader, cacheVersion);
                 var takeoffs = ReadTakeoffs(reader);
                 var dynamicProperties = ReadDynamicProperties(reader, cacheVersion);
@@ -586,7 +586,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
             return list;
         }
 
-        private List<PocData> ReadPocs(BinaryReader r)
+        private List<PocData> ReadPocs(BinaryReader r, int cacheVersion)
         {
             int count = r.ReadInt32();
             MemoryLoadLog.EnsureRecordCount("Cache.Pocs", count, r.BaseStream.Length);
@@ -609,6 +609,8 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 poc.UtilityName = r.ReadString();
                 poc.UtilityGroupName = r.ReadString();
                 poc.ModuleName = r.ReadString();
+                if (cacheVersion >= 11)
+                    poc.ConnectionOrder = r.ReadInt32();
                 list.Add(poc);
             }
             return list;
@@ -698,6 +700,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 w.Write(item.UtilityName ?? "");
                 w.Write(item.UtilityGroupName ?? "");
                 w.Write(item.ModuleName ?? "");
+                w.Write(item.ConnectionOrder ?? 0);
             }
         }
 

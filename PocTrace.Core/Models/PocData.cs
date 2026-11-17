@@ -21,5 +21,8 @@ namespace PocTrace.Core.Models
         public string UtilityGroupName { get; set; } // S: Utility Group
 
         public string ModuleName { get; set; } //26.05.01
+
+        /// <summary>DDW tb_pocinstances.connection_order. v10 이하 캐시에서는 null.</summary>
+        public int? ConnectionOrder { get; set; }
     }
 }

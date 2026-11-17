@@ -70,27 +70,13 @@ namespace PocTrace.Core.Infrastructure.Data
     }
 
     /// <summary>
-    /// GCS 설비의 Information. IN 은 POC 이름에 _in_ 이 있고, OUT 은 stick_ 다음에 숫자가 있다.
+    /// S: Connector Information 과 T: Connector Information. DDW는 poctemplates.memo 만 쓴다.
     /// </summary>
     public static class DdwGcsEnd
     {
-        public static string FromPocName(string pocName)
+        public static string Information(string memo)
         {
-            if (string.IsNullOrEmpty(pocName))
-                return null;
-            if (pocName.IndexOf("_in_", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "IN";
-            int at = pocName.IndexOf("stick_", StringComparison.OrdinalIgnoreCase);
-            if (at >= 0 && at + 6 < pocName.Length && char.IsDigit(pocName[at + 6]))
-                return "OUT";
-            return null;
-        }
-
-        public static string Information(string memo, string pocName)
-        {
-            if (!string.IsNullOrEmpty(memo))
-                return memo;
-            return FromPocName(pocName) ?? "";
+            return memo ?? "";
         }
     }
 }

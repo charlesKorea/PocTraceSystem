@@ -1,4 +1,5 @@
 ﻿using PocTrace.Core.Engine.Cache;
+using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Engine.Logic;
 using PocTrace.Core.Engine.Validation.Rules;
 using PocTrace.Core.Enums;
@@ -170,9 +171,7 @@ namespace PocTrace.Core.Engine.Validation
             // [신규] S: Module Name
             r.StartPocModuleName = sPoc.ModuleName;
 
-            // [신규] S: PocNo - PointID(PocID)로 DynamicProperties에서 조회
-            var startDp = cache.GetDynamicProperties(sPoc.PointID);
-            r.StartPocNo = startDp?.PocNo ?? "";
+            r.StartPocNo = ResolvePocNo(cache, r, sPoc);
 
             // S: Connector Use — OWNERID = ConnectionPointInstanceLog.InstanceID
             var useDp = cache.GetDynamicProperties(sPoc.InstanceId);
@@ -275,9 +274,7 @@ namespace PocTrace.Core.Engine.Validation
                 // [신규] T: Module Name
                 r.TargetPocModuleName = ePoc.ModuleName;
 
-                // [신규] T: PocNo - PointID로 DynamicProperties에서 조회
-                var targetDp = cache.GetDynamicProperties(ePoc.PointID);
-                r.TargetPocNo = targetDp?.PocNo ?? "";
+                r.TargetPocNo = ResolvePocNo(cache, r, ePoc);
 
                 r.TargetPocName = ePoc.PocName; //26.07.08
 
@@ -314,6 +311,16 @@ namespace PocTrace.Core.Engine.Validation
             }
         }
 
+
+        private static string ResolvePocNo(IGraphCache cache, TraceResult r, PocData poc)
+        {
+            if (poc == null)
+                return "";
+            if (DdwLine.IsCacheKey(r == null ? null : r.Line) && poc.ConnectionOrder.HasValue)
+                return poc.ConnectionOrder.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var dp = cache.GetDynamicProperties(poc.PointID);
+            return dp == null ? "" : (dp.PocNo ?? "");
+        }
 
         private string GetFirstPipeUtility(IGraphCache cache, TraceResult r, PocData poc)
         {

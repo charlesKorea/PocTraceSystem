@@ -450,6 +450,36 @@ namespace PocTrace.DdwAcceptance
                 false);
             var facilityTrace = new PocTrace.Core.Engine.TraceEngine(facility, new TraceAlgorithm(facility, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None);
             Check(facilityTrace.RunTrace("fac010", 0, false, System.Threading.CancellationToken.None).Count > 0, "x2_m 7- facility starts");
+
+            var memo = DdwGraphNormalizer.Build(
+                new[] { new DdwModelRow { InstanceId = G(90), Name = "EQ", FamilyKey = "equipment", OperationType = 0, Tag = "eqmemo" } },
+                new[]
+                {
+                    new DdwPocRow { InstanceId = G(91), OwnerInstanceId = G(90), OwnerType = 768, ConnectionOrder = 4, Memo = "stick note", PocTemplateName = "port_in_1", OperationType = 0 },
+                    new DdwPocRow { InstanceId = G(92), OwnerInstanceId = G(90), OwnerType = 768, ConnectionOrder = 5, Memo = "", PocTemplateName = "port_in_2", OperationType = 0 }
+                },
+                null, null, null);
+            Check(memo.Pocs[0].Information == "stick note" && memo.Pocs[0].ConnectionOrder == 4, "connector information is memo");
+            Check(memo.Pocs[1].Information == "", "empty memo stays empty");
+
+            var tofCache = new GraphCacheManager();
+            var tofEq = G(150);
+            var tofId = G(152);
+            tofCache.Initialize(
+                "x2_m",
+                new[] { new NodeInfo { InstanceId = tofEq, Tag = "eqtof", Type = NodeType.Equipment, Name = "EQ" } },
+                new[] { new PocData { InstanceId = G(151), OwnerId = tofEq, Outlet = tofId, ConnectionOrder = 3, Information = "from-memo" } },
+                new PipeData[0],
+                new[] { new TakeoffData { TakeoffId = tofId, Tag = "", PipeId = Guid.Empty } },
+                new DynamicPropertiesData[0],
+                null,
+                false);
+            var tofRows = new PocTrace.Core.Engine.TraceEngine(tofCache, new TraceAlgorithm(tofCache, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None)
+                .RunTrace("eqtof", 0, false, System.Threading.CancellationToken.None);
+            Check(tofRows.Count == 1 && tofRows[0].STATUS == "TOF", "path reaches takeoff");
+            Check(tofRows[0].StartPocInformation == "from-memo" && tofRows[0].StartPocNo == "3", "x2_m poc no is connection order");
+            Check(tofRows[0].FailCount > 0 && (tofRows[0].feedback ?? "").IndexOf("T.Tag EMPTY", StringComparison.Ordinal) >= 0, "empty damper tag is an error");
+            Check(string.IsNullOrEmpty(tofRows[0].TargetPocGUID), "takeoff has no connector guid");
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)
