@@ -215,7 +215,7 @@ namespace PocTrace.Core.Engine.Validation
                 r.TargetNodeDivision = "MEP";
 
                 // TraceAlgorithm에서 전달한 Tag값 (EndName에 들어있음)
-                r.TargetNodeTag = r.EndName; //TOF Takeoff tag 값
+                r.TargetNodeTag = DamperTagLabel(cache, r);
 
                 // TOF는 Node/Poc 객체가 없을 수 있으므로 나머지는 공백
                 //r.TargetPocUtilityName = ePoc.UtilityName;
@@ -383,6 +383,31 @@ namespace PocTrace.Core.Engine.Validation
                 return $"{pipe.UtilityName}";
             }
             return $"{poc.UtilityName}";
+        }
+
+        /// <summary>Details T:Tag. takeoff POC의 tag 속성을 Damper[tag]로 붙인다.</summary>
+        private static string DamperTagLabel(IGraphCache cache, TraceResult r)
+        {
+            string tag = "";
+            TakeoffData tof;
+            Guid endId = r.EndPocId ?? Guid.Empty;
+            if (endId != Guid.Empty && cache.TryGetTakeoff(endId, out tof) && tof != null && !string.IsNullOrEmpty(tof.Tag))
+                tag = tof.Tag;
+            else if (r.TargetNodeGUID != Guid.Empty && cache.TryGetTakeoff(r.TargetNodeGUID, out tof) && tof != null && !string.IsNullOrEmpty(tof.Tag))
+                tag = tof.Tag;
+            else
+                tag = UnwrapDamper(r.EndName);
+            return "Damper[" + (tag ?? "") + "]";
+        }
+
+        private static string UnwrapDamper(string endName)
+        {
+            if (string.IsNullOrEmpty(endName))
+                return "";
+            const string prefix = "Damper[";
+            if (endName.StartsWith(prefix, StringComparison.Ordinal) && endName.EndsWith("]", StringComparison.Ordinal) && endName.Length >= prefix.Length + 1)
+                return endName.Substring(prefix.Length, endName.Length - prefix.Length - 1);
+            return endName;
         }
 
 

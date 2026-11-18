@@ -146,6 +146,8 @@ namespace PocTrace.Core.Infrastructure.Data
                     DdwTypeCodes.ObservePipe(row.PipeType);
                     if (DdwTypeCodes.IsOutsideHookupPipe(row.PipeType))
                     {
+                        // 1차 duct/tray 배관 객체는 그래프에 넣지 않는다.
+                        // pipe number는 그 id의 S5_LATERAL_NUMBER 속성만 dynprops에 남긴다.
                         diag.SkippedOutsidePipes++;
                         continue;
                     }
@@ -383,7 +385,8 @@ namespace PocTrace.Core.Infrastructure.Data
 
         /// <summary>
         /// Takeoff 끝점 중 connected poc의 owner가 duct pipe인 것을 고른다. 없으면 연결된 배관 owner를 쓴다.
-        /// tag와 connection tag는 그 takeoff POC id로 찾는다.
+        /// tag와 connection tag는 그 takeoff POC에서 찾고, 비어 있으면 같은 takeoff의 다른 POC를 본다.
+        /// duct pipe 객체는 그래프에 없고, pipe number는 그 id의 속성만 쓴다.
         /// </summary>
         private static void BindTakeoffPoc(
             TakeoffData takeoff,
@@ -428,8 +431,27 @@ namespace PocTrace.Core.Infrastructure.Data
                 return;
             takeoff.PocId = chosen.PocInstanceId;
             takeoff.DuctPipeId = chosen.NormalizedTarget.Value;
-            takeoff.Tag = Lookup(tags, chosen.PocInstanceId) ?? "";
-            takeoff.ConnectionTag = Lookup(connectionTags, chosen.PocInstanceId) ?? "";
+            Guid tagPoc = PocWithValue(endpoints, tags, chosen.PocInstanceId);
+            Guid connectionPoc = PocWithValue(endpoints, connectionTags, chosen.PocInstanceId);
+            takeoff.Tag = Lookup(tags, tagPoc) ?? "";
+            takeoff.ConnectionTag = Lookup(connectionTags, connectionPoc) ?? "";
+        }
+
+        private static Guid PocWithValue(IList<PipeEndpoint> endpoints, Dictionary<Guid, string> values, Guid preferred)
+        {
+            if (!string.IsNullOrEmpty(Lookup(values, preferred)))
+                return preferred;
+            if (endpoints == null)
+                return preferred;
+            for (int i = 0; i < endpoints.Count; i++)
+            {
+                var ep = endpoints[i];
+                if (ep == null || ep.PocInstanceId == Guid.Empty)
+                    continue;
+                if (!string.IsNullOrEmpty(Lookup(values, ep.PocInstanceId)))
+                    return ep.PocInstanceId;
+            }
+            return preferred;
         }
 
         public static Guid ContinuationPipeId(IList<PipeEndpoint> endpoints, ISet<Guid> ordinaryPipeIds)

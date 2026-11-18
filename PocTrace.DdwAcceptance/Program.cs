@@ -631,6 +631,8 @@ namespace PocTrace.DdwAcceptance
                     new DdwAttributeRow { OwnerId = tofPoc, Name = "S5_LATERAL_NUMBER", Value = "POC-L", OperationType = 0 },
                     new DdwAttributeRow { OwnerId = tofPipe, Name = "S5_LATERAL_NUMBER", Value = "TOF-L", OperationType = 0 }
                 });
+            Check(tofBundle.Pipes.Find(p => p.PipeId == duct) == null, "duct pipe stays out of the graph");
+            Check(tofBundle.HookupNumbers.Find(h => h.PointID == duct && h.PipeNumber == "DUCT-L") != null, "duct lateral is an attribute only");
             Check(tofBundle.Takeoffs.Count == 1 && tofBundle.Takeoffs[0].DuctPipeId == duct && tofBundle.Takeoffs[0].PocId == tofPoc, "takeoff follows one connected poc to the duct");
             Check(tofBundle.Takeoffs[0].PipeId == mainPipe, "takeoff continuation stays the hookup pipe");
             Check(tofBundle.Takeoffs[0].Tag == "T1" && tofBundle.Takeoffs[0].ConnectionTag == "C1", "takeoff tag comes from its poc");
@@ -657,6 +659,33 @@ namespace PocTrace.DdwAcceptance
             });
             Check(tofAttrSheet.Count == 1 && (string)tofAttrSheet[0][14] == "DUCT-L", "takeoff pipe number is the duct lateral");
             Check((string)tofAttrSheet[0][15] == "T1" && (string)tofAttrSheet[0][16] == "C1", "takeoff tag columns stay on the poc");
+            var tofStart = new NodeInfo { InstanceId = G(217), Tag = "eq", Type = NodeType.Equipment, PZ = 0 };
+            var tofStartPoc = new PocData { InstanceId = G(218), OwnerId = G(217), UtilityName = "N2" };
+            var tofRow = new TraceResult { STATUS = "TOF", StartPocId = tofStartPoc.InstanceId, EndPocId = tofPipe, EndName = "Damper[]", TargetNodeGUID = tofPipe, Line = "x2_m" };
+            new PocTrace.Core.Engine.Validation.TraceValidator(Serilog.Core.Logger.None)
+                .Validate(tofAttrCache, tofRow, tofStartPoc, tofStart, null, null, new List<TraceResult> { tofRow }, null);
+            Check(tofRow.TargetNodeTag == "Damper[T1]", "details T:Tag is Damper[tag]");
+
+            var sideBundle = DdwGraphNormalizer.Build(
+                null,
+                null,
+                new[]
+                {
+                    Endpoint(tofPipe, tofPoc, 0, ductPoc, DdwGraphNormalizer.PipeOwnerType, duct),
+                    Endpoint(tofPipe, mainPoc, 1, G(216), DdwGraphNormalizer.PipeOwnerType, mainPipe)
+                },
+                new[]
+                {
+                    new DdwPipeRow { InstanceId = tofPipe, PipeType = DdwGraphNormalizer.TakeoffPipeType, Length = 1, OperationType = 0 },
+                    new DdwPipeRow { InstanceId = duct, PipeType = 17303552, Length = 8, OperationType = 0 },
+                    new DdwPipeRow { InstanceId = mainPipe, PipeType = 17301760, Length = 4, OperationType = 0 }
+                },
+                new[]
+                {
+                    new DdwAttributeRow { OwnerId = mainPoc, Name = "tag", Value = "SIDE", OperationType = 0 },
+                    new DdwAttributeRow { OwnerId = duct, Name = "S5_LATERAL_NUMBER", Value = "DUCT-L", OperationType = 0 }
+                });
+            Check(sideBundle.Takeoffs[0].Tag == "SIDE" && sideBundle.Takeoffs[0].DuctPipeId == duct, "takeoff tag can sit on the other poc");
 
             var empEq = G(200);
             var empA = G(201);

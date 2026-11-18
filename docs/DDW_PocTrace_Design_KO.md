@@ -134,7 +134,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 - 건설코드 속성에 delete가 들어 있는 철거 설비가 실제로 있는지. 초기 설계 동안은 없을 것으로 본다.
 - S: Connector Information과 T: Connector Information은 `poctemplates.memo`만 쓴다. 이름이 `_in_`이거나 `stick_` 뒤가 숫자여도 memo가 비면 칸은 빈다.
 - `x2_m`의 S: Instance ID는 소유 객체의 DDW id다. S5D 해시 함수를 쓰지 않는다. 노즐 Information에 `Nozzle`이 없어도 노즐 노드면 NOZ로 끝낸다.
-- UI 버전은 `1.001` 형식이고 컴파일마다 0.001씩 오른다. 폼 하단과 추적 엑셀 Summary의 M1에 적는다. `x2_m` 엑셀에는 `추적` 시트를 둔다. hookup number는 attribute `HookupNumber`이고, pipe number는 `S5_LATERAL_NUMBER`다. 배관 구경은 `tb_pipeinstances.diameter1`이다. `pipesize_id`는 이 테이블에 없다. `x2_m` EMP의 분기배관수는 0이다. Utility가 비어 있으면 PASS다. 추적 시트에서 tag와 connection tag는 POC id이고, pipe number는 객체 id의 `S5_LATERAL_NUMBER`다. Takeoff는 그 POC의 connected poc를 한 번만 따라가 owner인 duct pipe에서 pipe number를 읽는다.
+- UI 버전은 `1.001` 형식이고 컴파일마다 0.001씩 오른다. 폼 하단과 추적 엑셀 Summary의 M1에 적는다. `x2_m` 엑셀에는 `추적` 시트를 둔다. hookup number는 attribute `HookupNumber`이고, pipe number는 `S5_LATERAL_NUMBER`다. 배관 구경은 `tb_pipeinstances.diameter1`이다. `pipesize_id`는 이 테이블에 없다. `x2_m` EMP의 분기배관수는 0이다. Utility가 비어 있으면 PASS다. 추적 시트에서 tag와 connection tag는 POC id이고, pipe number는 객체 id의 `S5_LATERAL_NUMBER`다. Takeoff는 그 POC의 connected poc를 한 번만 따라가 owner인 duct pipe에서 pipe number를 읽는다. `pipe_type` 17303552 duct 객체는 그래프에 넣지 않고, 그 id의 `S5_LATERAL_NUMBER` 속성만 남긴다. Details T:Tag는 takeoff POC의 tag를 `Damper[tag]`로 적는다. 덕트 쪽 POC에 tag가 없으면 같은 takeoff의 다른 POC에서 가져온다.
 - Takeoff tag 속성이 S5D damper tag와 같은 비교가 되는지는 한 설비 대조에서 건수를 본다.
 - `poc_template_id = 0`만 날배관이다. 다른 값이 날배관으로 보이면 상수 기준을 바꾼다.
 - 정의되지 않은 `pipe_type`, `model_type`은 캐시 폴더의 `ddw-undefined-types.xlsx`에 쌓인다. 뜻을 받으면 `DdwTypeCodes`에 추가한다.

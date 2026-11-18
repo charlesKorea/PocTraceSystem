@@ -343,16 +343,10 @@ namespace PocTrace.Core.Engine.Reporting
             string from = DdwLine.CatalogPrefix() + ".dbo.TB_ATTRIBUTES";
             string pocFrom = DdwLine.CatalogPrefix() + ".dbo.TB_POCINSTANCES";
             var sb = new StringBuilder();
-            sb.Append("-- [DDW pipe number] SSMS. live는 version_sequence < 1000000000. id는 캐시에 있는 DDW id만 적는다.");
-            sb.AppendLine();
+            sb.AppendLine("-- [DDW pipe number] SSMS. live는 version_sequence < 1000000000. id는 캐시에 있는 DDW id만 적는다.");
             if (attributeOwner != Guid.Empty)
             {
-                sb.Append("SELECT a.OWNER_ID, a.ATTRIBUTE_NM, a.ATTRIBUTE_VAL FROM ");
-                sb.Append(from);
-                sb.Append(" a WHERE a.version_sequence < 1000000000 AND a.ATTRIBUTE_NM = N'S5_LATERAL_NUMBER' AND TRY_CONVERT(uniqueidentifier, a.OWNER_ID) = CONVERT(uniqueidentifier, '");
-                sb.Append(Id(attributeOwner));
-                sb.Append("');");
-                sb.AppendLine();
+                sb.AppendLine(AttributeSql(from, "S5_LATERAL_NUMBER", attributeOwner));
             }
             else
             {
@@ -360,41 +354,38 @@ namespace PocTrace.Core.Engine.Reporting
             }
             if (takeoff != null && takeoff.PocId != Guid.Empty)
             {
-                sb.Append("-- takeoff poc에서 connected poc를 한 번만 따라가 owner의 S5_LATERAL_NUMBER를 본다");
-                sb.AppendLine();
+                sb.AppendLine("-- takeoff poc의 tag");
+                sb.AppendLine(AttributeSql(from, "tag", takeoff.PocId));
+                sb.AppendLine("-- takeoff poc에서 connected poc를 한 번만 따라가 owner의 S5_LATERAL_NUMBER를 본다. duct pipe 객체는 캐시에 없다.");
                 sb.Append("SELECT p.INSTANCE_ID AS takeoff_poc, p.CONNECTED_POC_ID, nxt.OWNER_INSTANCE_ID AS connected_owner, a.ATTRIBUTE_VAL AS pipe_number FROM ");
                 sb.Append(pocFrom);
                 sb.Append(" p LEFT JOIN ");
                 sb.Append(pocFrom);
-                sb.Append(" nxt ON nxt.INSTANCE_ID = p.CONNECTED_POC_ID AND nxt.version_sequence < 1000000000 LEFT JOIN ");
+                sb.Append(" nxt ON CONVERT(uniqueidentifier, nxt.INSTANCE_ID) = CONVERT(uniqueidentifier, p.CONNECTED_POC_ID) AND nxt.version_sequence < 1000000000 LEFT JOIN ");
                 sb.Append(from);
-                sb.Append(" a ON TRY_CONVERT(uniqueidentifier, a.OWNER_ID) = TRY_CONVERT(uniqueidentifier, nxt.OWNER_INSTANCE_ID) AND a.ATTRIBUTE_NM = N'S5_LATERAL_NUMBER' AND a.version_sequence < 1000000000 WHERE p.version_sequence < 1000000000 AND TRY_CONVERT(uniqueidentifier, p.INSTANCE_ID) = CONVERT(uniqueidentifier, '");
+                sb.Append(" a ON CONVERT(uniqueidentifier, a.OWNER_ID) = CONVERT(uniqueidentifier, nxt.OWNER_INSTANCE_ID) AND a.ATTRIBUTE_NM = 'S5_LATERAL_NUMBER' AND a.version_sequence < 1000000000 WHERE p.version_sequence < 1000000000 AND CONVERT(uniqueidentifier, p.INSTANCE_ID) = '");
                 sb.Append(Id(takeoff.PocId));
-                sb.Append("');");
-                sb.AppendLine();
+                sb.AppendLine("';");
             }
             if (takeoff == null && endPocId != Guid.Empty && endPocId != attributeOwner)
             {
-                sb.Append("-- 비교용. 이 행의 tag/connection tag 주인인 poc id. pipe number 조회에는 쓰지 않는다");
-                sb.AppendLine();
-                sb.Append("SELECT a.OWNER_ID, a.ATTRIBUTE_NM, a.ATTRIBUTE_VAL FROM ");
-                sb.Append(from);
-                sb.Append(" a WHERE a.version_sequence < 1000000000 AND a.ATTRIBUTE_NM IN (N'tag', N'ConnectionTag', N'S5_LATERAL_NUMBER') AND TRY_CONVERT(uniqueidentifier, a.OWNER_ID) = CONVERT(uniqueidentifier, '");
-                sb.Append(Id(endPocId));
-                sb.Append("');");
-                sb.AppendLine();
+                sb.AppendLine("-- 비교용. tag와 connection tag의 주인인 poc. pipe number에는 쓰지 않는다.");
+                sb.AppendLine(AttributeSql(from, "tag", endPocId));
+                sb.AppendLine(AttributeSql(from, "ConnectionTag", endPocId));
             }
             if (step != null && step.NodeId != Guid.Empty && step.NodeId != attributeOwner)
             {
-                sb.Append("-- 비교용. 스텝에 적힌 객체 id가 owner와 다를 때");
-                sb.AppendLine();
-                sb.Append("SELECT a.OWNER_ID, a.ATTRIBUTE_VAL FROM ");
-                sb.Append(from);
-                sb.Append(" a WHERE a.version_sequence < 1000000000 AND a.ATTRIBUTE_NM = N'S5_LATERAL_NUMBER' AND TRY_CONVERT(uniqueidentifier, a.OWNER_ID) = CONVERT(uniqueidentifier, '");
-                sb.Append(Id(step.NodeId));
-                sb.Append("');");
+                sb.AppendLine("-- 비교용. 스텝 객체 id가 owner와 다를 때.");
+                sb.AppendLine(AttributeSql(from, "S5_LATERAL_NUMBER", step.NodeId));
             }
             return sb.ToString();
+        }
+
+        private static string AttributeSql(string from, string attributeName, Guid ownerId)
+        {
+            return "SELECT a.OWNER_ID, a.ATTRIBUTE_NM, a.ATTRIBUTE_VAL FROM " + from
+                + " a WHERE a.version_sequence < 1000000000 AND a.ATTRIBUTE_NM = '" + attributeName
+                + "' AND CONVERT(uniqueidentifier, a.OWNER_ID) = '" + Id(ownerId) + "';";
         }
 
         private static string Id(Guid id)
