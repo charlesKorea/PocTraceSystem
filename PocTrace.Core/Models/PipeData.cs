@@ -46,7 +46,7 @@ namespace PocTrace.Core.Models
         public double Length { get; set; }
         /// <summary>DDW pipe_type. 캐시 v12+.</summary>
         public int PipeType { get; set; }
-        /// <summary>tb_pipesize.diameter, mm. 캐시 v12+.</summary>
+        /// <summary>tb_pipeinstances.diameter1, mm. 이 테이블에는 pipesize_id가 없다. 캐시 v12+.</summary>
         public double PipeSizeMm { get; set; }
         public string UtilityName { get; set; }
         public string ModuleName { get; set; }

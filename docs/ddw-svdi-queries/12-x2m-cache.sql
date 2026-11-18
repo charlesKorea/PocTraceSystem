@@ -105,14 +105,12 @@ SELECT
     CONVERT(nvarchar(256), nu.USER_NAME) AS UserName,
     CONVERT(nvarchar(256), nu.COMPANY_NAME) AS CompanyName,
     CONVERT(nvarchar(256), nu.LOGIN_ID) AS LoginId,
-    TRY_CAST(psz.DIAMETER AS float) AS PipeSizeMm,
+    TRY_CAST(pi.DIAMETER1 AS float) AS PipeSizeMm,
     CAST(NULL AS nvarchar(512)) AS Tag,
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_PIPEINSTANCES pi
 LEFT JOIN [remote_monami].[monami].dbo.TB_UTILITIES u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u.version_sequence < 1000000000
-LEFT JOIN [remote_monami].[monami].dbo.TB_PIPESIZE psz
-    ON psz.PIPESIZE_ID = pi.PIPESIZE_ID AND psz.version_sequence < 1000000000
 LEFT JOIN [remote_monami].[monami].dbo.TB_VERSIONS v
     ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
 LEFT JOIN [remote_monami].[monami].dbo.TB_NEW_USERS nu
@@ -234,14 +232,12 @@ SELECT
     CONVERT(nvarchar(256), nu.USER_NAME) AS UserName,
     CONVERT(nvarchar(256), nu.COMPANY_NAME) AS CompanyName,
     CONVERT(nvarchar(256), nu.LOGIN_ID) AS LoginId,
-    TRY_CAST(psz.DIAMETER AS float) AS PipeSizeMm,
+    TRY_CAST(pi.DIAMETER1 AS float) AS PipeSizeMm,
     CAST(NULL AS nvarchar(512)) AS Tag,
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_PIPEINSTANCES pi
 LEFT JOIN [remote_monami].[monami].dbo.TB_UTILITIES u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u.version_sequence < 1000000000
-LEFT JOIN [remote_monami].[monami].dbo.TB_PIPESIZE psz
-    ON psz.PIPESIZE_ID = pi.PIPESIZE_ID AND psz.version_sequence < 1000000000
 LEFT JOIN [remote_monami].[monami].dbo.TB_VERSIONS v
     ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
 LEFT JOIN [remote_monami].[monami].dbo.TB_NEW_USERS nu

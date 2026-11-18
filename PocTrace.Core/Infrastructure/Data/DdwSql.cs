@@ -162,14 +162,12 @@ SELECT
     " + Text("nu.USER_NAME", 256) + @" AS UserName,
     " + Text("nu.COMPANY_NAME", 256) + @" AS CompanyName,
     " + Text("nu.LOGIN_ID", 256) + @" AS LoginId,
-    " + FloatNull("psz.DIAMETER") + @" AS PipeSizeMm,
+    " + FloatNull("pi.DIAMETER1") + @" AS PipeSizeMm,
     CAST(NULL AS nvarchar(512)) AS Tag,
     " + Op + @"
 FROM " + T(quotedDb, "TB_PIPEINSTANCES") + @" pi
 LEFT JOIN " + T(quotedDb, "TB_UTILITIES") + @" u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u." + Live + @"
-LEFT JOIN " + T(quotedDb, "TB_PIPESIZE") + @" psz
-    ON psz.PIPESIZE_ID = pi.PIPESIZE_ID AND psz." + Live + @"
 LEFT JOIN " + T(quotedDb, "TB_VERSIONS") + @" v
     ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
 LEFT JOIN " + T(quotedDb, "TB_NEW_USERS") + @" nu

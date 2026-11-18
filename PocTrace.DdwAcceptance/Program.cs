@@ -89,6 +89,7 @@ namespace PocTrace.DdwAcceptance
             Check(!pipes.Contains("*1000") && !pipes.Contains("TOP 1") && !pipes.Contains("Origin"), "DDW pipe SQL limits");
             Check(tb.Contains("TRY_CONVERT(uniqueidentifier, mi.INSTANCE_ID)"), "model id is uniqueidentifier");
             Check(pipes.Contains("AS float"), "pipe length is float");
+            Check(pipes.Contains("pi.DIAMETER1") && !pipes.Contains("PIPESIZE_ID"), "pipe size is diameter1");
             Check(DdwSql.SelectModelPocs("[fixture]", SchemaKind.TbStar).Contains("= 768"), "model pocs only");
             Check(DdwSql.SelectAttributes("[fixture]").Contains("TRY_CONVERT(uniqueidentifier, a.OWNER_ID)"), "attribute owner id");
             Check(!DdwSql.SelectModelPocs("[fixture]", SchemaKind.TbStar).Contains("[tag]"), "TbStar poc has no tag column");
