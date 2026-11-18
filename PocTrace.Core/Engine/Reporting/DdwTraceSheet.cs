@@ -56,7 +56,7 @@ namespace PocTrace.Core.Engine.Reporting
                         Utility(cache, endPocId, cur, endPipe),
                         PipeSize(cache, cur, endPipe),
                         endPipe ? PipeLength(cache, cur.NodeId) : 0d,
-                        Prop(cache, cur.NodeId, true),
+                        Prop(cache, PipeNumberOwner(cache, cur), true),
                         Tag(cache, cur, endPipe),
                         ConnectionTag(cache, endPocId),
                         Prop(cache, cur.NodeId, false)
@@ -243,9 +243,30 @@ namespace PocTrace.Core.Engine.Reporting
 
         private static string Tag(IGraphCache cache, TraceStep step, bool endPipe)
         {
-            if (endPipe)
+            if (endPipe || step == null)
                 return "";
-            return cache.GetNodeTag(step.NodeId) ?? "";
+            if (step.NodeType != null && step.NodeType.Equals("Takeoff", StringComparison.OrdinalIgnoreCase))
+            {
+                TakeoffData takeoff;
+                if (cache.TryGetTakeoff(step.NodeId, out takeoff) && takeoff != null)
+                    return takeoff.Tag ?? "";
+                return "";
+            }
+            NodeInfo node;
+            if (cache.TryGetNode(step.NodeId, out node) && node != null)
+                return node.Tag ?? "";
+            return "";
+        }
+
+        /// <summary>노즐 pipe number는 도착 POC가 아니라 노즐 객체 id의 S5_LATERAL_NUMBER다.</summary>
+        private static Guid PipeNumberOwner(IGraphCache cache, TraceStep step)
+        {
+            if (step == null)
+                return Guid.Empty;
+            PocData poc;
+            if (cache.TryGetPoc(step.NodeId, out poc) && poc != null && poc.OwnerId != Guid.Empty)
+                return poc.OwnerId;
+            return step.NodeId;
         }
 
         private static string ConnectionTag(IGraphCache cache, Guid pocId)

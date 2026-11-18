@@ -37,6 +37,12 @@ namespace PocTrace.Core.Engine.Validation
 
             //RAWDATA_REQ_EXCEL poc = MapTraceResult2RawDataReq(result);
 
+            var bdSameGuidConList = pathResults == null
+                ? new List<TraceResult>()
+                : pathResults.FindAll(x => x.StartPocId == result.StartPocId);
+            // EMP는 설비 POC에 연결된 배관이 없다. 결과 행 자신을 1로 세지 않는다.
+            result.BranchedPipes = result.STATUS == "EMP" ? 0 : bdSameGuidConList.Count;
+
             // 3. 검수 로직
             if (검수제외PASS체크(result)) return; // EMP & 비대상
 
@@ -55,10 +61,6 @@ namespace PocTrace.Core.Engine.Validation
                     SetInvalidPOC(result, " 모델링 미완료 ", $" {result.STATUS} ");
                 }
             }
-
-            //guid로 커넥터리포트에서 status확인
-            var bdSameGuidConList = pathResults.FindAll(x => x.StartPocId == result.StartPocId);
-            result.BranchedPipes = bdSameGuidConList.Count;            
 
             /*
             if (bdSameGuidConList.Count > 1)
@@ -131,6 +133,14 @@ namespace PocTrace.Core.Engine.Validation
             }
 
             r.totalInvalidCount++;
+        }
+
+        /// <summary>x2_m EMP는 빈 Utility를 미사용으로 보지 않는다. 미사용·spare 같은 글자가 있을 때만 제외한다.</summary>
+        private bool NamedUnused(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+            return util.예외대상이름여부(name);
         }
 
         /// <summary>기준정보/장비 이슈 제목이면 true (부분문자열, 공백 변형 허용).</summary>
@@ -406,9 +416,12 @@ namespace PocTrace.Core.Engine.Validation
             if (r.STATUS.Equals("EMP"))
             // && !poc.connectorUse.Equals("N")) //24.05.14 connector use N이어도 체크 대상
             {
-                if (util.예외대상이름여부(r.StartPocUtilityName) ||
-                    util.예외대상이름여부(r.StartPocName) ||
-                    util.예외대상이름여부(r.StartPocUtilityGroup))
+                bool unusedName = DdwLine.IsCacheKey(r.Line)
+                    ? NamedUnused(r.StartPocUtilityName) || NamedUnused(r.StartPocName) || NamedUnused(r.StartPocUtilityGroup)
+                    : util.예외대상이름여부(r.StartPocUtilityName) ||
+                      util.예외대상이름여부(r.StartPocName) ||
+                      util.예외대상이름여부(r.StartPocUtilityGroup);
+                if (unusedName)
                 {
                     //24.05.14 3차 검수 대상 포함
                     if (util.IsStringContains(r.StartPocUtilityGroup, "etc") && util.IsStringContains(r.StartPocUtilityName, "3rd"))

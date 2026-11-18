@@ -215,7 +215,7 @@ namespace PocTrace.Core.Infrastructure.Data
                     takeoffs.Add(new TakeoffData
                     {
                         TakeoffId = row.InstanceId,
-                        Tag = row.Tag ?? "",
+                        Tag = FirstFilled(row.Tag, Lookup(tags, row.InstanceId)),
                         PipeId = ContinuationPipeId(holder.Endpoints, pipeIds)
                     });
                 }

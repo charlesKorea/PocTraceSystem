@@ -542,6 +542,83 @@ namespace PocTrace.DdwAcceptance
             Check((string)sheet[0][2] == PocTrace.Core.Infrastructure.DdwId.Text(hopEnd), "trace sheet connected ddw id");
             Check((string)sheet[0][5] == "standard" && (double)sheet[0][13] == 12.5, "trace sheet pipe type and length2");
             Check((string)sheet[0][14] == "L1" && (string)sheet[0][17] == "H9", "pipe number and hookup number");
+
+            var tofId = G(180);
+            var tofEq = G(181);
+            var tofCache = new GraphCacheManager();
+            tofCache.Initialize(
+                "x2_m",
+                new[] { new NodeInfo { InstanceId = tofEq, Tag = "eqtof", Type = NodeType.Equipment, Name = "EQ" } },
+                new PocData[0],
+                new PipeData[0],
+                new[] { new TakeoffData { TakeoffId = tofId, Tag = "" } },
+                new DynamicPropertiesData[0],
+                null,
+                false);
+            var tofSheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(tofCache, new[]
+            {
+                new TraceResult
+                {
+                    Steps = new List<TraceStep>
+                    {
+                        new TraceStep { NodeId = tofEq, NodeType = "Equipment" },
+                        new TraceStep { NodeId = tofId, NodeName = "Damper[]", NodeType = "Takeoff" }
+                    }
+                }
+            });
+            Check(tofSheet.Count == 1 && (string)tofSheet[0][15] == "", "empty damper tag is blank");
+
+            var nzObj = G(190);
+            var nzPocId = G(191);
+            var nzEq = G(192);
+            var nzCache2 = new GraphCacheManager();
+            nzCache2.Initialize(
+                "x2_m",
+                new[]
+                {
+                    new NodeInfo { InstanceId = nzEq, Tag = "eq", Type = NodeType.Equipment, Name = "EQ" },
+                    new NodeInfo { InstanceId = nzObj, Tag = "nz", Type = NodeType.Nozzle, Name = "NZ" }
+                },
+                new[] { new PocData { InstanceId = nzPocId, OwnerId = nzObj, PocName = "NZPOC" } },
+                new PipeData[0],
+                new TakeoffData[0],
+                new[]
+                {
+                    new DynamicPropertiesData { PointID = nzObj, PipeNumber = "OBJ-L" },
+                    new DynamicPropertiesData { PointID = nzPocId, PipeNumber = "POC-L" }
+                },
+                null,
+                false);
+            var nzSheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(nzCache2, new[]
+            {
+                new TraceResult
+                {
+                    Steps = new List<TraceStep>
+                    {
+                        new TraceStep { NodeId = nzEq, NodeType = "Equipment", OutletUsed = nzPocId },
+                        new TraceStep { NodeId = nzObj, NodeType = "Nozzle", NodeName = "NZ" }
+                    }
+                }
+            });
+            Check(nzSheet.Count == 1 && (string)nzSheet[0][14] == "OBJ-L", "nozzle pipe number is the object lateral");
+
+            var empEq = G(200);
+            var empA = G(201);
+            var empB = G(202);
+            var empNode = new NodeInfo { InstanceId = empEq, Tag = "eqemp", Type = NodeType.Equipment, Name = "EQ", PZ = 0 };
+            var pocFilled = new PocData { InstanceId = empA, OwnerId = empEq, PocName = "A", UtilityName = "N2", UtilityGroupName = "GAS" };
+            var pocBlank = new PocData { InstanceId = empB, OwnerId = empEq, PocName = "B", UtilityName = "", UtilityGroupName = "" };
+            var empCache = new GraphCacheManager();
+            empCache.Initialize("x2_m", new[] { empNode }, new[] { pocFilled, pocBlank }, new PipeData[0], new TakeoffData[0], new DynamicPropertiesData[0], null, false);
+            var empFilled = new TraceResult { STATUS = "EMP", StartPocId = empA, Line = "x2_m", Steps = new List<TraceStep>() };
+            var empBlank = new TraceResult { STATUS = "EMP", StartPocId = empB, Line = "x2_m", Steps = new List<TraceStep>() };
+            var empRows = new List<TraceResult> { empFilled, empBlank };
+            var validator = new PocTrace.Core.Engine.Validation.TraceValidator(Serilog.Core.Logger.None);
+            validator.Validate(empCache, empFilled, pocFilled, empNode, null, null, empRows, null);
+            validator.Validate(empCache, empBlank, pocBlank, empNode, null, null, empRows, null);
+            Check(empFilled.BranchedPipes == 0 && empBlank.BranchedPipes == 0, "emp branch count is 0");
+            Check((empFilled.IssueType ?? "").IndexOf("모델링 없음", StringComparison.Ordinal) >= 0, "emp with utility is modeling absent");
+            Check((empBlank.IssueType ?? "").IndexOf("모델링 없음", StringComparison.Ordinal) >= 0, "x2_m blank utility emp is modeling absent");
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)
