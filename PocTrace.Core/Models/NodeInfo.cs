@@ -15,6 +15,10 @@ namespace PocTrace.Core.Models
 
         // [New] 비즈니스 로직 및 엑셀용 확장 필드
         public int Division { get; set; }      // 0: Equipment, 3: Plumbing, etc.
+        /// <summary>DDW division 값 문자열. 캐시 v12+.</summary>
+        public string DivisionName { get; set; }
+        /// <summary>DDW model_type. 캐시 v12+.</summary>
+        public int ModelType { get; set; }
         public string Sub1Name { get; set; }   // S/T: Subdivision1
         public string Sub2Name { get; set; }   // S/T: Subdivision2
         public string QCode { get; set; }

@@ -206,7 +206,8 @@ namespace PocTrace.Core.Engine.Logic
                         bool hasNozzleInfo = !string.IsNullOrEmpty(targetPoc.Information) && 
                                              targetPoc.Information.IndexOf("Nozzle", StringComparison.OrdinalIgnoreCase) >= 0;
                                                 
-                        if (nodeType == NodeType.Nozzle && !hasNozzleInfo)
+                        // DDW는 Information에 Nozzle 문구가 아직 없다. 노드가 노즐이면 NOZ로 끝낸다. 정의를 넣으면 이 분기를 되돌린다.
+                        if (!DdwLine.IsCacheKey(_cache.DbName) && nodeType == NodeType.Nozzle && !hasNozzleInfo)
                         {
                             LogDetailed("  ❌ [데이터 누락] Nozzle Node({Name}) 도달했으나 POC Information에 정의가 없음. ING 처리.", nodeName);
                             string endInfo = $"Missing Nozzle Info at {nodeName}";

@@ -11,13 +11,14 @@ namespace PocTrace.Core.Infrastructure
     /// v9: dynprops.bin += ConnectorUse (WEBDB CONNECTORUSE). v8 이하는 빈 값 → 조회 시 Y.
     /// v10: pipes.bin 끝점 목록(개수 + PipeEndpoint). v9 이하는 Outlet1~3 세 칸만 Endpoints로 읽는다.
     /// v11: pocs.bin 끝에 ConnectionOrder. v10 이하는 0.
+    /// v12: nodes에 ModelType·DivisionName, pipes에 PipeType·PipeSizeMm, dynprops에 PipeNumber.
     /// Folder layout (independent of record version): GraphCache_{db}/current.txt
     /// points at g{utc}_{id}/ containing all section bins + manifest. Legacy flat
     /// GraphCache_{db}/*.bin is still readable. Manifest may append per-section versions.
     /// </summary>
     public static class CacheConstants
     {
-        public const int CurrentVersion = 11;
+        public const int CurrentVersion = 12;
         /// <summary>v5+ split still loadable (newer fields defaulted). Prefer Admin re-save to CurrentVersion.</summary>
         public const int MinimumSupportedVersion = 5;
 

@@ -105,11 +105,14 @@ SELECT
     CONVERT(nvarchar(256), nu.USER_NAME) AS UserName,
     CONVERT(nvarchar(256), nu.COMPANY_NAME) AS CompanyName,
     CONVERT(nvarchar(256), nu.LOGIN_ID) AS LoginId,
+    TRY_CAST(psz.DIAMETER AS float) AS PipeSizeMm,
     CAST(NULL AS nvarchar(512)) AS Tag,
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_PIPEINSTANCES pi
 LEFT JOIN [remote_monami].[monami].dbo.TB_UTILITIES u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u.version_sequence < 1000000000
+LEFT JOIN [remote_monami].[monami].dbo.TB_PIPESIZE psz
+    ON psz.PIPESIZE_ID = pi.PIPESIZE_ID AND psz.version_sequence < 1000000000
 LEFT JOIN [remote_monami].[monami].dbo.TB_VERSIONS v
     ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
 LEFT JOIN [remote_monami].[monami].dbo.TB_NEW_USERS nu
@@ -131,6 +134,7 @@ SELECT
     CONVERT(nvarchar(256), mt.FAMILY_KEY) AS FamilyKey,
     TRY_CAST(mt.BIM_YN AS int) AS BimYn,
     TRY_CAST(div0.DIVISION_TYPE AS int) AS DivisionType,
+    CONVERT(nvarchar(256), div0.DIVISION_VALUE) AS DivisionName,
     CONVERT(nvarchar(256), sub1.DIVISION_VALUE) AS Sub1Name,
     CONVERT(nvarchar(256), sub2.DIVISION_VALUE) AS Sub2Name,
     TRY_CAST(sub1.DIVISION_TYPE AS int) AS Sub1DivisionType,
@@ -157,7 +161,7 @@ SELECT
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_ATTRIBUTES a
 WHERE a.version_sequence < 1000000000
-  AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER')) AS cache_rows
+  AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER', N'HookupNumber')) AS cache_rows
 GO
 
 -- 09 cache model POC
@@ -230,11 +234,14 @@ SELECT
     CONVERT(nvarchar(256), nu.USER_NAME) AS UserName,
     CONVERT(nvarchar(256), nu.COMPANY_NAME) AS CompanyName,
     CONVERT(nvarchar(256), nu.LOGIN_ID) AS LoginId,
+    TRY_CAST(psz.DIAMETER AS float) AS PipeSizeMm,
     CAST(NULL AS nvarchar(512)) AS Tag,
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_PIPEINSTANCES pi
 LEFT JOIN [remote_monami].[monami].dbo.TB_UTILITIES u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u.version_sequence < 1000000000
+LEFT JOIN [remote_monami].[monami].dbo.TB_PIPESIZE psz
+    ON psz.PIPESIZE_ID = pi.PIPESIZE_ID AND psz.version_sequence < 1000000000
 LEFT JOIN [remote_monami].[monami].dbo.TB_VERSIONS v
     ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
 LEFT JOIN [remote_monami].[monami].dbo.TB_NEW_USERS nu
@@ -255,6 +262,7 @@ SELECT
     CONVERT(nvarchar(256), mt.FAMILY_KEY) AS FamilyKey,
     TRY_CAST(mt.BIM_YN AS int) AS BimYn,
     TRY_CAST(div0.DIVISION_TYPE AS int) AS DivisionType,
+    CONVERT(nvarchar(256), div0.DIVISION_VALUE) AS DivisionName,
     CONVERT(nvarchar(256), sub1.DIVISION_VALUE) AS Sub1Name,
     CONVERT(nvarchar(256), sub2.DIVISION_VALUE) AS Sub2Name,
     TRY_CAST(sub1.DIVISION_TYPE AS int) AS Sub1DivisionType,
@@ -280,5 +288,5 @@ SELECT
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_ATTRIBUTES a
 WHERE a.version_sequence < 1000000000
-  AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER')
+  AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER', N'HookupNumber')
 GO

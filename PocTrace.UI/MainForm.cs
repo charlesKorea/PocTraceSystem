@@ -1,5 +1,6 @@
 ﻿using MetroFramework.Controls; // Spinner용
 using MetroFramework.Forms;
+using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Models; // EquipmentTraceSummary 사용
 using PocTrace.Core.Utils;
 using PocTrace.UI.Helpers; // UserSettings 사용
@@ -41,6 +42,8 @@ namespace PocTrace.UI
         {
             InitializeComponent();
             _viewModel = viewModel;
+            ProductVersion.Current = AppVersion.Text;
+            lblVersion.Text = AppVersion.Text;
 
             // ---------------------------------------------------------
             // [신규] 사용자 설정 로드

@@ -11,6 +11,8 @@ namespace PocTrace.Core.Models
         // [수정] ID -> PointID로 변경 (쿼리에서 PointID로 가져옴)
         public Guid PointID { get; set; }
         public string HookupNumber { get; set; }
+        /// <summary>DDW attribute S5_LATERAL_NUMBER. 캐시 v12+.</summary>
+        public string PipeNumber { get; set; }
         public string PocNo { get; set; }
         /// <summary>WEBDB CONNECTORUSE. Hookup/PocNo는 PocID, ConnectorUse는 ConnectionPoint InstanceId로 조회.</summary>
         public string ConnectorUse { get; set; }

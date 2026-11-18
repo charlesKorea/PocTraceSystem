@@ -56,6 +56,7 @@ SELECT
     " + Text("mt.FAMILY_KEY", 256) + @" AS FamilyKey,
     " + IntNull("mt.BIM_YN") + @" AS BimYn,
     " + IntNull("div0.DIVISION_TYPE") + @" AS DivisionType,
+    " + Text("div0.DIVISION_VALUE", 256) + @" AS DivisionName,
     " + sub1 + @" AS Sub1Name,
     " + sub2 + @" AS Sub2Name,
     " + IntNull("sub1.DIVISION_TYPE") + @" AS Sub1DivisionType,
@@ -161,11 +162,14 @@ SELECT
     " + Text("nu.USER_NAME", 256) + @" AS UserName,
     " + Text("nu.COMPANY_NAME", 256) + @" AS CompanyName,
     " + Text("nu.LOGIN_ID", 256) + @" AS LoginId,
+    " + FloatNull("psz.DIAMETER") + @" AS PipeSizeMm,
     CAST(NULL AS nvarchar(512)) AS Tag,
     " + Op + @"
 FROM " + T(quotedDb, "TB_PIPEINSTANCES") + @" pi
 LEFT JOIN " + T(quotedDb, "TB_UTILITIES") + @" u
     ON u.UTILITY_ID = pi.UTILITY_ID AND u." + Live + @"
+LEFT JOIN " + T(quotedDb, "TB_PIPESIZE") + @" psz
+    ON psz.PIPESIZE_ID = pi.PIPESIZE_ID AND psz." + Live + @"
 LEFT JOIN " + T(quotedDb, "TB_VERSIONS") + @" v
     ON v.VERSION_NUMBER = pi.VERSION_SEQUENCE
 LEFT JOIN " + T(quotedDb, "TB_NEW_USERS") + @" nu
@@ -183,7 +187,7 @@ SELECT
     " + Op + @"
 FROM " + T(quotedDb, "TB_ATTRIBUTES") + @" a
 WHERE a." + Live + @"
-  AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER')";
+  AND a.ATTRIBUTE_NM IN (N'Element ID_Number', N'__MODULE_INFO', N'tag', N'Construction-code', N'ConnectionTag', N'S5_LATERAL_NUMBER', N'HookupNumber')";
         }
 
         /// <summary>

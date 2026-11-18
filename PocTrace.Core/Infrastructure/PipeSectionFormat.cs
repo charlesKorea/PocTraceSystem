@@ -95,6 +95,12 @@ namespace PocTrace.Core.Infrastructure
                 pipe.CompanyName = null;
             }
 
+            if (cacheVersion >= 12)
+            {
+                pipe.PipeType = r.ReadInt32();
+                pipe.PipeSizeMm = r.ReadDouble();
+            }
+
             return pipe;
         }
 
@@ -123,6 +129,8 @@ namespace PocTrace.Core.Infrastructure
                 w.Write(item.OpTime.Value.ToBinary());
             w.Write(item.UserName ?? "");
             w.Write(item.CompanyName ?? "");
+            w.Write(item.PipeType);
+            w.Write(item.PipeSizeMm);
         }
 
         private static Guid? ReadNullableGuid(BinaryReader r)

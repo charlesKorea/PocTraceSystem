@@ -581,6 +581,11 @@ namespace PocTrace.Core.Infrastructure.Repositories
                     node.BimGroupName = r.ReadString();
                 else
                     node.BimGroupName = null;
+                if (cacheVersion >= 12)
+                {
+                    node.ModelType = r.ReadInt32();
+                    node.DivisionName = r.ReadString();
+                }
                 list.Add(node);
             }
             return list;
@@ -653,6 +658,8 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 };
                 if (cacheVersion >= 9)
                     dp.ConnectorUse = r.ReadString();
+                if (cacheVersion >= 12)
+                    dp.PipeNumber = r.ReadString();
                 list.Add(dp);
             }
             return list;
@@ -679,6 +686,8 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 w.Write(item.BimId ?? "");
                 // v8+: BimGroupName
                 w.Write(item.BimGroupName ?? "");
+                w.Write(item.ModelType);
+                w.Write(item.DivisionName ?? "");
             }
         }
 
@@ -729,6 +738,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 w.Write(item.HookupNumber ?? "");
                 w.Write(item.PocNo ?? "");
                 w.Write(item.ConnectorUse ?? "");
+                w.Write(item.PipeNumber ?? "");
             }
         }
     }

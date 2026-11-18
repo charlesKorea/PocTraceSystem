@@ -311,7 +311,7 @@ namespace PocTrace.DdwAcceptance
             Check(DdwTypeCodes.ModelMeaning(50462976) == "structure(bim)" && DdwTypeCodes.PipeMeaning(17302528) == "ladder_cable_tray", "undefined type meanings");
             Check(bundle.Diagnostics.DeletedRowsSkipped >= 2, "DDW-05 operation type 2 skipped");
             Check(bundle.Pipes.Count == 0, "deleted pipe omitted");
-            Check(bundle.Nodes[0].InstanceNumericId == PocTrace.Core.Utils.DotNetGuidHash.FromGuid(G(70)), "numeric id from guid");
+            Check(bundle.Nodes[0].InstanceNumericId == 0, "ddw instance id is not the s5d hash");
         }
 
         private static void CacheRoundTrip()
@@ -480,6 +480,67 @@ namespace PocTrace.DdwAcceptance
             Check(tofRows[0].StartPocInformation == "from-memo" && tofRows[0].StartPocNo == "3", "x2_m poc no is connection order");
             Check(tofRows[0].FailCount > 0 && (tofRows[0].feedback ?? "").IndexOf("T.Tag EMPTY", StringComparison.Ordinal) >= 0, "empty damper tag is an error");
             Check(string.IsNullOrEmpty(tofRows[0].TargetPocGUID), "takeoff has no connector guid");
+
+            var nozEq = G(160);
+            var noz = G(161);
+            var nozPoc = G(162);
+            var nozCache = new GraphCacheManager();
+            nozCache.Initialize(
+                "x2_m",
+                new[]
+                {
+                    new NodeInfo { InstanceId = nozEq, Tag = "eqnoz", Type = NodeType.Equipment, Name = "EQ" },
+                    new NodeInfo { InstanceId = noz, Tag = "nz", Type = NodeType.Nozzle, Name = "TEE_NOZZLES", ModelType = 50856202 }
+                },
+                new[]
+                {
+                    new PocData { InstanceId = G(163), OwnerId = nozEq, Outlet = nozPoc, PocName = "OUT" },
+                    new PocData { InstanceId = nozPoc, OwnerId = noz, Information = "", PocName = "NZ" }
+                },
+                new PipeData[0],
+                new TakeoffData[0],
+                new DynamicPropertiesData[0],
+                null,
+                false);
+            var nozRows = new PocTrace.Core.Engine.TraceEngine(nozCache, new TraceAlgorithm(nozCache, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None)
+                .RunTrace("eqnoz", 0, false, System.Threading.CancellationToken.None);
+            Check(nozRows.Exists(x => x.STATUS == "NOZ"), "x2_m nozzle does not need information");
+            Check(!nozRows.Exists(x => (x.EndName ?? "").IndexOf("Missing Nozzle Info", StringComparison.Ordinal) >= 0), "x2_m skips missing nozzle info");
+
+            var hopPipe = G(170);
+            var hopEq = G(171);
+            var hopPoc = G(172);
+            var hopEnd = G(173);
+            var hop = new PipeData { PipeId = hopPipe, Length = 12.5, PipeType = 17301760, PipeSizeMm = 14.29, UtilityName = "N2" };
+            hop.ReplaceEndpoints(new[]
+            {
+                new PipeEndpoint { PocInstanceId = hopEnd, NormalizedTarget = hopPoc, Resolution = PipeEndpointResolution.Connected }
+            });
+            var hopCache = new GraphCacheManager();
+            hopCache.Initialize(
+                "x2_m",
+                new[] { new NodeInfo { InstanceId = hopEq, Tag = "eqhop", Type = NodeType.Equipment, Name = "EQ", DivisionName = "Process", Sub1Name = "1-MAIN", Sub2Name = "TOOL" } },
+                new[] { new PocData { InstanceId = hopPoc, OwnerId = hopEq, Outlet = hopPipe, PocName = "INLET", UtilityName = "N2", UtilityGroupName = "GAS" } },
+                new[] { hop },
+                new TakeoffData[0],
+                new[] { new DynamicPropertiesData { PointID = hopPipe, PipeNumber = "L1", HookupNumber = "H9" } },
+                null,
+                false);
+            var hopResult = new TraceResult
+            {
+                StartPocId = hopPoc,
+                Steps = new List<TraceStep>
+                {
+                    new TraceStep { StepIndex = 1, NodeId = hopEq, NodeName = "EQ", NodeType = "Equipment", OutletUsed = hopPipe },
+                    new TraceStep { StepIndex = 2, NodeId = hopPipe, NodeName = "", NodeType = "PipeSeg" }
+                }
+            };
+            var sheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(hopCache, new[] { hopResult });
+            Check(sheet.Count == 1 && (int)sheet[0][3] == 1, "trace sheet num starts at 1");
+            Check((string)sheet[0][0] == "INLET" && (string)sheet[0][1] == "pipe", "trace sheet poc names");
+            Check((string)sheet[0][2] == PocTrace.Core.Infrastructure.DdwId.Text(hopEnd), "trace sheet connected ddw id");
+            Check((string)sheet[0][5] == "standard" && (double)sheet[0][13] == 12.5, "trace sheet pipe type and length2");
+            Check((string)sheet[0][14] == "L1" && (string)sheet[0][17] == "H9", "pipe number and hookup number");
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)

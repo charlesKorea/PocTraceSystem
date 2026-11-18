@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using PocTrace.Core.Enums;
 using PocTrace.Core.Models;
-using PocTrace.Core.Utils;
 
 namespace PocTrace.Core.Infrastructure.Data
 {
@@ -41,6 +40,7 @@ namespace PocTrace.Core.Infrastructure.Data
         public string FamilyKey { get; set; }
         public int? BimYn { get; set; }
         public int? DivisionType { get; set; }
+        public string DivisionName { get; set; }
         public string Sub1Name { get; set; }
         public string Sub2Name { get; set; }
         public int? Sub1DivisionType { get; set; }
@@ -85,6 +85,7 @@ namespace PocTrace.Core.Infrastructure.Data
         public string CompanyName { get; set; }
         public string LoginId { get; set; }
         public string Tag { get; set; }
+        public double? PipeSizeMm { get; set; }
         public int OperationType { get; set; }
     }
 
@@ -117,12 +118,14 @@ namespace PocTrace.Core.Infrastructure.Data
         {
             var diag = new DdwLoadDiagnostics();
             var elementIds = new Dictionary<Guid, string>();
+            var props = new Dictionary<Guid, DynamicPropertiesData>();
             var modules = new Dictionary<Guid, string>();
             var tags = new Dictionary<Guid, string>();
             var constructions = new Dictionary<Guid, string>();
             var connectionTags = new Dictionary<Guid, string>();
             var hookups = new List<DynamicPropertiesData>();
-            AbsorbAttributes(attributes, elementIds, modules, tags, constructions, connectionTags, hookups, diag);
+            AbsorbAttributes(attributes, elementIds, modules, tags, constructions, connectionTags, props, diag);
+            hookups.AddRange(props.Values);
 
             var pipeRows = new List<DdwPipeRow>();
             var pipeIds = new HashSet<Guid>();
@@ -181,6 +184,8 @@ namespace PocTrace.Core.Infrastructure.Data
                 {
                     PipeId = row.InstanceId,
                     Length = NormalizeLength(row.Length),
+                    PipeType = row.PipeType,
+                    PipeSizeMm = row.PipeSizeMm ?? 0,
                     UtilityName = row.UtilityName ?? "",
                     OpTime = row.OpTime,
                     UserName = FirstFilled(row.UserName, row.LoginId),
@@ -308,7 +313,9 @@ namespace PocTrace.Core.Infrastructure.Data
                     nodeDtos.Add(new NodeInfo
                     {
                         InstanceId = row.InstanceId,
-                        InstanceNumericId = DotNetGuidHash.FromGuid(row.InstanceId),
+                        InstanceNumericId = 0,
+                        ModelType = row.ModelType ?? 0,
+                        DivisionName = row.DivisionName ?? "",
                         Tag = FirstFilled(row.Tag, Lookup(tags, row.InstanceId)),
                         Name = row.Name ?? "",
                         Type = type,
@@ -384,7 +391,7 @@ namespace PocTrace.Core.Infrastructure.Data
             Dictionary<Guid, string> tags,
             Dictionary<Guid, string> constructions,
             Dictionary<Guid, string> connectionTags,
-            List<DynamicPropertiesData> hookups,
+            Dictionary<Guid, DynamicPropertiesData> props,
             DdwLoadDiagnostics diag)
         {
             if (attributes == null)
@@ -418,13 +425,26 @@ namespace PocTrace.Core.Infrastructure.Data
                     Put(connectionTags, row, diag);
                 else if (string.Equals(row.Name, "S5_LATERAL_NUMBER", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(row.Value))
                 {
-                    hookups.Add(new DynamicPropertiesData
-                    {
-                        PointID = row.OwnerId,
-                        HookupNumber = row.Value
-                    });
+                    var dp = Prop(props, row.OwnerId);
+                    dp.PipeNumber = row.Value;
+                }
+                else if (string.Equals(row.Name, "HookupNumber", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(row.Value))
+                {
+                    var dp = Prop(props, row.OwnerId);
+                    dp.HookupNumber = row.Value;
                 }
             }
+        }
+
+        private static DynamicPropertiesData Prop(Dictionary<Guid, DynamicPropertiesData> props, Guid ownerId)
+        {
+            DynamicPropertiesData dp;
+            if (!props.TryGetValue(ownerId, out dp))
+            {
+                dp = new DynamicPropertiesData { PointID = ownerId };
+                props[ownerId] = dp;
+            }
+            return dp;
         }
 
         private static void Put(Dictionary<Guid, string> map, DdwAttributeRow row, DdwLoadDiagnostics diag)

@@ -70,6 +70,7 @@
     <Compile Include="Composition\PocTraceAppServices.cs" />
     <Compile Include="Engine\Interfaces\ITraceEngine.cs" />
     <Compile Include="Engine\Logic\TraceExecutionReport.cs" />
+    <Compile Include="Engine\Reporting\DdwTraceSheet.cs" />
     <Compile Include="Engine\Reporting\EquipmentSummaryBuilder.cs" />
     <Compile Include="Engine\Reporting\TraceExcelReportService.cs" />
     <Compile Include="Engine\Reporting\TraceResultExcelExporter.cs" />
@@ -114,6 +115,8 @@
     <Compile Include="Infrastructure\Data\SchemaReadinessProbe.cs" />
     <Compile Include="Infrastructure\Data\SchemaReadinessExcel.cs" />
     <Compile Include="Enums\TraceEnums.cs" />
+    <Compile Include="Infrastructure\DdwId.cs" />
+    <Compile Include="Infrastructure\ProductVersion.cs" />
     <Compile Include="Infrastructure\CacheConstants.cs" />
     <Compile Include="Infrastructure\CacheGenerationStore.cs" />
     <Compile Include="Infrastructure\PocTraceLocalPaths.cs" />

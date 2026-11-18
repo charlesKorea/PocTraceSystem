@@ -2,6 +2,7 @@ using LargeXlsx;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Models;
 using Serilog;
 using System;
@@ -380,7 +381,7 @@ namespace PocTrace.Core.Engine.Reporting
                 r.StartNodeTag ?? string.Empty,
                 r.ConstructionCode ?? string.Empty,
                 r.BimId ?? string.Empty,
-                FormatInstanceIdText(r.InstanceNumericId),
+                DdwLine.IsCacheKey(r.Line) ? DdwId.Text(r.StartNodeGUID) : FormatInstanceIdText(r.InstanceNumericId),
                 r.StartNodeGUID.ToString(),
                 r.StartPocGUID ?? string.Empty,
                 r.BranchedPipes,

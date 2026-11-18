@@ -46,6 +46,7 @@
             this.panelStatus = new MetroFramework.Controls.MetroPanel();
             this.lblStatus = new MetroFramework.Controls.MetroLabel();
             this.lblCacheStatus = new MetroFramework.Controls.MetroLabel();
+            this.lblVersion = new MetroFramework.Controls.MetroLabel();
             this.panelInput.SuspendLayout();
             this.panelGrid.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridResults)).BeginInit();
@@ -237,6 +238,7 @@
             // 
             this.panelStatus.Controls.Add(this.lblStatus);
             this.panelStatus.Controls.Add(this.lblCacheStatus);
+            this.panelStatus.Controls.Add(this.lblVersion);
             this.panelStatus.HorizontalScrollbarBarColor = true;
             this.panelStatus.HorizontalScrollbarHighlightOnWheel = false;
             this.panelStatus.HorizontalScrollbarSize = 10;
@@ -268,6 +270,18 @@
             this.lblCacheStatus.Size = new System.Drawing.Size(122, 19);
             this.lblCacheStatus.TabIndex = 1;
             this.lblCacheStatus.Text = "Cache: Not Loaded";
+            // 
+            // lblVersion
+            // 
+            this.lblVersion.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblVersion.AutoSize = true;
+            this.lblVersion.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.lblVersion.ForeColor = System.Drawing.Color.Gray;
+            this.lblVersion.Location = new System.Drawing.Point(960, 20);
+            this.lblVersion.Name = "lblVersion";
+            this.lblVersion.Size = new System.Drawing.Size(37, 15);
+            this.lblVersion.TabIndex = 2;
+            this.lblVersion.Text = "1.001";
             // 
             // MainForm
             // 
@@ -308,5 +322,6 @@
         private MetroFramework.Controls.MetroProgressSpinner spinnerLoading;
         private MetroFramework.Controls.MetroLabel lblStatus;
         private MetroFramework.Controls.MetroLabel lblCacheStatus;
+        private MetroFramework.Controls.MetroLabel lblVersion;
     }
 }

@@ -12,6 +12,8 @@ using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Engine.Validation;
+using PocTrace.Core.Infrastructure;
+using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Enums;
 using PocTrace.Core.Models;
 using Serilog;
@@ -44,6 +46,7 @@ namespace PocTrace.Core.Engine.Reporting
                 // 📊 Sheet 1: Summary (정답지 비교용 Status 집계표)
                 // =========================================================
                 var wsSum = package.Workbook.Worksheets.Add("Summary");
+                wsSum.Cells["M1"].Value = ProductVersion.Display();
 
                 // 💡 [개편] 사용자 요청 규격에 맞춘 심플한 헤더 구성
                 string[] statusHeaders = { "설비id", "cap", "emp", "eqp", "ing", "noz", "tof", "err", "total" };
@@ -142,7 +145,8 @@ namespace PocTrace.Core.Engine.Reporting
                     wsSum.Cells[row, 6].Value = s.DerivedBranchCount;
 
                     wsSum.Cells[row, 7].Value = s.TotalHopCount;
-                    wsSum.Cells[row, 8].Value = s.TotalLength;
+                    wsSum.Cells[row, 8].Value = Math.Round(s.TotalLength, 1);
+                    wsSum.Cells[row, 8].Style.Numberformat.Format = "0.0";
 
                     // [신규] 작업자 정보
                     wsSum.Cells[row, 9].Value = s.LatestOpTime;
@@ -395,10 +399,32 @@ namespace PocTrace.Core.Engine.Reporting
                 foreach (var p in pipeStats)
                 {
                     wsPath.Cells[pipeRow, 5].Value = p.Name;     // E열
-                    wsPath.Cells[pipeRow, 6].Value = p.TotalLen; // F열
+                    wsPath.Cells[pipeRow, 6].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
+                    wsPath.Cells[pipeRow, 6].Style.Numberformat.Format = "0.0";
                     pipeRow++;
                 }
                 wsPath.Cells.AutoFitColumns();
+
+                if (cache != null && DdwLine.IsCacheKey(cache.DbName))
+                {
+                    var wsTrace = package.Workbook.Worksheets.Add("추적");
+                    for (int c = 0; c < DdwTraceSheet.Headers.Length; c++)
+                    {
+                        wsTrace.Cells[1, c + 1].Value = DdwTraceSheet.Headers[c];
+                        wsTrace.Cells[1, c + 1].Style.Font.Bold = true;
+                        wsTrace.Cells[1, c + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        wsTrace.Cells[1, c + 1].Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+                    }
+                    var traceRows = DdwTraceSheet.Build(cache, details);
+                    for (int i = 0; i < traceRows.Count; i++)
+                    {
+                        var line = traceRows[i];
+                        for (int c = 0; c < line.Length; c++)
+                            wsTrace.Cells[i + 2, c + 1].Value = line[c];
+                    }
+                    wsTrace.View.FreezePanes(2, 1);
+                    wsTrace.Cells.AutoFitColumns();
+                }
 
                 // =========================================================
                 // 🛠️ Sheet 4–5: Hookup — Core HookupExcelReportWriter
