@@ -46,7 +46,7 @@ namespace PocTrace.Core.Engine.Reporting
                 // 📊 Sheet 1: Summary (정답지 비교용 Status 집계표)
                 // =========================================================
                 var wsSum = package.Workbook.Worksheets.Add("Summary");
-                wsSum.Cells["M1"].Value = ProductVersion.Display();
+                wsSum.Cells["M1"].Value = TraceAppVersion.Display();
 
                 // 💡 [개편] 사용자 요청 규격에 맞춘 심플한 헤더 구성
                 string[] statusHeaders = { "설비id", "cap", "emp", "eqp", "ing", "noz", "tof", "err", "total" };

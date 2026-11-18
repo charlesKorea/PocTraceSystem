@@ -116,7 +116,7 @@
     <Compile Include="Infrastructure\Data\SchemaReadinessExcel.cs" />
     <Compile Include="Enums\TraceEnums.cs" />
     <Compile Include="Infrastructure\DdwId.cs" />
-    <Compile Include="Infrastructure\ProductVersion.cs" />
+    <Compile Include="Infrastructure\TraceAppVersion.cs" />
     <Compile Include="Infrastructure\CacheConstants.cs" />
     <Compile Include="Infrastructure\CacheGenerationStore.cs" />
     <Compile Include="Infrastructure\PocTraceLocalPaths.cs" />

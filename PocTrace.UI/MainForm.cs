@@ -42,7 +42,7 @@ namespace PocTrace.UI
         {
             InitializeComponent();
             _viewModel = viewModel;
-            ProductVersion.Current = AppVersion.Text;
+            TraceAppVersion.Current = AppVersion.Text;
             lblVersion.Text = AppVersion.Text;
 
             // ---------------------------------------------------------
