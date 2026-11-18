@@ -163,7 +163,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
             progress?.Report("캐시: takeoffs 로드…(缓存: 正在加载 takeoffs…)");
             var takeoffs = ReadSectionFile(
                 GlobalConfig.GetSectionFilePathIn(liveDir, CacheSectionKind.Takeoffs),
-                r => ReadTakeoffs(r), CacheSectionKind.Takeoffs, manifest);
+                r => ReadTakeoffs(r, manifest.GetSectionVersion(CacheSectionKind.Takeoffs)), CacheSectionKind.Takeoffs, manifest);
 
             progress?.Report("캐시: dynprops 로드…(缓存: 正在加载 dynprops…)");
             var dynVersion = manifest.GetSectionVersion(CacheSectionKind.DynProps);
@@ -207,7 +207,7 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 BimIdDiagnostics.AnalyzeAndLog("CacheLoadLegacy", dbName, cacheVersion, nodes);
                 var pocs = ReadPocs(reader, cacheVersion);
                 var pipes = ReadPipes(reader, cacheVersion);
-                var takeoffs = ReadTakeoffs(reader);
+                var takeoffs = ReadTakeoffs(reader, cacheVersion);
                 var dynamicProperties = ReadDynamicProperties(reader, cacheVersion);
 
                 return new CacheLoadResult
@@ -626,19 +626,26 @@ namespace PocTrace.Core.Infrastructure.Repositories
             return PipeSectionFormat.Read(r, cacheVersion);
         }
 
-        private List<TakeoffData> ReadTakeoffs(BinaryReader r)
+        private List<TakeoffData> ReadTakeoffs(BinaryReader r, int cacheVersion)
         {
             int count = r.ReadInt32();
             MemoryLoadLog.EnsureRecordCount("Cache.Takeoffs", count, r.BaseStream.Length);
             var list = new List<TakeoffData>(count);
             for (int i = 0; i < count; i++)
             {
-                list.Add(new TakeoffData
+                var item = new TakeoffData
                 {
                     TakeoffId = new Guid(r.ReadBytes(16)),
                     Tag = r.ReadString(),
                     PipeId = new Guid(r.ReadBytes(16))
-                });
+                };
+                if (cacheVersion >= 13)
+                {
+                    item.ConnectionTag = r.ReadString();
+                    item.PocId = new Guid(r.ReadBytes(16));
+                    item.DuctPipeId = new Guid(r.ReadBytes(16));
+                }
+                list.Add(item);
             }
             return list;
         }
@@ -726,6 +733,9 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 w.Write(item.TakeoffId.ToByteArray());
                 w.Write(item.Tag ?? "");
                 w.Write(item.PipeId.ToByteArray());
+                w.Write(item.ConnectionTag ?? "");
+                w.Write(item.PocId.ToByteArray());
+                w.Write(item.DuctPipeId.ToByteArray());
             }
         }
 

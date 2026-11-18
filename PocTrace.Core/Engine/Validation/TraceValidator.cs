@@ -135,14 +135,6 @@ namespace PocTrace.Core.Engine.Validation
             r.totalInvalidCount++;
         }
 
-        /// <summary>x2_m EMP는 빈 Utility를 미사용으로 보지 않는다. 미사용·spare 같은 글자가 있을 때만 제외한다.</summary>
-        private bool NamedUnused(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return false;
-            return util.예외대상이름여부(name);
-        }
-
         /// <summary>기준정보/장비 이슈 제목이면 true (부분문자열, 공백 변형 허용).</summary>
         private static bool IsMasterOrEquipmentIssueTitle(string msg)
         {
@@ -416,12 +408,9 @@ namespace PocTrace.Core.Engine.Validation
             if (r.STATUS.Equals("EMP"))
             // && !poc.connectorUse.Equals("N")) //24.05.14 connector use N이어도 체크 대상
             {
-                bool unusedName = DdwLine.IsCacheKey(r.Line)
-                    ? NamedUnused(r.StartPocUtilityName) || NamedUnused(r.StartPocName) || NamedUnused(r.StartPocUtilityGroup)
-                    : util.예외대상이름여부(r.StartPocUtilityName) ||
-                      util.예외대상이름여부(r.StartPocName) ||
-                      util.예외대상이름여부(r.StartPocUtilityGroup);
-                if (unusedName)
+                if (util.예외대상이름여부(r.StartPocUtilityName) ||
+                    util.예외대상이름여부(r.StartPocName) ||
+                    util.예외대상이름여부(r.StartPocUtilityGroup))
                 {
                     //24.05.14 3차 검수 대상 포함
                     if (util.IsStringContains(r.StartPocUtilityGroup, "etc") && util.IsStringContains(r.StartPocUtilityName, "3rd"))

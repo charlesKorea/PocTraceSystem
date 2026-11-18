@@ -40,6 +40,10 @@ namespace PocTrace.Core.Engine.Reporting
                     Guid startPocId = ResolveStartPoc(cache, result, prev, cur, i);
                     Guid endPocId = ResolveEndPoc(cache, prev, cur, startPocId);
                     bool endPipe = IsPipe(cur);
+                    string tag;
+                    string connectionTag;
+                    Guid attributeOwner;
+                    ResolveAttributes(cache, cur, endPocId, out tag, out connectionTag, out attributeOwner);
                     rows.Add(new object[]
                     {
                         PocLabel(cache, startPocId),
@@ -56,10 +60,10 @@ namespace PocTrace.Core.Engine.Reporting
                         Utility(cache, endPocId, cur, endPipe),
                         PipeSize(cache, cur, endPipe),
                         endPipe ? PipeLength(cache, cur.NodeId) : 0d,
-                        Prop(cache, PipeNumberOwner(cache, cur), true),
-                        Tag(cache, cur, endPipe),
-                        ConnectionTag(cache, endPocId),
-                        Prop(cache, cur.NodeId, false)
+                        Prop(cache, attributeOwner, true),
+                        tag,
+                        connectionTag,
+                        Prop(cache, attributeOwner, false)
                     });
                 }
             }
@@ -241,32 +245,45 @@ namespace PocTrace.Core.Engine.Reporting
             return pipe.Length;
         }
 
-        private static string Tag(IGraphCache cache, TraceStep step, bool endPipe)
+        /// <summary>
+        /// tag와 connection tag는 POC id. pipe number와 hookup number는 객체 id.
+        /// 노즐 객체 id가 스텝에 있고, 스텝 id가 POC면 owner로 올린다.
+        /// Takeoff는 그 POC의 connected poc를 한 번만 따라간 duct pipe id를 쓴다.
+        /// </summary>
+        private static void ResolveAttributes(IGraphCache cache, TraceStep step, Guid endPocId, out string tag, out string connectionTag, out Guid attributeOwner)
         {
-            if (endPipe || step == null)
-                return "";
+            tag = "";
+            connectionTag = "";
+            attributeOwner = Guid.Empty;
+            if (step == null)
+                return;
+
             if (step.NodeType != null && step.NodeType.Equals("Takeoff", StringComparison.OrdinalIgnoreCase))
             {
                 TakeoffData takeoff;
                 if (cache.TryGetTakeoff(step.NodeId, out takeoff) && takeoff != null)
-                    return takeoff.Tag ?? "";
-                return "";
+                {
+                    tag = takeoff.Tag ?? "";
+                    connectionTag = takeoff.ConnectionTag ?? "";
+                    attributeOwner = takeoff.DuctPipeId;
+                }
+                return;
             }
-            NodeInfo node;
-            if (cache.TryGetNode(step.NodeId, out node) && node != null)
-                return node.Tag ?? "";
-            return "";
-        }
 
-        /// <summary>노즐 pipe number는 도착 POC가 아니라 노즐 객체 id의 S5_LATERAL_NUMBER다.</summary>
-        private static Guid PipeNumberOwner(IGraphCache cache, TraceStep step)
-        {
-            if (step == null)
-                return Guid.Empty;
+            tag = PocTag(cache, endPocId);
+            connectionTag = ConnectionTag(cache, endPocId);
+            attributeOwner = step.NodeId;
             PocData poc;
             if (cache.TryGetPoc(step.NodeId, out poc) && poc != null && poc.OwnerId != Guid.Empty)
-                return poc.OwnerId;
-            return step.NodeId;
+                attributeOwner = poc.OwnerId;
+        }
+
+        private static string PocTag(IGraphCache cache, Guid pocId)
+        {
+            PocData poc;
+            if (pocId != Guid.Empty && cache.TryGetPoc(pocId, out poc) && poc != null)
+                return poc.Tag ?? "";
+            return "";
         }
 
         private static string ConnectionTag(IGraphCache cache, Guid pocId)

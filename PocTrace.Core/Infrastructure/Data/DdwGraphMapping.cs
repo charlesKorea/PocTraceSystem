@@ -212,12 +212,13 @@ namespace PocTrace.Core.Infrastructure.Data
                     var holder = new PipeData { PipeId = row.InstanceId };
                     holder.ReplaceEndpoints(eps);
                     NoteEndpointShape(holder, diag);
-                    takeoffs.Add(new TakeoffData
+                    var takeoff = new TakeoffData
                     {
                         TakeoffId = row.InstanceId,
-                        Tag = FirstFilled(row.Tag, Lookup(tags, row.InstanceId)),
                         PipeId = ContinuationPipeId(holder.Endpoints, pipeIds)
-                    });
+                    };
+                    BindTakeoffPoc(takeoff, holder.Endpoints, pipes, tags, connectionTags);
+                    takeoffs.Add(takeoff);
                 }
             }
             diag.TakeoffCount = takeoffs.Count;
@@ -367,6 +368,57 @@ namespace PocTrace.Core.Infrastructure.Data
                 rest = rest.Substring(0, cut);
             rest = rest.Trim();
             return rest.Length == 0 ? null : rest;
+        }
+
+        /// <summary>
+        /// Takeoff 끝점 중 connected poc의 owner가 duct pipe인 것을 고른다. 없으면 연결된 배관 owner를 쓴다.
+        /// tag와 connection tag는 그 takeoff POC id로 찾는다.
+        /// </summary>
+        private static void BindTakeoffPoc(
+            TakeoffData takeoff,
+            IList<PipeEndpoint> endpoints,
+            IEnumerable<DdwPipeRow> pipes,
+            Dictionary<Guid, string> tags,
+            Dictionary<Guid, string> connectionTags)
+        {
+            var typeById = new Dictionary<Guid, int>();
+            if (pipes != null)
+            {
+                foreach (var row in pipes)
+                {
+                    if (row != null)
+                        typeById[row.InstanceId] = row.PipeType;
+                }
+            }
+
+            PipeEndpoint chosen = null;
+            bool chosenDuct = false;
+            if (endpoints != null)
+            {
+                for (int i = 0; i < endpoints.Count; i++)
+                {
+                    var ep = endpoints[i];
+                    if (ep == null || ep.Resolution != PipeEndpointResolution.Connected || !ep.NormalizedTarget.HasValue)
+                        continue;
+                    if (ep.NormalizedTarget.Value == Guid.Empty)
+                        continue;
+                    int type;
+                    bool duct = typeById.TryGetValue(ep.NormalizedTarget.Value, out type)
+                        && DdwTypeCodes.PipeFamily(type) == "duct";
+                    if (chosen == null || (duct && !chosenDuct))
+                    {
+                        chosen = ep;
+                        chosenDuct = duct;
+                    }
+                }
+            }
+
+            if (chosen == null)
+                return;
+            takeoff.PocId = chosen.PocInstanceId;
+            takeoff.DuctPipeId = chosen.NormalizedTarget.Value;
+            takeoff.Tag = Lookup(tags, chosen.PocInstanceId) ?? "";
+            takeoff.ConnectionTag = Lookup(connectionTags, chosen.PocInstanceId) ?? "";
         }
 
         public static Guid ContinuationPipeId(IList<PipeEndpoint> endpoints, ISet<Guid> ordinaryPipeIds)

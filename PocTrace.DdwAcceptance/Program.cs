@@ -579,7 +579,7 @@ namespace PocTrace.DdwAcceptance
                     new NodeInfo { InstanceId = nzEq, Tag = "eq", Type = NodeType.Equipment, Name = "EQ" },
                     new NodeInfo { InstanceId = nzObj, Tag = "nz", Type = NodeType.Nozzle, Name = "NZ" }
                 },
-                new[] { new PocData { InstanceId = nzPocId, OwnerId = nzObj, PocName = "NZPOC" } },
+                new[] { new PocData { InstanceId = nzPocId, OwnerId = nzObj, PocName = "NZPOC", Tag = "PTAG", ReferenceTag = "CTAG" } },
                 new PipeData[0],
                 new TakeoffData[0],
                 new[]
@@ -601,6 +601,62 @@ namespace PocTrace.DdwAcceptance
                 }
             });
             Check(nzSheet.Count == 1 && (string)nzSheet[0][14] == "OBJ-L", "nozzle pipe number is the object lateral");
+            Check((string)nzSheet[0][15] == "PTAG" && (string)nzSheet[0][16] == "CTAG", "nozzle tag and connection tag come from the poc");
+
+            var tofPipe = G(210);
+            var tofPoc = G(211);
+            var duct = G(212);
+            var ductPoc = G(213);
+            var mainPipe = G(214);
+            var mainPoc = G(215);
+            var tofBundle = DdwGraphNormalizer.Build(
+                null,
+                null,
+                new[]
+                {
+                    Endpoint(tofPipe, tofPoc, 0, ductPoc, DdwGraphNormalizer.PipeOwnerType, duct),
+                    Endpoint(tofPipe, mainPoc, 1, G(216), DdwGraphNormalizer.PipeOwnerType, mainPipe)
+                },
+                new[]
+                {
+                    new DdwPipeRow { InstanceId = tofPipe, PipeType = DdwGraphNormalizer.TakeoffPipeType, Length = 1, OperationType = 0 },
+                    new DdwPipeRow { InstanceId = duct, PipeType = 17303552, Length = 8, OperationType = 0 },
+                    new DdwPipeRow { InstanceId = mainPipe, PipeType = 17301760, Length = 4, OperationType = 0 }
+                },
+                new[]
+                {
+                    new DdwAttributeRow { OwnerId = tofPoc, Name = "tag", Value = "T1", OperationType = 0 },
+                    new DdwAttributeRow { OwnerId = tofPoc, Name = "ConnectionTag", Value = "C1", OperationType = 0 },
+                    new DdwAttributeRow { OwnerId = duct, Name = "S5_LATERAL_NUMBER", Value = "DUCT-L", OperationType = 0 },
+                    new DdwAttributeRow { OwnerId = tofPoc, Name = "S5_LATERAL_NUMBER", Value = "POC-L", OperationType = 0 },
+                    new DdwAttributeRow { OwnerId = tofPipe, Name = "S5_LATERAL_NUMBER", Value = "TOF-L", OperationType = 0 }
+                });
+            Check(tofBundle.Takeoffs.Count == 1 && tofBundle.Takeoffs[0].DuctPipeId == duct && tofBundle.Takeoffs[0].PocId == tofPoc, "takeoff follows one connected poc to the duct");
+            Check(tofBundle.Takeoffs[0].PipeId == mainPipe, "takeoff continuation stays the hookup pipe");
+            Check(tofBundle.Takeoffs[0].Tag == "T1" && tofBundle.Takeoffs[0].ConnectionTag == "C1", "takeoff tag comes from its poc");
+            var tofAttrCache = new GraphCacheManager();
+            tofAttrCache.Initialize(
+                "x2_m",
+                new NodeInfo[0],
+                new PocData[0],
+                new PipeData[0],
+                tofBundle.Takeoffs,
+                tofBundle.HookupNumbers,
+                null,
+                false);
+            var tofAttrSheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(tofAttrCache, new[]
+            {
+                new TraceResult
+                {
+                    Steps = new List<TraceStep>
+                    {
+                        new TraceStep { NodeId = G(217), NodeType = "Equipment" },
+                        new TraceStep { NodeId = tofPipe, NodeType = "Takeoff", NodeName = "Damper[]" }
+                    }
+                }
+            });
+            Check(tofAttrSheet.Count == 1 && (string)tofAttrSheet[0][14] == "DUCT-L", "takeoff pipe number is the duct lateral");
+            Check((string)tofAttrSheet[0][15] == "T1" && (string)tofAttrSheet[0][16] == "C1", "takeoff tag columns stay on the poc");
 
             var empEq = G(200);
             var empA = G(201);
@@ -618,7 +674,7 @@ namespace PocTrace.DdwAcceptance
             validator.Validate(empCache, empBlank, pocBlank, empNode, null, null, empRows, null);
             Check(empFilled.BranchedPipes == 0 && empBlank.BranchedPipes == 0, "emp branch count is 0");
             Check((empFilled.IssueType ?? "").IndexOf("모델링 없음", StringComparison.Ordinal) >= 0, "emp with utility is modeling absent");
-            Check((empBlank.IssueType ?? "").IndexOf("모델링 없음", StringComparison.Ordinal) >= 0, "x2_m blank utility emp is modeling absent");
+            Check(string.IsNullOrEmpty(empBlank.IssueType), "blank utility emp stays pass");
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)
