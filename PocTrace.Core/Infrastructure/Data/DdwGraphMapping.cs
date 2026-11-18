@@ -24,6 +24,7 @@ namespace PocTrace.Core.Infrastructure.Data
         public int DeletedRowsSkipped;
         public int TakeoffCount;
         public int AttributeDuplicates;
+        public int PipeNumberAttributes;
         public List<string> UnknownSamples = new List<string>();
     }
 
@@ -126,6 +127,8 @@ namespace PocTrace.Core.Infrastructure.Data
             var hookups = new List<DynamicPropertiesData>();
             AbsorbAttributes(attributes, elementIds, modules, tags, constructions, connectionTags, props, diag);
             hookups.AddRange(props.Values);
+            // [DEBUG pipe number] 주석 처리하면 이 한 줄이 멈춘다.
+            Serilog.Log.Information("[DDW pipe number] cache S5_LATERAL_NUMBER={Count}", diag.PipeNumberAttributes);
 
             var pipeRows = new List<DdwPipeRow>();
             var pipeIds = new HashSet<Guid>();
@@ -222,6 +225,14 @@ namespace PocTrace.Core.Infrastructure.Data
                 }
             }
             diag.TakeoffCount = takeoffs.Count;
+            // [DEBUG pipe number] 주석 처리하면 이 한 줄이 멈춘다.
+            int ductIds = 0;
+            for (int i = 0; i < takeoffs.Count; i++)
+            {
+                if (takeoffs[i] != null && takeoffs[i].DuctPipeId != Guid.Empty)
+                    ductIds++;
+            }
+            Serilog.Log.Information("[DDW pipe number] takeoff={Takeoff} ductPipeId={Duct}", takeoffs.Count, ductIds);
 
             var pocDtos = new List<PocData>();
             if (modelPocs != null)
@@ -479,6 +490,7 @@ namespace PocTrace.Core.Infrastructure.Data
                 {
                     var dp = Prop(props, row.OwnerId);
                     dp.PipeNumber = row.Value;
+                    diag.PipeNumberAttributes++;
                 }
                 else if (string.Equals(row.Name, "HookupNumber", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(row.Value))
                 {
