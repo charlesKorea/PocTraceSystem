@@ -136,7 +136,10 @@ namespace PocTrace.Web
                     return;
                 }
 
-                if (method == "GET" && TryUiAsset(path, out string assetPath, out string assetType))
+                string assetPath;
+                string assetType;
+                if (method == "GET" && (TryUiAsset(path, out assetPath, out assetType)
+                    || TryFontAsset(path, out assetPath, out assetType)))
                 {
                     WriteFile(context, assetPath, assetType);
                     return;
@@ -609,6 +612,28 @@ namespace PocTrace.Web
             context.Response.OutputStream.Close();
         }
 
+        private bool TryFontAsset(string path, out string fullPath, out string contentType)
+        {
+            fullPath = null;
+            contentType = null;
+            const string prefix = "/assets/fonts/";
+            if (path == null || !path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return false;
+            string relative = path.Substring(prefix.Length).Replace('/', Path.DirectorySeparatorChar);
+            if (relative.Length == 0 || relative.IndexOf("..", StringComparison.Ordinal) >= 0)
+                return false;
+            string ext = Path.GetExtension(relative).ToLowerInvariant();
+            if (ext == ".woff2") contentType = "font/woff2";
+            else if (ext == ".woff") contentType = "font/woff";
+            else return false;
+
+            string root = Path.GetFullPath(Path.Combine(_wwwroot, "assets", "fonts"));
+            fullPath = Path.GetFullPath(Path.Combine(root, relative));
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return File.Exists(fullPath);
+        }
+
         private bool TryUiAsset(string path, out string fullPath, out string contentType)
         {
             fullPath = null;
@@ -625,6 +650,8 @@ namespace PocTrace.Web
             else if (ext == ".ico") contentType = "image/x-icon";
             else if (ext == ".css") contentType = "text/css; charset=utf-8";
             else if (ext == ".js") contentType = "application/javascript; charset=utf-8";
+            else if (ext == ".woff2") contentType = "font/woff2";
+            else if (ext == ".woff") contentType = "font/woff";
             else return false;
 
             string root = Path.GetFullPath(Path.Combine(_wwwroot, "assets", "jcs-ui"));

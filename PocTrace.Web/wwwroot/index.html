@@ -13,10 +13,9 @@
     <div class="brand">
       <img class="mark" src="/assets/jcs-ui/brand/mark.png" width="40" height="40" alt="" />
       <div>
-        <div class="brand-name">M-Link <span data-i18n="brandSub">Pipe Trace</span></div>
+        <div class="brand-name">M-Link <span data-i18n="brandSub">Pipe Trace</span><span class="ver" id="appVersion">1.001</span></div>
         <p class="note" data-i18n="note">이 화면은 현재 PC에서만 열립니다. Viewer exe는 그대로 사용할 수 있습니다.</p>
         <p class="note" id="licenseLine" data-i18n="licenseLoading">라이선스를 확인하는 중...</p>
-        <div class="memchip" id="memChip" hidden role="status"></div>
       </div>
     </div>
     <div class="tools">
@@ -33,15 +32,17 @@
   </header>
 
   <main class="wrap">
+  <div class="workbench">
+  <div class="work-main">
     <section class="card stage" id="lineBar">
       <p class="eyebrow" data-i18n="stepCache">1 · Line · Cache</p>
-      <h1 data-i18n="lineTitle">Line을 고른 뒤 Cache 불러오기를 누르세요</h1>
+      <h1 data-i18n="pageTitle">Pipe Trace</h1>
+      <p class="hint" data-i18n="lineTitle">Line을 고른 뒤 Cache 불러오기를 누르세요</p>
       <label for="db" data-i18n="line">Line</label>
       <select id="db"></select>
       <div class="actions">
         <button id="loadCacheBtn" class="primary" type="button" data-i18n="loadCache">Cache 불러오기</button>
       </div>
-      <p class="hint" id="lineHint"></p>
       <div class="status">
         <div class="status-row">
           <span id="statusIcon" class="status-icon" aria-hidden="true">·</span>
@@ -56,23 +57,7 @@
         </div>
         <div id="recentJobs" class="recent"></div>
       </div>
-      <section class="kpis" id="traceKpis">
-        <article class="kpi">
-          <div class="kpi-label" data-i18n="kpiCache">사용 가능 Cache</div>
-          <div class="kpi-value" id="kpiCache">-</div>
-          <div class="kpi-sub" id="kpiCacheSub"></div>
-        </article>
-        <article class="kpi">
-          <div class="kpi-label" data-i18n="kpiLoaded">메모리 Line</div>
-          <div class="kpi-value" id="kpiLoaded">-</div>
-          <div class="kpi-sub" data-i18n="kpiLoadedSub">Cache가 올라온 뒤에 Tag를 입력합니다.</div>
-        </article>
-        <article class="kpi">
-          <div class="kpi-label" data-i18n="kpiRows">설비 요약</div>
-          <div class="kpi-value" id="kpiRows">0</div>
-          <div class="kpi-sub" id="kpiRowsSub" data-i18n="kpiRowsSub">이번 작업 결과</div>
-        </article>
-      </section>
+      <p class="step-error" id="lineError" hidden></p>
     </section>
 
     <nav class="tabs" role="tablist" id="tablist">
@@ -119,10 +104,11 @@
       </div>
     </section>
 
-    <section class="grid-2 panel" id="panel-trace" role="tabpanel" aria-labelledby="tab-trace" data-panel="trace">
+    <section class="grid-2 panel locked" id="panel-trace" role="tabpanel" aria-labelledby="tab-trace" data-panel="trace">
       <article class="card">
         <p class="eyebrow" data-i18n="stepTag">2 · Tag</p>
         <p class="hint" id="traceGate" data-i18n="traceGate">Cache가 메모리에 올라온 뒤에 Tag를 입력합니다.</p>
+        <p class="step-error" id="traceError" hidden></p>
         <label for="tag" data-i18n="tag">Tag 하나</label>
         <input id="tag" list="recentTags" data-i18n-placeholder="tagPh" placeholder="설비 Tag" disabled />
         <datalist id="recentTags"></datalist>
@@ -146,6 +132,7 @@
     </section>
 
     <section class="card panel" id="panel-demolition" role="tabpanel" aria-labelledby="tab-demolition" data-panel="demolition" hidden>
+      <p class="step-error" id="demoError" hidden></p>
       <p class="hint" data-i18n="demoHint">Excel(Site, 공정, 건설코드, EQPID)을 올리거나 아래에 붙여 넣습니다. 검증 후 노란 행은 빼고 검수합니다. 공정과 건설코드는 생략할 수 있습니다.</p>
       <p class="hint" id="demoLimit"></p>
       <div class="grid-2">
@@ -210,6 +197,7 @@
         <label><input type="radio" name="keyKind" value="instance" /> Instance</label>
         <label><input type="radio" name="keyKind" value="guid" /> GUID</label>
       </div>
+      <p class="step-error" id="nozzleError" hidden></p>
       <label for="nozzleText" data-i18n="nozzleLabel">키 목록</label>
       <textarea id="nozzleText" data-i18n-placeholder="nozzlePh" placeholder="한 줄에 키 하나" disabled></textarea>
       <div class="actions">
@@ -223,18 +211,19 @@
         <a id="excel" class="primary" href="#" hidden data-i18n="excel">Excel 받기</a>
         <a id="excelZip" class="primary" href="#" hidden data-i18n="excelZip">전체 ZIP 받기</a>
       </div>
+      <div class="table-wrap" id="traceWrap">
       <table id="traceTable">
         <thead>
           <tr>
             <th>Line</th>
             <th>EQ Code</th>
             <th>Result</th>
-            <th>Issues</th>
-            <th>Ep Count</th>
-            <th>Pocs</th>
-            <th>BreakDown</th>
-            <th>BOM(Hop)</th>
-            <th>Length(m)</th>
+            <th class="num">Issues</th>
+            <th class="num">Ep Count</th>
+            <th class="num">Pocs</th>
+            <th class="num">BreakDown</th>
+            <th class="num">BOM(Hop)</th>
+            <th class="num">Length(m)</th>
             <th>Date</th>
             <th>Worker</th>
             <th>Company</th>
@@ -242,6 +231,8 @@
         </thead>
         <tbody id="rows"></tbody>
       </table>
+      </div>
+      <div class="table-wrap" id="nozzleWrap">
       <table id="nozzleTable" hidden>
         <thead>
           <tr>
@@ -253,7 +244,31 @@
         </thead>
         <tbody id="nozzleRows"></tbody>
       </table>
+      </div>
     </section>
+  </div>
+  <aside class="card work-side" id="workSide">
+    <p class="hint" id="lineHint"></p>
+    <div class="memchip" id="memChip" hidden role="status"></div>
+    <section class="kpis" id="traceKpis">
+      <article class="kpi">
+        <div class="kpi-label" data-i18n="kpiCache">사용 가능 Cache</div>
+        <div class="kpi-value" id="kpiCache">-</div>
+        <div class="kpi-sub" id="kpiCacheSub"></div>
+      </article>
+      <article class="kpi">
+        <div class="kpi-label" data-i18n="kpiLoaded">메모리 Line</div>
+        <div class="kpi-value" id="kpiLoaded">-</div>
+        <div class="kpi-sub" data-i18n="kpiLoadedSub">Cache가 올라온 뒤에 Tag를 입력합니다.</div>
+      </article>
+      <article class="kpi">
+        <div class="kpi-label" data-i18n="kpiRows">설비 요약</div>
+        <div class="kpi-value" id="kpiRows">0</div>
+        <div class="kpi-sub" id="kpiRowsSub" data-i18n="kpiRowsSub">이번 작업 결과</div>
+      </article>
+    </section>
+  </aside>
+  </div>
   </main>
 
   <div class="modal-back" id="helpModal" hidden>
@@ -284,6 +299,7 @@
         kpiLoaded: "메모리 Line",
         kpiLoadedSub: "Cache가 올라온 뒤에 Tag를 입력합니다.",
         stepCache: "1 · Line · Cache",
+        pageTitle: "Pipe Trace",
         lineTitle: "Line을 고른 뒤 Cache 불러오기를 누르세요",
         loadCache: "Cache 불러오기",
         pickLineFirst: "Line을 고르고 Cache 불러오기를 누르세요. 이전 작업을 자동으로 이어 받지 않습니다.",
@@ -419,6 +435,7 @@
         kpiLoaded: "已载入Line",
         kpiLoadedSub: "Cache载入内存后才能输入 Tag。",
         stepCache: "1 · Line · Cache",
+        pageTitle: "Pipe Trace",
         lineTitle: "选择Line后请点击载入Cache",
         loadCache: "载入Cache",
         pickLineFirst: "请选择Line并点击载入Cache。不会自动继续上次作业。",
@@ -758,6 +775,11 @@
     }
     function syncInputs() {
       var lock = busy || !cacheReady;
+      var tracePanel = $("panel-trace");
+      if (tracePanel) {
+        tracePanel.classList.toggle("locked", !cacheReady);
+        tracePanel.classList.toggle("ready", cacheReady && !busy);
+      }
       $("tag").disabled = lock;
       $("batch").disabled = lock;
       $("traceBtn").disabled = lock;
@@ -918,6 +940,8 @@
       if (!lic.canNozzle && activeTab === "nozzle") switchTab("trace");
       var line = $("licenseLine");
       if (!line) return;
+      if (lic.version && $("appVersion")) $("appVersion").textContent = lic.version;
+      document.title = "PocTrace " + ($("appVersion") ? $("appVersion").textContent : "");
       if (!lic.ok) {
         line.textContent = lic.error || t("licenseFail");
         return;
@@ -1132,6 +1156,17 @@
       animSet(state, percent, creepTo);
       var bar = $("progress");
       bar.className = "bar" + (state && state !== "running" ? " " + state : "");
+      if (state === "error") {
+        var failKind = "load";
+        if (activeTab === "demolition") failKind = "demolition";
+        else if (activeTab === "nozzle") failKind = "nozzle";
+        else if (cacheReady) failKind = (lastJob && lastJob.kind) || jobKind || "trace";
+        paintStepError({
+          state: "error",
+          kind: failKind,
+          error: ($("status") && $("status").textContent) || t("statusFail")
+        });
+      }
     }
     function readJson(key, fallback) {
       try {
@@ -1269,12 +1304,12 @@
           "<td>" + esc(lineName) + "</td>" +
           "<td>" + esc(summary.EquipmentTag) + "</td>" +
           "<td><span class='pill " + (result === "FAIL" ? "fail" : "ok") + "'>" + esc(result) + "</span></td>" +
-          "<td>" + num(summary.CountERR) + "</td>" +
-          "<td>" + num(summary.EquipmentCount) + "</td>" +
-          "<td>" + num(summary.TotalPocCount) + "</td>" +
-          "<td>" + num(summary.DerivedBranchCount) + "</td>" +
-          "<td>" + num(summary.TotalHopCount) + "</td>" +
-          "<td>" + meters(summary.TotalLength) + "</td>" +
+          "<td class='num'>" + num(summary.CountERR) + "</td>" +
+          "<td class='num'>" + num(summary.EquipmentCount) + "</td>" +
+          "<td class='num'>" + num(summary.TotalPocCount) + "</td>" +
+          "<td class='num'>" + num(summary.DerivedBranchCount) + "</td>" +
+          "<td class='num'>" + num(summary.TotalHopCount) + "</td>" +
+          "<td class='num'>" + meters(summary.TotalLength) + "</td>" +
           "<td>" + esc(summary.LatestOpTime) + "</td>" +
           "<td>" + esc(summary.LatestUserName) + "</td>" +
           "<td>" + esc(summary.LatestCompanyName) + "</td>";
@@ -1311,7 +1346,9 @@
           toggle();
         });
         body.appendChild(row);
-        body.appendChild(namePartRow(summary.Names || summary.names || []));
+        var names = namePartRow(summary.Names || summary.names || []);
+        names.className = "name-block";
+        body.appendChild(names);
       });
     }
     function meters(value) {
@@ -1328,7 +1365,7 @@
       table.innerHTML =
         "<thead><tr>" +
         "<th>Name</th><th>Division</th><th>Subdivision1</th><th>Subdivision2</th>" +
-        "<th>Poc Count</th><th>Error Poc Count</th><th>Length(m)</th>" +
+        "<th class='num'>Poc Count</th><th class='num'>Error Poc Count</th><th class='num'>Length(m)</th>" +
         "</tr></thead>";
       var body = document.createElement("tbody");
       (parts || []).forEach(function (part) {
@@ -1338,9 +1375,9 @@
           "<td>" + esc(part.Division || part.division) + "</td>" +
           "<td>" + esc(part.Subdivision1 || part.subdivision1) + "</td>" +
           "<td>" + esc(part.Subdivision2 || part.subdivision2) + "</td>" +
-          "<td>" + num(part.PocCount != null ? part.PocCount : part.pocCount) + "</td>" +
-          "<td>" + num(part.ErrorPocCount != null ? part.ErrorPocCount : part.errorPocCount) + "</td>" +
-          "<td>" + meters(part.LengthM != null ? part.LengthM : part.lengthM) + "</td>";
+          "<td class='num'>" + num(part.PocCount != null ? part.PocCount : part.pocCount) + "</td>" +
+          "<td class='num'>" + num(part.ErrorPocCount != null ? part.ErrorPocCount : part.errorPocCount) + "</td>" +
+          "<td class='num'>" + meters(part.LengthM != null ? part.LengthM : part.lengthM) + "</td>";
         body.appendChild(tr);
       });
       table.appendChild(body);
@@ -1427,6 +1464,24 @@
       }
       box.innerHTML = parts.map(function (item) { return "<span>" + item + "</span>"; }).join("");
     }
+    function paintStepError(job) {
+      var ids = ["lineError", "traceError", "demoError", "nozzleError"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = $(ids[i]);
+        if (!el) continue;
+        el.hidden = true;
+        el.textContent = "";
+      }
+      if (!job || job.state !== "error") return;
+      var target = "traceError";
+      if (job.kind === "load") target = "lineError";
+      else if (job.kind === "demolition") target = "demoError";
+      else if (job.kind === "nozzle") target = "nozzleError";
+      var box = $(target);
+      if (!box) return;
+      box.hidden = false;
+      box.textContent = job.error || job.message || t("statusFail");
+    }
     function paintJobCard(job) {
       var card = $("jobCard");
       var show = !!(job && JOB_TABS[job.kind] && JOB_TABS[job.kind] === activeTab);
@@ -1458,6 +1513,7 @@
       $("status").textContent = text;
       setStatusState(job.state || "", job.percent || 0, job.creepTo || 0);
       paintJobCard(job);
+      paintStepError(job);
       if (job.kind === "demolition" && job.inputRows) paintDemoRows(job.inputRows);
       if (job.kind === "demolition") paintDemoResult(job);
       if (job.kind === "nozzle") paintNozzleTable(job);
@@ -1876,6 +1932,7 @@
       $("traceKpis").hidden = activeTab !== "trace";
       $("resultCard").hidden = activeTab === "demolition";
       $("lineBar").hidden = activeTab === "demolition";
+      if ($("workSide")) $("workSide").hidden = activeTab === "demolition";
       syncDemoResult();
       paintJobCard(lastJob);
     }

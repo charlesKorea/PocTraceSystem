@@ -11,7 +11,7 @@ namespace PocTrace.Demolition.Export
   {
     public const int SheetCount = 7;
 
-    public static readonly string[] DetailSheetNames =
+    public static string[] DetailSheetNames => new[]
     {
       EquipmentInfoProjector.SheetName,
       StatusEmpProjector.SheetName,

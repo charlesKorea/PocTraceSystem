@@ -858,6 +858,8 @@ namespace PocTrace.Web
         private void RunDemolition(JobRecord job, List<DemolitionInputRow> rows)
         {
             var valid = rows.Where(r => r.IsValid).ToList();
+            string previousLanguage = DemolitionUiText.ActiveLanguage;
+            DemolitionUiText.ActiveLanguage = WebLocalStore.Pick("ko", "zh");
             try
             {
                 var progress = new Progress<DemolitionJobProgress>(p => ApplyDemolitionProgress(job, p, rows));
@@ -948,6 +950,10 @@ namespace PocTrace.Web
                 {
                     job.InputRows = SnapshotRows(rows);
                 }
+            }
+            finally
+            {
+                DemolitionUiText.ActiveLanguage = previousLanguage;
             }
         }
 

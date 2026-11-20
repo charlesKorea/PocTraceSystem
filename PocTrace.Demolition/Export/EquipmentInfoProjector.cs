@@ -14,7 +14,7 @@ namespace PocTrace.Demolition.Export
   /// </summary>
   public static class EquipmentInfoProjector
   {
-    public static readonly string SheetName = DemolitionUiText.SheetEquipmentInfo;
+    public static string SheetName => DemolitionUiText.SheetEquipmentInfo;
 
     public static readonly string[] Headers =
     {

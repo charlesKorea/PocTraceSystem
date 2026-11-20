@@ -18,7 +18,7 @@ namespace PocTrace.Demolition.Export
   /// </summary>
   public static class DemolitionExcelExporter
   {
-    public static readonly string SummarySheetName = DemolitionUiText.SheetSummary;
+    public static string SummarySheetName => DemolitionUiText.SheetSummary;
 
     public sealed class ExportResult
     {
@@ -248,7 +248,8 @@ namespace PocTrace.Demolition.Export
 
       var sb = new StringBuilder(16 * 1024);
       sb.AppendLine("<!DOCTYPE html>");
-      sb.AppendLine("<html lang=\"ko\"><head><meta charset=\"utf-8\"/>");
+      string htmlLang = DemolitionUiText.ActiveLanguage == "zh" ? "zh-CN" : "ko";
+      sb.AppendLine("<html lang=\"" + htmlLang + "\"><head><meta charset=\"utf-8\"/>");
       sb.AppendFormat("<title>{0}</title>\n", System.Net.WebUtility.HtmlEncode(DemolitionUiText.HtmlPageTitle));
       sb.AppendLine("<style>");
       sb.AppendLine("body{font-family:Segoe UI,Malgun Gothic,sans-serif;margin:24px;background:#f5f7fa;color:#222}");

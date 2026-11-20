@@ -1,4 +1,5 @@
 using JLic;
+using PocTrace.Core.Infrastructure;
 
 namespace PocTrace.Core.Licensing
 {
@@ -51,7 +52,8 @@ namespace PocTrace.Core.Licensing
                 {
                     ok = false,
                     error = lic == null ? "라이선스가 없습니다." : lic.Error,
-                    errorCode = lic == null ? LicenseErrorCode.FileMissing.ToString() : lic.ErrorCode.ToString()
+                    errorCode = lic == null ? LicenseErrorCode.FileMissing.ToString() : lic.ErrorCode.ToString(),
+                    version = TraceAppVersion.Display()
                 };
             }
 
@@ -63,7 +65,8 @@ namespace PocTrace.Core.Licensing
                 apps = lic.Apps,
                 expireDate = lic.ExpireDate.HasValue ? lic.ExpireDate.Value.ToString("yyyy-MM-dd") : null,
                 canDemo = CanUseExtraTools(lic),
-                canNozzle = CanUseExtraTools(lic)
+                canNozzle = CanUseExtraTools(lic),
+                version = TraceAppVersion.Display()
             };
         }
     }
