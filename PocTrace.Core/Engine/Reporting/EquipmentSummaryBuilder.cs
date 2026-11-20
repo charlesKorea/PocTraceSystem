@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using PocTrace.Core.Engine;
 using PocTrace.Core.Enums;
 using PocTrace.Core.Models;
 
@@ -60,11 +61,13 @@ namespace PocTrace.Core.Engine.Reporting
                 if (lengthDivisor > 0)
                     totalLength = totalLength / lengthDivisor;
 
+                string placement = SharedPlacement(group);
                 list.Add(new EquipmentTraceSummary
                 {
                     EquipmentTag = group.Key,
                     EquipmentName = first.StartNodeName ?? "Unknown",
                     EquipmentGuid = first.StartNodeGUID.ToString(), // 대표 GUID
+                    Placement = placement,
 
                     EquipmentCount = equipCount,
                     CountERR = totalFailCount,
@@ -89,6 +92,23 @@ namespace PocTrace.Core.Engine.Reporting
             }
 
             return list;
+        }
+
+        private static string SharedPlacement(IEnumerable<TraceResult> group)
+        {
+            string label = null;
+            foreach (var row in group)
+            {
+                if (string.IsNullOrEmpty(row.ResultLabel))
+                    return null;
+                if (label == null)
+                    label = row.ResultLabel;
+                else if (!string.Equals(label, row.ResultLabel, StringComparison.Ordinal))
+                    return null;
+            }
+            if (label == BatchPlacement.Unplaced || label == BatchPlacement.Undesigned)
+                return label;
+            return null;
         }
 
         /// <summary>

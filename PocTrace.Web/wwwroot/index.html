@@ -137,7 +137,7 @@
         <div class="inline-file">
           <button id="batchFileBtn" class="ghost" type="button" data-i18n="batchFileBtn" disabled>Excel에서 불러오기</button>
           <input id="batchFile" type="file" accept=".xlsx,.xlsm" />
-          <p class="hint" id="batchFileInfo" data-i18n="batchFileHint">A열 2행부터 EQPID를 읽습니다. 1행은 제목으로 건너뜁니다.</p>
+          <p class="hint" id="batchFileInfo" data-i18n="batchFileHint">첫 행의 eq code 열을 설비 Tag로 읽습니다.</p>
         </div>
         <div class="actions">
           <button id="batchBtn" class="primary" type="button" data-i18n="batchBtn" disabled>배치 Trace</button>
@@ -393,7 +393,7 @@
         factLines: "Line <b>{done}/{total}</b>",
         factEqp: "EQPID <b>{done}/{total}</b>",
         batchFileBtn: "Excel에서 불러오기",
-        batchFileHint: "A열 2행부터 EQPID를 읽습니다. 1행은 제목으로 건너뜁니다.",
+        batchFileHint: "첫 행의 eq code 열을 설비 Tag로 읽습니다.",
         batchFileOk: "{file}: {count}건을 불러왔습니다. 빈 칸 제외, 중복 {dup}건 제외.",
         batchFileFail: "Excel을 읽지 못했습니다.",
         batchFileOver: "{count}건을 불러왔지만 한 번에 {max}개까지입니다. 파일을 나누어 주세요."
@@ -528,7 +528,7 @@
         factLines: "Line <b>{done}/{total}</b>",
         factEqp: "EQPID <b>{done}/{total}</b>",
         batchFileBtn: "从 Excel 导入",
-        batchFileHint: "从 A 列第 2 行起读取 EQPID。第 1 行作为标题跳过。",
+        batchFileHint: "把首行 eq code 列读成设备 Tag。",
         batchFileOk: "{file}: 已导入 {count} 条。已排除空白，重复 {dup} 条已排除。",
         batchFileFail: "无法读取 Excel。",
         batchFileOver: "已导入 {count} 条，但一次最多 {max} 个。请拆分文件。"
@@ -561,7 +561,7 @@
           <p>태그를 줄바꿈, 쉼표, 공백으로 구분해 붙여 넣고 <b>배치 Trace</b>를 누릅니다. 한 번에 300개까지입니다.</p>
           <h4>Excel로 올리기</h4>
           <ol>
-            <li>Excel의 <b>A열 2행부터</b> EQPID를 적습니다. 1행은 제목이라 읽지 않습니다.</li>
+            <li>Excel 첫 행의 <b>eq code</b> 열을 설비 Tag로 읽습니다. 태그가 없으면 미배치설비, 태그는 있으나 연결 배관이 없으면 미설계 배치 설비로 결과 행을 남깁니다.</li>
             <li><b>Excel에서 불러오기</b>로 파일(xlsx, xlsm)을 고르면 입력칸에 EQPID가 채워집니다. 중복과 빈 칸은 빠집니다.</li>
             <li>내용을 확인하고 <b>배치 Trace</b>를 누릅니다. 진행 표시에 Tag n/m 과 현재 Tag가 나옵니다.</li>
           </ol>
@@ -626,7 +626,7 @@
           <p>用换行、逗号或空格分隔 Tag 后粘贴，点击 <b>Batch Trace</b>。一次最多 300 个。</p>
           <h4>用 Excel 上传</h4>
           <ol>
-            <li>在 Excel 的 <b>A 列第 2 行起</b>填写 EQPID。第 1 行是标题，不会读取。</li>
+            <li>把 Excel 首行的 <b>eq code</b> 列读成设备 Tag。没有该 Tag 时结果为未布置设备，有 Tag 但没有连接配管时保留未设计布置设备的 Trace 行。</li>
             <li>点击<b>从 Excel 导入</b>选择文件（xlsx、xlsm），EQPID 会填入输入框。重复和空白会被排除。</li>
             <li>确认内容后点击 <b>Batch Trace</b>。进度中会显示 Tag n/m 和当前 Tag。</li>
           </ol>
@@ -792,9 +792,10 @@
       return t("dbSync") + " " + (line.savedAt || "");
     }
     function lineLabel(line) {
-      if (!line.found) return line.db + "  (" + t("cacheMissing") + ")";
-      if (!line.allowed) return line.db + "  (" + syncText(line) + " · " + t("cacheOld") + " " + (line.ageHours == null ? "" : line.ageHours + "h") + ")";
-      return line.db + "  (" + syncText(line) + ")";
+      var shown = line.db === "x2_m" ? "X2-M" : line.db;
+      if (!line.found) return shown + "  (" + t("cacheMissing") + ")";
+      if (!line.allowed) return shown + "  (" + syncText(line) + " · " + t("cacheOld") + " " + (line.ageHours == null ? "" : line.ageHours + "h") + ")";
+      return shown + "  (" + syncText(line) + ")";
     }
     function selectedLine() {
       var db = $("db").value;

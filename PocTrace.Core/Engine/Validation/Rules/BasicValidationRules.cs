@@ -65,6 +65,9 @@ namespace PocTrace.Core.Engine.Validation.Rules
       if (r == null || !string.Equals(r.STATUS, "EMP"))
         return false;
 
+      if (string.IsNullOrWhiteSpace(r.StartPocUtilityName))
+        return false;
+
       if (_util.IsStringContains(r.StartPocUtilityName, "미사용"))
         return false;
 

@@ -1,4 +1,5 @@
-﻿using PocTrace.Core.Engine.Cache;
+﻿using PocTrace.Core.Engine;
+using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Infrastructure.Data;
 using PocTrace.Core.Engine.Logic;
 using PocTrace.Core.Engine.Validation.Rules;
@@ -43,20 +44,24 @@ namespace PocTrace.Core.Engine.Validation
             // EMP는 설비 POC에 연결된 배관이 없다. 결과 행 자신을 1로 세지 않는다.
             result.BranchedPipes = result.STATUS == "EMP" ? 0 : bdSameGuidConList.Count;
 
+            if (string.IsNullOrWhiteSpace(result.StartPocUtilityName))
+                MarkEquipmentIntegrity(result);
+
             // 3. 검수 로직
             if (검수제외PASS체크(result)) return; // EMP & 비대상
 
             //26.07.08
             if (util.IsStringContainsOneOfList(result.STATUS, new List<string> { "EQP", "NOZ", "TOF" }))
             {
-                if (util.예외대상이름여부(result.StartPocUtilityName))
+                if (!string.IsNullOrWhiteSpace(result.StartPocUtilityName) && util.예외대상이름여부(result.StartPocUtilityName))
                 {
                     SetInvalidPOC(result, " 기준정보이슈 ", $" POC Utility 상이 ");
                 }
             }
             else if (result.STATUS == "ING")
             {
-                if (util.예외대상이름여부(result.StartPocUtilityName) || util.IsStringContains(result.StartPocUtilityGroup, "elec"))
+                if (!string.IsNullOrWhiteSpace(result.StartPocUtilityName)
+                    && (util.예외대상이름여부(result.StartPocUtilityName) || util.IsStringContains(result.StartPocUtilityGroup, "elec")))
                 {
                     SetInvalidPOC(result, " 모델링 미완료 ", $" {result.STATUS} ");
                 }
@@ -121,17 +126,36 @@ namespace PocTrace.Core.Engine.Validation
             // IssueList는 List<string> → Contains("기준정보")는 완전일치라 " 기준정보 이슈 "에 매칭 실패했음.
             // 현재 이슈(msg) 기준으로 귀책을 판정하고, 설계 귀책이 한 번이라도 잡히면 SCS로 덮어쓰지 않는다.
             bool currentIsMasterOrEquip = IsMasterOrEquipmentIssueTitle(msg);
+            bool keepFt = string.Equals(r.IssueBelongTo, BatchPlacement.IntegrityOwner, StringComparison.Ordinal);
             if (!currentIsMasterOrEquip)
             {
                 if (r.invalidCountForHU == 0)
                     r.invalidCountForHU++; //다중이슈는 운영팀 Summary Data를 위해 Counting 함으로, POC 개수로 검수 이력에 이슈 표기되어야 함(현재는 전체 이슈 수량으로 카운팅)
-                r.IssueBelongTo = "설계사(设计社)";
+                if (!keepFt)
+                    r.IssueBelongTo = "설계사(设计社)";
             }
-            else if (r.invalidCountForHU == 0)
+            else if (r.invalidCountForHU == 0 && !keepFt)
             {
                 r.IssueBelongTo = "SCS";
             }
 
+            r.totalInvalidCount++;
+        }
+
+        /// <summary>POC Utility가 비어 있으면 데이터 정합 이슈. 오너는 ft 기술.</summary>
+        private void MarkEquipmentIntegrity(TraceResult r)
+        {
+            if (r.IssueList == null)
+                r.IssueList = new List<string>();
+            if (!r.IssueList.Contains(BatchPlacement.IntegrityIssue))
+                r.IssueList.Add(BatchPlacement.IntegrityIssue);
+            const string note = "POC Utility 공백";
+            if (string.IsNullOrEmpty(r.feedback))
+                r.feedback = note;
+            else if (r.feedback.IndexOf(note, StringComparison.Ordinal) < 0)
+                r.feedback += " , " + note;
+            r.IssueBelongTo = BatchPlacement.IntegrityOwner;
+            r.FailCount = r.IssueList.Count;
             r.totalInvalidCount++;
         }
 
@@ -433,6 +457,9 @@ namespace PocTrace.Core.Engine.Validation
             if (r.STATUS.Equals("EMP"))
             // && !poc.connectorUse.Equals("N")) //24.05.14 connector use N이어도 체크 대상
             {
+                if (string.IsNullOrWhiteSpace(r.StartPocUtilityName))
+                    return false;
+
                 if (util.예외대상이름여부(r.StartPocUtilityName) ||
                     util.예외대상이름여부(r.StartPocName) ||
                     util.예외대상이름여부(r.StartPocUtilityGroup))

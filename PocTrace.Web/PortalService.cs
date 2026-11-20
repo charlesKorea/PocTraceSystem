@@ -195,10 +195,10 @@ namespace PocTrace.Web
                     "Excel 파일만 올릴 수 있습니다. (xlsx, xlsm)",
                     "只能上传 Excel 文件。(xlsx, xlsm)"));
 
-            WebExcel.ColumnAResult read;
+            EqCodeSheet.ReadResult read;
             try
             {
-                read = WebExcel.ReadColumnA(bytes);
+                read = EqCodeSheet.Read(bytes);
             }
             catch (Exception ex)
             {
@@ -208,10 +208,14 @@ namespace PocTrace.Web
                     "无法读取 Excel 文件。文件可能有密码或已损坏。"));
             }
 
+            if (!read.HeaderFound)
+                throw new PortalInputException(Msg(
+                    "첫 행에 eq code 헤더가 없습니다. 그 열을 설비 Tag로 읽습니다.",
+                    "首行没有 eq code 表头。该列会当作设备 Tag。"));
             if (read.Values.Count == 0)
                 throw new PortalInputException(Msg(
-                    "A열 2행부터 EQPID가 있어야 합니다. (1행은 제목으로 건너뜁니다)",
-                    "A 列第 2 行起需要有 EQPID。（第 1 行作为标题跳过）"));
+                    "eq code 열에 Tag가 없습니다.",
+                    "eq code 列没有 Tag。"));
 
             return new
             {
@@ -455,7 +459,7 @@ namespace PocTrace.Web
                     try
                     {
                         var engine = _services.CreateTraceEngine();
-                        var results = engine.RunTrace(tag, 0, GlobalConfig.EnableDetailedDebug, token, includePartialTagMatch: true);
+                        var results = engine.RunBatchTag(tag, GlobalConfig.EnableDetailedDebug, token);
                         if (results == null || results.Count == 0)
                         {
                             Log.Warning("[WebBatch] 결과 없음: {Tag}", tag);

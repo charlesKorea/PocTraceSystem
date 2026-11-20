@@ -661,7 +661,7 @@ namespace PocTrace.DdwAcceptance
             Check((string)tofAttrSheet[0][15] == "T1" && (string)tofAttrSheet[0][16] == "C1", "takeoff tag columns stay on the poc");
             var tofStart = new NodeInfo { InstanceId = G(217), Tag = "eq", Type = NodeType.Equipment, PZ = 0 };
             var tofStartPoc = new PocData { InstanceId = G(218), OwnerId = G(217), UtilityName = "N2" };
-            var tofRow = new TraceResult { STATUS = "TOF", StartPocId = tofStartPoc.InstanceId, EndPocId = tofPipe, EndName = "Damper[]", TargetNodeGUID = tofPipe, Line = "x2_m" };
+            var tofRow = new TraceResult { EndType = EndPointType.Takeoff, StartPocId = tofStartPoc.InstanceId, EndPocId = tofPipe, EndName = "Damper[]", TargetNodeGUID = tofPipe, Line = "x2_m" };
             new PocTrace.Core.Engine.Validation.TraceValidator(Serilog.Core.Logger.None)
                 .Validate(tofAttrCache, tofRow, tofStartPoc, tofStart, null, null, new List<TraceResult> { tofRow }, null);
             Check(tofRow.TargetNodeTag == "Damper[T1]", "details T:Tag is Damper[tag]");
@@ -695,15 +695,29 @@ namespace PocTrace.DdwAcceptance
             var pocBlank = new PocData { InstanceId = empB, OwnerId = empEq, PocName = "B", UtilityName = "", UtilityGroupName = "" };
             var empCache = new GraphCacheManager();
             empCache.Initialize("x2_m", new[] { empNode }, new[] { pocFilled, pocBlank }, new PipeData[0], new TakeoffData[0], new DynamicPropertiesData[0], null, false);
-            var empFilled = new TraceResult { STATUS = "EMP", StartPocId = empA, Line = "x2_m", Steps = new List<TraceStep>() };
-            var empBlank = new TraceResult { STATUS = "EMP", StartPocId = empB, Line = "x2_m", Steps = new List<TraceStep>() };
+            var empFilled = new TraceResult { EndType = EndPointType.Empty, StartPocId = empA, Line = "x2_m", Steps = new List<TraceStep>() };
+            var empBlank = new TraceResult { EndType = EndPointType.Empty, StartPocId = empB, Line = "x2_m", Steps = new List<TraceStep>() };
             var empRows = new List<TraceResult> { empFilled, empBlank };
             var validator = new PocTrace.Core.Engine.Validation.TraceValidator(Serilog.Core.Logger.None);
             validator.Validate(empCache, empFilled, pocFilled, empNode, null, null, empRows, null);
             validator.Validate(empCache, empBlank, pocBlank, empNode, null, null, empRows, null);
             Check(empFilled.BranchedPipes == 0 && empBlank.BranchedPipes == 0, "emp branch count is 0");
             Check((empFilled.IssueType ?? "").IndexOf("모델링 없음", StringComparison.Ordinal) >= 0, "emp with utility is modeling absent");
-            Check(string.IsNullOrEmpty(empBlank.IssueType), "blank utility emp stays pass");
+            Check((empBlank.IssueType ?? "").IndexOf("설비정합오류", StringComparison.Ordinal) >= 0, "blank utility is equipment integrity");
+            Check(empBlank.IssueBelongTo == "ft 기술", "blank utility owner is ft tech");
+            var batchEngine = new PocTrace.Core.Engine.TraceEngine(empCache, new TraceAlgorithm(empCache, null) { EnableDetailedDebug = false }, Serilog.Core.Logger.None);
+            var missing = batchEngine.RunBatchTag("no-such-tag", false, System.Threading.CancellationToken.None);
+            Check(missing.Count == 1 && missing[0].CheckResult == "미배치설비", "missing tag is unplaced");
+            var undesigned = batchEngine.RunBatchTag("eqemp", false, System.Threading.CancellationToken.None);
+            Check(undesigned.Count > 0 && undesigned.TrueForAll(r => r.CheckResult == "미설계 배치 설비"), "tag without pipe stays undesigned");
+            Check(EqCodeSheetHeader(), "eq code header is the tag column");
+        }
+
+        private static bool EqCodeSheetHeader()
+        {
+            var read = PocTrace.Core.Engine.Reporting.EqCodeSheet.Read(
+                PocTrace.Core.Engine.Reporting.EqCodeSheet.Write("EQ Code", "AAA", "aaa", "BBB"));
+            return read.HeaderFound && read.Values.Count == 2 && read.Values[0] == "AAA" && read.Values[1] == "BBB" && read.Duplicates == 1;
         }
 
         private static DdwPocRow Poc(Guid id, Guid owner, Guid? connected, int? targetOwnerType, Guid? targetInstance, Guid? targetOwner)

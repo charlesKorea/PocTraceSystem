@@ -405,38 +405,7 @@ namespace PocTrace.Core.Engine.Cache
             if (string.IsNullOrWhiteSpace(equipTag))
                 return Enumerable.Empty<PocData>();
 
-            string tag = equipTag.Trim();
-            var nodeIds = new HashSet<Guid>();
-
-            // 1) 정확 일치 (기존 동작 보존)
-            if (_nodeInstanceIdsByTag.TryGetValue(tag, out var exactIds))
-            {
-                foreach (var id in exactIds)
-                    nodeIds.Add(id);
-            }
-
-            // 2) [VOC] 부분 매칭(Viewer 전용): 설비 Tag를 ','로 분리한 토큰 중 하나가 입력 tag와
-            //    정확히 일치하는 설비도 대상에 포함. 예) 입력 "dama01" → 스크러버 "dama01,dama02"도 포함.
-            //    (Admin 스케줄러는 중복 검수 방지를 위해 includePartialMatch=false로 미적용)
-            if (includePartialMatch)
-            {
-                foreach (var kv in _nodeInstanceIdsByTag)
-                {
-                    if (kv.Key.IndexOf(',') < 0)
-                        continue; // 단일 태그는 (1)에서 이미 처리됨
-
-                    bool tokenMatched = kv.Key
-                        .Split(',')
-                        .Any(t => string.Equals(t.Trim(), tag, StringComparison.OrdinalIgnoreCase));
-
-                    if (tokenMatched)
-                    {
-                        foreach (var id in kv.Value)
-                            nodeIds.Add(id);
-                    }
-                }
-            }
-
+            var nodeIds = MatchingNodeIds(equipTag, includePartialMatch);
             var result = new List<PocData>();
             foreach (var nodeId in nodeIds)
             {
@@ -445,6 +414,51 @@ namespace PocTrace.Core.Engine.Cache
             }
 
             return result;
+        }
+
+        public IReadOnlyList<NodeInfo> FindNodesByTag(string equipTag, bool includePartialMatch = false)
+        {
+            var nodes = new List<NodeInfo>();
+            foreach (var nodeId in MatchingNodeIds(equipTag, includePartialMatch))
+            {
+                NodeInfo node;
+                if (_nodes != null && _nodes.TryGetValue(nodeId, out node) && node != null)
+                    nodes.Add(node);
+            }
+            return nodes;
+        }
+
+        private HashSet<Guid> MatchingNodeIds(string equipTag, bool includePartialMatch)
+        {
+            var nodeIds = new HashSet<Guid>();
+            if (string.IsNullOrWhiteSpace(equipTag) || _nodeInstanceIdsByTag == null)
+                return nodeIds;
+
+            string tag = equipTag.Trim();
+            List<Guid> exactIds;
+            if (_nodeInstanceIdsByTag.TryGetValue(tag, out exactIds))
+            {
+                foreach (var id in exactIds)
+                    nodeIds.Add(id);
+            }
+
+            if (!includePartialMatch)
+                return nodeIds;
+
+            foreach (var kv in _nodeInstanceIdsByTag)
+            {
+                if (kv.Key.IndexOf(',') < 0)
+                    continue;
+
+                bool tokenMatched = kv.Key
+                    .Split(',')
+                    .Any(t => string.Equals(t.Trim(), tag, StringComparison.OrdinalIgnoreCase));
+                if (!tokenMatched)
+                    continue;
+                foreach (var id in kv.Value)
+                    nodeIds.Add(id);
+            }
+            return nodeIds;
         }
 
         private void IndexNodeTag(string tag, Guid instanceId)

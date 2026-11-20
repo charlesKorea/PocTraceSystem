@@ -1,64 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
-using System.IO;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 
 namespace PocTrace.Web
 {
-    /// <summary>화면에서 쓰는 작은 Excel 입출력: 배치 Trace 업로드(A열)와 검수 기록 내려받기.</summary>
+    /// <summary>검수 기록 Excel. 배치 업로드는 Core의 eq code 열 읽기를 쓴다.</summary>
     internal static class WebExcel
     {
-        internal sealed class ColumnAResult
-        {
-            public List<string> Values = new List<string>();
-            public int NonBlank;
-            public int Duplicates;
-            public string SheetName = "";
-        }
-
-        /// <summary>첫 시트 A열을 2행부터 읽는다. 1행은 제목으로 보고 건너뛴다.</summary>
-        public static ColumnAResult ReadColumnA(byte[] bytes)
-        {
-            var result = new ColumnAResult();
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            using (var stream = new MemoryStream(bytes))
-            using (var package = new ExcelPackage(stream))
-            {
-                ExcelWorksheet sheet = null;
-                foreach (ExcelWorksheet candidate in package.Workbook.Worksheets)
-                {
-                    sheet = candidate;
-                    break;
-                }
-                if (sheet == null || sheet.Dimension == null)
-                    return result;
-
-                result.SheetName = sheet.Name;
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                int last = sheet.Dimension.End.Row;
-                for (int row = 2; row <= last; row++)
-                {
-                    object raw = sheet.Cells[row, 1].Value;
-                    string text = raw == null ? "" : Convert.ToString(raw, CultureInfo.InvariantCulture);
-                    text = (text ?? "").Trim();
-                    if (text.Length == 0)
-                        continue;
-
-                    result.NonBlank++;
-                    if (!seen.Add(text))
-                    {
-                        result.Duplicates++;
-                        continue;
-                    }
-                    result.Values.Add(text);
-                }
-            }
-            return result;
-        }
-
         public static byte[] BuildHistory(List<HistoryRow> rows, bool zh, Func<string, string> methodName)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;

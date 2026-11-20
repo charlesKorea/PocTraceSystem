@@ -140,6 +140,70 @@ namespace PocTrace.Core.Engine
         return allResults;
     }
 
+    public List<TraceResult> RunBatchTag(string targetTag, bool detailedLog, CancellationToken cancellationToken)
+    {
+      string tag = (targetTag ?? "").Trim();
+      var placed = PlacedNodes(tag);
+      if (placed.Count == 0)
+      {
+        return new List<TraceResult>
+        {
+          new TraceResult
+          {
+            StartEquipmentTag = tag,
+            Line = _cache.DbName,
+            ResultLabel = BatchPlacement.Unplaced,
+            EndType = EndPointType.Empty,
+            TracedAt = DateTime.Now
+          }
+        };
+      }
+
+      var results = RunTrace(tag, 0, detailedLog, cancellationToken, true) ?? new List<TraceResult>();
+      bool noPipe = results.Count == 0 || results.TrueForAll(r => r != null && r.EndType == EndPointType.Empty);
+      if (!noPipe)
+        return results;
+
+      if (results.Count == 0)
+      {
+        foreach (var node in placed)
+        {
+          results.Add(new TraceResult
+          {
+            StartEquipmentTag = !string.IsNullOrWhiteSpace(node.Tag) ? node.Tag : tag,
+            StartNodeName = node.Name,
+            StartNodeGUID = node.InstanceId,
+            Line = _cache.DbName,
+            EndType = EndPointType.Empty,
+            ResultLabel = BatchPlacement.Undesigned,
+            TracedAt = DateTime.Now
+          });
+        }
+        return results;
+      }
+
+      foreach (var row in results)
+      {
+        if (row != null && string.IsNullOrEmpty(row.ResultLabel))
+          row.ResultLabel = BatchPlacement.Undesigned;
+      }
+      return results;
+    }
+
+    private List<NodeInfo> PlacedNodes(string tag)
+    {
+      var placed = new List<NodeInfo>();
+      var nodes = _cache.FindNodesByTag(tag, true);
+      if (nodes == null)
+        return placed;
+      foreach (var node in nodes)
+      {
+        if (IsRealEquipment(node))
+          placed.Add(node);
+      }
+      return placed;
+    }
+
     private Dictionary<string, Dictionary<string, string>> ResolveUtilityMap()
     {
       return PocTrace.Core.Infrastructure.UtMapAlias.Resolve(_cache.UtilityMaps, _cache.DbName);

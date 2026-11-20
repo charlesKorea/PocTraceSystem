@@ -39,6 +39,7 @@
             this.btnSearch = new MetroFramework.Controls.MetroButton();
             this.txtBatchInput = new System.Windows.Forms.RichTextBox();
             this.btnBatchTrace = new MetroFramework.Controls.MetroButton();
+            this.btnBatchExcel = new MetroFramework.Controls.MetroButton();
             this.btnExport = new MetroFramework.Controls.MetroButton();
             this.panelGrid = new MetroFramework.Controls.MetroPanel();
             this.gridResults = new MetroFramework.Controls.MetroGrid();
@@ -62,6 +63,7 @@
             this.panelInput.Controls.Add(this.btnSearch);
             this.panelInput.Controls.Add(this.txtBatchInput);
             this.panelInput.Controls.Add(this.btnBatchTrace);
+            this.panelInput.Controls.Add(this.btnBatchExcel);
             this.panelInput.Controls.Add(this.btnExport);
             this.panelInput.HorizontalScrollbarBarColor = true;
             this.panelInput.HorizontalScrollbarHighlightOnWheel = false;
@@ -145,6 +147,17 @@
             this.btnBatchTrace.Text = "🔥 Batch Trace";
             this.btnBatchTrace.UseSelectable = true;
             this.btnBatchTrace.Click += new System.EventHandler(this.BtnBatchTrace_Click);
+            // 
+            // btnBatchExcel
+            // 
+            this.btnBatchExcel.Location = new System.Drawing.Point(846, 54);
+            this.btnBatchExcel.Name = "btnBatchExcel";
+            this.btnBatchExcel.Size = new System.Drawing.Size(168, 27);
+            this.btnBatchExcel.Style = MetroFramework.MetroColorStyle.Blue;
+            this.btnBatchExcel.TabIndex = 8;
+            this.btnBatchExcel.Text = "엑셀 업로드";
+            this.btnBatchExcel.UseSelectable = true;
+            this.btnBatchExcel.Click += new System.EventHandler(this.BtnBatchExcel_Click);
             // 
             // btnExport
             // 
@@ -315,6 +328,7 @@
         private MetroFramework.Controls.MetroButton btnLoadData;
         private MetroFramework.Controls.MetroButton btnSearch;
         private MetroFramework.Controls.MetroButton btnBatchTrace;
+        private MetroFramework.Controls.MetroButton btnBatchExcel;
         private MetroFramework.Controls.MetroButton btnExport;
         private System.Windows.Forms.TextBox txtSearch;
         private System.Windows.Forms.RichTextBox txtBatchInput;

@@ -27,8 +27,11 @@ namespace PocTrace.Core.Models
         public long TotalHopCount { get; set; }
         public double TotalLength { get; set; }
 
-        // [New] 2. 검수결과 (Logic: Issue Count > 0 ? FAIL : PASS)
-        public string CheckResult => CountERR > 0 ? "FAIL" : "PASS";
+        /// <summary>배치 분류. 미배치설비, 미설계 배치 설비.</summary>
+        public string Placement { get; set; }
+
+        // [New] 2. 검수결과 (Logic: Issue Count > 0 ? FAIL : PASS). 배치 분류가 있으면 그 문구.
+        public string CheckResult => !string.IsNullOrEmpty(Placement) ? Placement : (CountERR > 0 ? "FAIL" : "PASS");
 
         // [New] 4. 설비수량 (해당 Tag를 가진 GUID의 개수)
         public int EquipmentCount { get; set; }

@@ -12,7 +12,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel; // PropertyChanged 사용
 using System.Drawing; // Point 사용
+using System.IO;
 using System.Linq; // LINQ 사용
+using System.Threading.Tasks;
+using PocTrace.Core.Engine.Reporting;
 using System.Windows.Forms;
 
 namespace PocTrace.UI
@@ -170,6 +173,7 @@ namespace PocTrace.UI
             btnSearch.Enabled = !isBusy;
             btnExport.Enabled = !isBusy;
             btnBatchTrace.Enabled = !isBusy;
+            btnBatchExcel.Enabled = !isBusy;
 
             // [수정] Batch Trace 버튼 찾기 (BtnBatchTrace_Click 메서드 이름 확인)
             var btnBatch = this.Controls.Find("BtnBatchTrace", true).FirstOrDefault() as Button;
@@ -665,7 +669,48 @@ namespace PocTrace.UI
             //btnLoadData_Click(null, e);
         }
 
+        private async void BtnBatchExcel_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new OpenFileDialog())
+            {
+                dialog.Filter = "Excel (*.xlsx;*.xlsm)|*.xlsx;*.xlsm";
+                dialog.Title = "eq code 열을 설비 Tag로 읽습니다";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                EqCodeSheet.ReadResult read;
+                try
+                {
+                    read = EqCodeSheet.Read(File.ReadAllBytes(dialog.FileName));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Excel을 읽지 못했습니다. " + ex.Message, "Excel Upload");
+                    return;
+                }
+
+                if (!read.HeaderFound)
+                {
+                    MessageBox.Show("첫 행에 eq code 헤더가 없습니다.", "Excel Upload");
+                    return;
+                }
+                if (read.Values.Count == 0)
+                {
+                    MessageBox.Show("eq code 열에 Tag가 없습니다.", "Excel Upload");
+                    return;
+                }
+
+                txtBatchInput.Text = string.Join(Environment.NewLine, read.Values);
+                await BtnBatchTrace_ClickAsync();
+            }
+        }
+
         private async void BtnBatchTrace_Click(object sender, EventArgs e)
+        {
+            await BtnBatchTrace_ClickAsync();
+        }
+
+        private async Task BtnBatchTrace_ClickAsync()
         {
             //await _viewModel.RunBatchTraceAsync(txtBatchInput.Text);
 

@@ -174,9 +174,12 @@ namespace PocTrace.Core.Models
         /// <summary>T: Construction Code — End Node ObjectInstanceLog.CONSTRUCTIONCODE.</summary>
         public string TargetConstructionCode { get; set; }
 
+        /// <summary>배치 분류. 미배치설비, 미설계 배치 설비. 있으면 Check Result가 이 문구다.</summary>
+        public string ResultLabel { get; set; }
+
         // [New] 1. Check Result Logic
-        // FailCount가 0이면 Pass, 아니면 Fail
-        public string CheckResult => FailCount == 0 ? "Pass" : "Fail";
+        // FailCount가 0이면 Pass, 아니면 Fail. 배치 분류가 있으면 그 문구를 쓴다.
+        public string CheckResult => !string.IsNullOrEmpty(ResultLabel) ? ResultLabel : (FailCount == 0 ? "Pass" : "Fail");
 
         // [New] 2. Source Node Info (S: Subdivision / Division)
         public string StartNodeDivision { get; set; } // S: Division (Equipment / PlumbingComponent / …)

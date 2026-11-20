@@ -34,6 +34,9 @@ namespace PocTrace.Core.Engine.Cache
         // includePartialMatch=false(기본, Admin 스케줄러): 정확 일치만 반환(중복 검수 방지).
         IEnumerable<PocData> FindStartPocs(string equipTag, bool includePartialMatch = false);
 
+        /// <summary>태그가 맞는 노드. POC가 없는 설비도 포함한다.</summary>
+        IReadOnlyList<NodeInfo> FindNodesByTag(string equipTag, bool includePartialMatch = false);
+
         // [New] ID로 NodeInfo 전체 조회 (Validator용)
         NodeInfo GetNode(Guid nodeId);
 

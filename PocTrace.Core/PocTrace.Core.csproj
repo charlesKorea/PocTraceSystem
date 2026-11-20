@@ -133,6 +133,8 @@
     <Compile Include="Infrastructure\SqlIdentifier.cs" />
     <Compile Include="Infrastructure\UtMapAlias.cs" />
     <Compile Include="Infrastructure\PipeSectionFormat.cs" />
+    <Compile Include="Engine\BatchPlacement.cs" />
+    <Compile Include="Engine\Reporting\EqCodeSheet.cs" />
     <Compile Include="Engine\TraceAlgorithm.cs" />
     <Compile Include="Models\EquipmentTraceSummary.cs" />
     <Compile Include="Models\HookupNumbersData.cs" />

@@ -415,7 +415,7 @@ namespace PocTrace.UI.ViewModels
                             var engine = _engineFactory();
                             // [VOC-2] Viewer 배치도 대화형이므로 부분매칭 포함
                             bool detailedLog = GlobalConfig.EnableDetailedDebug;
-                            var results = engine.RunTrace(tag, 0, detailedLog, System.Threading.CancellationToken.None, includePartialTagMatch: true);
+                            var results = engine.RunBatchTag(tag, detailedLog, System.Threading.CancellationToken.None);
 
                             if (results == null || results.Count == 0)
                             {
