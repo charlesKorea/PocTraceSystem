@@ -43,128 +43,23 @@ namespace PocTrace.Core.Engine.Reporting
             using (var package = new ExcelPackage(new FileInfo(path)))
             {
                 // =========================================================
-                // 📊 Sheet 1: Summary (정답지 비교용 Status 집계표)
+                // Sheet 1: Summary
                 // =========================================================
                 var wsSum = package.Workbook.Worksheets.Add("Summary");
                 wsSum.Cells["M1"].Value = TraceAppVersion.Display();
 
-                // 💡 [개편] 사용자 요청 규격에 맞춘 심플한 헤더 구성
-                string[] statusHeaders = { "설비id", "cap", "emp", "eqp", "ing", "noz", "tof", "err", "total" };
-                // Header Styling
-                for (int i = 0; i < statusHeaders.Length; i++)
-                {
-                    var cell = wsSum.Cells[1, i + 1];
-                    cell.Value = statusHeaders[i];
-                    cell.Style.Font.Bold = true;
-                    cell.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                    cell.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
-                    cell.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
-                }
+                string lineName = cache != null && !string.IsNullOrEmpty(cache.DbName)
+                    ? cache.DbName
+                    : (details != null && details.Count > 0 ? details[0].Line : "");
+                int row = WriteSummaryTable(wsSum, summaries, lineName, 1);
+                WriteNameParts(wsSum, summaries, row + 4);
 
-                int row = 2;
-                foreach (var s in summaries)
-                {
-                    wsSum.Cells[row, 1].Value = s.EquipmentTag; // 설비id
-                    wsSum.Cells[row, 2].Value = s.CountCAP;     // cap
-                    wsSum.Cells[row, 3].Value = s.CountEMP;     // emp
-                    wsSum.Cells[row, 4].Value = s.CountEQP;     // eqp
-                    wsSum.Cells[row, 5].Value = s.CountING;     // ing
-                    wsSum.Cells[row, 6].Value = s.CountNOZ;     // noz
-                    wsSum.Cells[row, 7].Value = s.CountTOF;     // tof
-                    wsSum.Cells[row, 8].Value = s.CountERR;     // err
-
-                    // 💡 Total 수량 계산 (전체 분기 수와 동일)
-                    wsSum.Cells[row, 9].Value = s.DerivedBranchCount;
-
-                    // [수정] 모든 셀 가운데 정렬
-                    for (int c = 1; c <= 9; c++)
-                    {
-                        wsSum.Cells[row, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-                    }
-
-                    row++;
-                }
-
-                wsSum.Cells.AutoFitColumns();
-                wsSum.View.FreezePanes(2, 1);
-
-                // Header 정의
-                int startRowSum = row + 3; // Status 표 아래에 여백을 두고 시작
-                string[] sumHeaders = {
-                    "설비ID",      // 1
-		            "검수결과",     // 2
-		            "Issue Count", // 3
-		            "설비수량",     // 4
-		            "POC수량",     // 5
-		            "BreakDown",    // 6
-				    "HOP",
-                    "Length",      // 8
-                    "작업날짜",     // 9 [신규]
-                    "작업자",       // 10 [신규]
-                    "소속회사"      // 11 [신규]
-                };
-
-                // Header Styling
-                for (int i = 0; i < sumHeaders.Length; i++)
-                {
-                    var cell = wsSum.Cells[startRowSum, i + 1];
-                    cell.Value = sumHeaders[i];
-                    cell.Style.Font.Bold = true;
-                    cell.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                    cell.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
-                    cell.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
-                }
-
-                row = startRowSum + 1;
-                foreach (var s in summaries)
-                {
-                    // 1) 설비ID
-                    wsSum.Cells[row, 1].Value = s.EquipmentTag;
-
-                    // 2) 검수결과 & 3) Issue Count
-                    wsSum.Cells[row, 2].Value = s.CheckResult; // PASS or FAIL
-                    wsSum.Cells[row, 3].Value = s.CountERR;
-
-                    // 색상 처리 (FAIL = RED)
-                    if (s.CheckResult == "FAIL")
-                    {
-                        wsSum.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.Red);
-                    }
-                    else
-                    {
-                        wsSum.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.Green);
-                    }
-
-                    // 4) 설비수량
-                    wsSum.Cells[row, 4].Value = s.EquipmentCount;
-
-                    // 5) POC수량
-                    wsSum.Cells[row, 5].Value = s.TotalPocCount;
-
-                    // 6) BreakDown
-                    wsSum.Cells[row, 6].Value = s.DerivedBranchCount;
-
-                    wsSum.Cells[row, 7].Value = s.TotalHopCount;
-                    wsSum.Cells[row, 8].Value = Math.Round(s.TotalLength, 1);
-                    wsSum.Cells[row, 8].Style.Numberformat.Format = "0.0";
-
-                    // [신규] 작업자 정보
-                    wsSum.Cells[row, 9].Value = s.LatestOpTime;
-                    wsSum.Cells[row, 10].Value = s.LatestUserName;
-                    wsSum.Cells[row, 11].Value = s.LatestCompanyName;
-
-                    // [수정] 모든 셀 가운데 정렬
-                    for (int c = 1; c <= 11; c++)
-                    {
-                        wsSum.Cells[row, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-                    }
-
-                    row++;
-                }
+                // Hookup 통계, 검증 시트, 치유 효과는 필요할 때 아래 참조 블록의 주석을 푼다.
 
                 // =========================================================
-                // 📊 [신규] Sheet 1-2: Hookup Validation 통계 요약
+                // 📊 [참조] Hookup Validation 통계. 호출하지 않는다.
                 // =========================================================
+                /*
                 var validationService = new HookupValidationService(_logger);
                 var validationData = validationService.Validate(details, cache);
 
@@ -322,21 +217,22 @@ namespace PocTrace.Core.Engine.Reporting
 
                     hookupStatRow++;
                 }
+                */
 
                 wsSum.Cells.AutoFitColumns();
-                wsSum.View.FreezePanes(2, 1); // 1행 고정
+                wsSum.View.FreezePanes(2, 1);
 
                 // =========================================================
-                // Sheet 2: Details — Core TraceResultExcelExporter (LoadFromArrays)
+                // Sheet 2: Poc
                 // =========================================================
-                var wsDet = package.Workbook.Worksheets.Add("Details");
+                var wsDet = package.Workbook.Worksheets.Add("Poc");
                 TraceResultExcelExporter.WriteDetailSheet(
                     wsDet, details, styleIssueColumns: false, headerBackground: Color.LightGray);
 
                 // =========================================================
                 // 🛠️ Sheet 3: Path Analytics (BOM 및 배관 길이 집계) - 신규
                 // =========================================================
-                var wsPath = package.Workbook.Worksheets.Add("Path Analytics");
+                var wsPath = package.Workbook.Worksheets.Add("BOM");
 
                 // 모든 탐색 결과에서 거쳐간 발자국(Steps)을 하나의 리스트로 평탄화(Flatten)
                 var allSteps = details.Where(d => d.Steps != null).SelectMany(d => d.Steps).ToList();
@@ -407,7 +303,7 @@ namespace PocTrace.Core.Engine.Reporting
 
                 if (cache != null && DdwLine.IsCacheKey(cache.DbName))
                 {
-                    var wsTrace = package.Workbook.Worksheets.Add("추적");
+                    var wsTrace = package.Workbook.Worksheets.Add("Pipe");
                     for (int c = 0; c < DdwTraceSheet.Headers.Length; c++)
                     {
                         wsTrace.Cells[1, c + 1].Value = DdwTraceSheet.Headers[c];
@@ -426,9 +322,8 @@ namespace PocTrace.Core.Engine.Reporting
                     wsTrace.Cells.AutoFitColumns();
                 }
 
-                // =========================================================
-                // 🛠️ Sheet 4–5: Hookup — Core HookupExcelReportWriter
-                // =========================================================
+                /*
+                // Hookup_Validation, 5D_Update_Upload. 위 참조 블록과 함께 연다.
                 if (validationData.Any())
                 {
                     HookupExcelReportWriter.WriteDetailSheet(
@@ -437,6 +332,7 @@ namespace PocTrace.Core.Engine.Reporting
                         package.Workbook.Worksheets.Add("5D_Update_Upload"),
                         HookupExcelReportWriter.FilterUploadCandidates(validationData));
                 }
+                */
 
                 _logger.Information("💾 [Excel Export] 엑셀 파일 저장을 시도합니다. Path: {Path}", path);
                 package.Save();
@@ -445,57 +341,114 @@ namespace PocTrace.Core.Engine.Reporting
         }
 
         /// <summary>
-        /// 배치 실행 시 통합 요약 파일(Total_Summary 단일 시트)을 생성한다.
-        /// 기존 MainViewModel.ExportBatchSummaryExcel 로직을 그대로 이전(동기 버전).
+        /// 배치 실행 시 통합 요약 파일(Summary 시트)을 생성한다.
         /// </summary>
-        public void SaveBatchSummaryReport(string filePath, List<EquipmentTraceSummary> summaries)
+        public void SaveBatchSummaryReport(string filePath, List<EquipmentTraceSummary> summaries, string line = null)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-                using (var package = new ExcelPackage(new FileInfo(filePath)))
+            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            {
+                var ws = package.Workbook.Worksheets.Add("Summary");
+                ws.Cells["M1"].Value = TraceAppVersion.Display();
+                var ordered = summaries == null
+                    ? new List<EquipmentTraceSummary>()
+                    : summaries.OrderBy(x => x.EquipmentTag).ToList();
+                int row = WriteSummaryTable(ws, ordered, line, 1);
+                WriteNameParts(ws, ordered, row + 4);
+                ws.Cells.AutoFitColumns();
+                package.Save();
+            }
+        }
+
+        private static readonly string[] SummaryHeaders =
+        {
+            "Line", "EQ Code", "Result", "Issues", "Ep Count", "Pocs",
+            "BreakDown", "BOM(Hop)", "Length(m)", "Date", "Worker", "Company"
+        };
+
+        private static readonly string[] NameHeaders =
+        {
+            "Name", "Division", "Subdivision1", "Subdivision2",
+            "Poc Count", "Error Poc Count", "Length(m)"
+        };
+
+        private static int WriteSummaryTable(ExcelWorksheet ws, List<EquipmentTraceSummary> summaries, string line, int startRow)
+        {
+            for (int i = 0; i < SummaryHeaders.Length; i++)
+            {
+                var cell = ws.Cells[startRow, i + 1];
+                cell.Value = SummaryHeaders[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                cell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+                cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            }
+
+            int row = startRow + 1;
+            if (summaries == null)
+                return row;
+            foreach (var s in summaries)
+            {
+                ws.Cells[row, 1].Value = line ?? "";
+                ws.Cells[row, 2].Value = s.EquipmentTag;
+                ws.Cells[row, 3].Value = s.CheckResult;
+                if (s.CheckResult == "FAIL")
+                    ws.Cells[row, 3].Style.Font.Color.SetColor(Color.Red);
+                else if (s.CheckResult == "PASS")
+                    ws.Cells[row, 3].Style.Font.Color.SetColor(Color.Green);
+                ws.Cells[row, 4].Value = s.CountERR;
+                ws.Cells[row, 5].Value = s.EquipmentCount;
+                ws.Cells[row, 6].Value = s.TotalPocCount;
+                ws.Cells[row, 7].Value = s.DerivedBranchCount;
+                ws.Cells[row, 8].Value = s.TotalHopCount;
+                ws.Cells[row, 9].Value = Math.Round(s.TotalLength, 1);
+                ws.Cells[row, 9].Style.Numberformat.Format = "0.0";
+                ws.Cells[row, 10].Value = s.LatestOpTime;
+                ws.Cells[row, 11].Value = s.LatestUserName;
+                ws.Cells[row, 12].Value = s.LatestCompanyName;
+                for (int c = 1; c <= SummaryHeaders.Length; c++)
+                    ws.Cells[row, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                row++;
+            }
+            return row;
+        }
+
+        private static int WriteNameParts(ExcelWorksheet ws, List<EquipmentTraceSummary> summaries, int startRow)
+        {
+            for (int i = 0; i < NameHeaders.Length; i++)
+            {
+                var cell = ws.Cells[startRow, i + 1];
+                cell.Value = NameHeaders[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                cell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+                cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            }
+
+            int row = startRow + 1;
+            if (summaries == null)
+                return row;
+            foreach (var s in summaries)
+            {
+                if (s.Names == null)
+                    continue;
+                foreach (var part in s.Names)
                 {
-                    // Sheet 1: Summary (Details 시트는 생성하지 않음)
-                    var ws = package.Workbook.Worksheets.Add("Total_Summary");
-
-                    // Header (기존과 동일하게 맞춤)
-                    string[] headers = {
-                        "설비ID", "검수결과", "Issue Count", "설비수량", "POC수량", "BreakDown", "비고"
-                    };
-
-                    // Header Style
-                    for (int i = 0; i < headers.Length; i++)
-                    {
-                        ws.Cells[1, i + 1].Value = headers[i];
-                        ws.Cells[1, i + 1].Style.Font.Bold = true;
-                        ws.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                        ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
-                    }
-
-                    // Data
-                    int row = 2;
-                    // Tag순 정렬
-                    foreach (var s in summaries.OrderBy(x => x.EquipmentTag))
-                    {
-                        ws.Cells[row, 1].Value = s.EquipmentTag;
-
-                        ws.Cells[row, 2].Value = s.CheckResult; // PASS/FAIL
-                        if (s.CheckResult == "FAIL")
-                            ws.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.Red);
-                        else
-                            ws.Cells[row, 2].Style.Font.Color.SetColor(System.Drawing.Color.Green);
-
-                        ws.Cells[row, 3].Value = s.CountERR;
-                        ws.Cells[row, 4].Value = s.EquipmentCount;
-                        ws.Cells[row, 5].Value = s.TotalPocCount;
-                        ws.Cells[row, 6].Value = s.DerivedBranchCount;
-                        ws.Cells[row, 7].Value = s.ExcelFilePath; // 비고(개별파일경로 등)
-
-                        row++;
-                    }
-
-                    ws.Cells.AutoFitColumns();
-                    package.Save();
+                    ws.Cells[row, 1].Value = part.Name;
+                    ws.Cells[row, 2].Value = part.Division;
+                    ws.Cells[row, 3].Value = part.Subdivision1;
+                    ws.Cells[row, 4].Value = part.Subdivision2;
+                    ws.Cells[row, 5].Value = part.PocCount;
+                    ws.Cells[row, 6].Value = part.ErrorPocCount;
+                    ws.Cells[row, 7].Value = part.LengthM;
+                    ws.Cells[row, 7].Style.Numberformat.Format = "0.0";
+                    for (int c = 1; c <= NameHeaders.Length; c++)
+                        ws.Cells[row, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    row++;
                 }
+            }
+            return row;
         }
     }
 }

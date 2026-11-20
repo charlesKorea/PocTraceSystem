@@ -54,7 +54,7 @@ namespace PocTrace.Core.Engine.Reporting
             "S: Name", "S: Subdivision1", "S: Subdivision2", "S: Tag", "S: Construction Code",
             "S:BIM ID", "S:Instance ID",
             "S: GUID",
-            "S: Connector GUID", "분기배관수",
+            "S: Connector GUID", "Branch Pipes",
             "S: Connector Tag", "S: Connector Name", "S: Connector Use", "S: Connector Information", "S: Connection Tag",
             "S: Module Name", "S: PocNo",
             "Status",
@@ -340,6 +340,7 @@ namespace PocTrace.Core.Engine.Reporting
             {
                 var rows = data.Select(ToDetailRow);
                 ws.Cells[2, 1].LoadFromArrays(rows);
+                BandByStartGuid(ws, data);
             }
 
             int lastRow = data.Count + 1;
@@ -362,6 +363,28 @@ namespace PocTrace.Core.Engine.Reporting
             ApplyColumnWidths(ws);
             ApplyNumberFormats(ws, lastRow);
             ws.View.FreezePanes(2, 1);
+        }
+
+        /// <summary>S:GUID가 바뀔 때마다 행 배경을 흰색과 옅은 회색으로 바꾼다.</summary>
+        private static void BandByStartGuid(ExcelWorksheet ws, IList<TraceResult> data)
+        {
+            var light = Color.FromArgb(0xF2, 0xF2, 0xF2);
+            bool gray = false;
+            string previous = null;
+            for (int i = 0; i < data.Count; i++)
+            {
+                string guid = data[i] == null ? "" : data[i].StartNodeGUID.ToString();
+                if (previous != null && !string.Equals(previous, guid, StringComparison.OrdinalIgnoreCase))
+                    gray = !gray;
+                previous = guid;
+                if (!gray)
+                    continue;
+                using (var row = ws.Cells[i + 2, 1, i + 2, DetailHeaders.Length])
+                {
+                    row.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    row.Style.Fill.BackgroundColor.SetColor(light);
+                }
+            }
         }
 
         public static object[] ToDetailRow(TraceResult r)
@@ -470,7 +493,7 @@ namespace PocTrace.Core.Engine.Reporting
         {
             if (lastRow < 2) return;
 
-            // Fail Count (col 2), 분기배관수 (col 15) — S: Construction Code 삽입 반영
+            // Fail Count (col 2), Branch Pipes (col 15)
             ws.Cells[2, 2, lastRow, 2].Style.Numberformat.Format = "#,##0";
             ws.Cells[2, 15, lastRow, 15].Style.Numberformat.Format = "#,##0";
             // S:BIM ID (col 11), S:Instance ID (col 12) — 텍스트(콤마·과학 표기 방지)

@@ -210,9 +210,9 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/history/delete")
                 {
                     if (!_portal.IsAdmin)
-                        throw new PortalForbiddenException(DemolitionUiText.Kz("Admin 권한이 있어야 기록을 지울 수 있습니다.", "只有 Admin 权限可以删除记录。"));
+                        throw new PortalForbiddenException(WebLocalStore.Pick("Admin 권한이 있어야 기록을 지울 수 있습니다.", "只有 Admin 权限可以删除记录。"));
                     if (context.Request.Headers["X-PocTrace"] != "1")
-                        throw new PortalInputException(DemolitionUiText.Kz("요청이 올바르지 않습니다.", "请求无效。"));
+                        throw new PortalInputException(WebLocalStore.Pick("요청이 올바르지 않습니다.", "请求无效。"));
                     var body = ReadJson(context.Request);
                     var items = new System.Collections.Generic.List<HistoryKey>();
                     var array = body["items"] as JArray;
@@ -253,7 +253,7 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/batches/preview")
                 {
                     if (!IsMultipart(context.Request))
-                        throw new PortalInputException(DemolitionUiText.Kz("Excel 파일을 올려 주세요.", "请上传 Excel 文件。"));
+                        throw new PortalInputException(WebLocalStore.Pick("Excel 파일을 올려 주세요.", "请上传 Excel 文件。"));
                     string uploadName;
                     byte[] upload = ReadUpload(context.Request, out uploadName);
                     WriteJson(context, 200, _portal.PreviewBatchUpload(upload, uploadName));
@@ -459,7 +459,7 @@ namespace PocTrace.Web
 
         private static object Err(string korean, string chinese)
         {
-            return new { error = DemolitionUiText.Kz(korean, chinese) };
+            return new { error = WebLocalStore.Pick(korean, chinese) };
         }
 
         private static string Quote(string value)

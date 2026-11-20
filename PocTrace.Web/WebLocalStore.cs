@@ -23,6 +23,19 @@ namespace PocTrace.Web
             }
         }
 
+        public static string Pick(string korean, string chinese)
+        {
+            bool chineseUi;
+            lock (Gate)
+            {
+                PrefsFile file = LoadPrefs();
+                chineseUi = file != null && file.Lang == "zh";
+            }
+            if (chineseUi)
+                return string.IsNullOrEmpty(chinese) ? korean ?? string.Empty : chinese;
+            return string.IsNullOrEmpty(korean) ? chinese ?? string.Empty : korean;
+        }
+
         public static void WritePrefs(string lang, string theme)
         {
             lock (Gate)

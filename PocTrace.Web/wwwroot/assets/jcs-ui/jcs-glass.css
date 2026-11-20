@@ -338,6 +338,8 @@ button.danger[hidden] { display: none; }
 .status.cancelled .status-icon { background: var(--warn-bg); color: var(--warn); }
 
 table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.name-parts { margin: 8px 0 12px; }
+.name-parts th, .name-parts td { padding: 8px 10px; font-size: 13px; }
 th, td { padding: 12px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 th { color: var(--muted); font-size: 12px; font-weight: 700; background: var(--chip); }
 tr:hover td { background: rgba(12, 110, 104, 0.04); }

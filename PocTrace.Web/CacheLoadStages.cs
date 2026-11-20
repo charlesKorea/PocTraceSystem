@@ -20,7 +20,7 @@ namespace PocTrace.Web
         public static readonly Stage Open = new Stage
         {
             Key = "open", Percent = 4,
-            Ko = "캐시 파일을 여는 중", Zh = "正在打开缓存文件"
+            Ko = "Cache 파일을 여는 중", Zh = "正在打开Cache文件"
         };
 
         public static readonly Stage UtMapping = new Stage
@@ -31,13 +31,13 @@ namespace PocTrace.Web
 
         private static readonly Stage[] Table =
         {
-            new Stage { Key = "legacy", Percent = 20, Ko = "이전 형식 캐시를 읽는 중", Zh = "正在读取旧格式缓存" },
+            new Stage { Key = "legacy", Percent = 20, Ko = "이전 형식 Cache를 읽는 중", Zh = "正在读取旧格式Cache" },
             new Stage { Key = "nodes", Percent = 10, Ko = "Nodes 읽는 중", Zh = "正在读取 Nodes" },
             new Stage { Key = "pocs", Percent = 28, Ko = "POC 읽는 중", Zh = "正在读取 POC" },
             new Stage { Key = "pipes", Percent = 42, Ko = "Pipes 읽는 중", Zh = "正在读取 Pipes" },
             new Stage { Key = "takeoffs", Percent = 54, Ko = "Takeoffs 읽는 중", Zh = "正在读取 Takeoffs" },
             new Stage { Key = "dynprops", Percent = 61, Ko = "Hookup 속성 읽는 중", Zh = "正在读取 Hookup 属性" },
-            new Stage { Key = "files", Percent = 66, Ko = "캐시 파일 읽기 완료", Zh = "缓存文件读取完成" },
+            new Stage { Key = "files", Percent = 66, Ko = "Cache 파일 읽기 완료", Zh = "Cache文件读取完成" },
             new Stage { Key = "init", Percent = 70, Ko = "그래프를 준비하는 중", Zh = "正在准备图结构" },
             new Stage { Key = "sizing", Percent = 72, Ko = "인덱스 크기를 계산하는 중", Zh = "正在计算索引大小" },
             new Stage { Key = "g-nodes", Percent = 76, Ko = "Node 인덱스를 만드는 중", Zh = "正在建立 Node 索引" },

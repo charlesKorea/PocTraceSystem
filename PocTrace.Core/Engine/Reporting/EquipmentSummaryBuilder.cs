@@ -87,11 +87,44 @@ namespace PocTrace.Core.Engine.Reporting
 
                     LatestOpTime = worker.OpTime,
                     LatestUserName = worker.UserName,
-                    LatestCompanyName = worker.CompanyName
+                    LatestCompanyName = worker.CompanyName,
+                    Names = BuildNameParts(group, lengthDivisor)
                 });
             }
 
             return list;
+        }
+
+        private static List<EquipmentNamePart> BuildNameParts(IEnumerable<TraceResult> group, double lengthDivisor)
+        {
+            var parts = new List<EquipmentNamePart>();
+            var byName = group
+                .GroupBy(r => new
+                {
+                    Name = r.StartNodeName ?? "",
+                    Division = r.StartNodeDivision ?? "",
+                    Sub1 = r.StartNodeSubDivision1 ?? "",
+                    Sub2 = r.StartNodeSubDivision2 ?? ""
+                })
+                .OrderBy(g => g.Key.Name)
+                .ThenBy(g => g.Key.Division);
+            foreach (var equip in byName)
+            {
+                double length = equip.Sum(r => r.TotalLength);
+                if (lengthDivisor > 0)
+                    length = length / lengthDivisor;
+                parts.Add(new EquipmentNamePart
+                {
+                    Name = equip.Key.Name,
+                    Division = equip.Key.Division,
+                    Subdivision1 = equip.Key.Sub1,
+                    Subdivision2 = equip.Key.Sub2,
+                    PocCount = equip.Select(r => r.StartPocId).Distinct().Count(),
+                    ErrorPocCount = equip.Where(r => r.FailCount > 0).Select(r => r.StartPocId).Distinct().Count(),
+                    LengthM = Math.Round(length, 1)
+                });
+            }
+            return parts;
         }
 
         private static string SharedPlacement(IEnumerable<TraceResult> group)

@@ -530,6 +530,8 @@ namespace PocTrace.DdwAcceptance
             var hopResult = new TraceResult
             {
                 StartPocId = hopPoc,
+                StartNodeGUID = hopEq,
+                StartNodeName = "EQ",
                 Steps = new List<TraceStep>
                 {
                     new TraceStep { StepIndex = 1, NodeId = hopEq, NodeName = "EQ", NodeType = "Equipment", OutletUsed = hopPipe },
@@ -537,11 +539,12 @@ namespace PocTrace.DdwAcceptance
                 }
             };
             var sheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(hopCache, new[] { hopResult });
-            Check(sheet.Count == 1 && (int)sheet[0][3] == 1, "trace sheet num starts at 1");
-            Check((string)sheet[0][0] == "INLET" && (string)sheet[0][1] == "pipe", "trace sheet poc names");
-            Check((string)sheet[0][2] == PocTrace.Core.Infrastructure.DdwId.Text(hopEnd), "trace sheet connected ddw id");
-            Check((string)sheet[0][5] == "standard" && (double)sheet[0][13] == 12.5, "trace sheet pipe type and length2");
-            Check((string)sheet[0][14] == "L1" && (string)sheet[0][17] == "H9", "pipe number and hookup number");
+            Check(sheet.Count == 1 && (int)sheet[0][4] == 1, "trace sheet num starts at 1");
+            Check((string)sheet[0][0] == hopEq.ToString() && (string)sheet[0][1] == "EQ", "trace sheet start instance and model");
+            Check((string)sheet[0][2] == "INLET" && (string)sheet[0][10] == "pipe", "trace sheet poc names");
+            Check((string)sheet[0][3] == PocTrace.Core.Infrastructure.DdwId.Text(hopPoc), "trace sheet start poc instance id");
+            Check((string)sheet[0][12] == "standard" && (double)sheet[0][8] == 12.5, "trace sheet pipe type and length2");
+            Check((string)sheet[0][9] == "H9", "pipe hookup number");
 
             var tofId = G(180);
             var tofEq = G(181);
@@ -566,7 +569,7 @@ namespace PocTrace.DdwAcceptance
                     }
                 }
             });
-            Check(tofSheet.Count == 1 && (string)tofSheet[0][15] == "", "empty damper tag is blank");
+            Check(tofSheet.Count == 1 && (string)tofSheet[0][16] == "", "empty damper tag is blank");
 
             var nzObj = G(190);
             var nzPocId = G(191);
@@ -600,8 +603,7 @@ namespace PocTrace.DdwAcceptance
                     }
                 }
             });
-            Check(nzSheet.Count == 1 && (string)nzSheet[0][14] == "OBJ-L", "nozzle pipe number is the object lateral");
-            Check((string)nzSheet[0][15] == "PTAG" && (string)nzSheet[0][16] == "CTAG", "nozzle tag and connection tag come from the poc");
+            Check(nzSheet.Count == 1 && (string)nzSheet[0][16] == "PTAG" && (string)nzSheet[0][17] == "CTAG", "nozzle tag and connection tag come from the poc");
 
             var tofPipe = G(210);
             var tofPoc = G(211);
@@ -657,8 +659,7 @@ namespace PocTrace.DdwAcceptance
                     }
                 }
             });
-            Check(tofAttrSheet.Count == 1 && (string)tofAttrSheet[0][14] == "DUCT-L", "takeoff pipe number is the duct lateral");
-            Check((string)tofAttrSheet[0][15] == "T1" && (string)tofAttrSheet[0][16] == "C1", "takeoff tag columns stay on the poc");
+            Check(tofAttrSheet.Count == 1 && (string)tofAttrSheet[0][16] == "T1" && (string)tofAttrSheet[0][17] == "C1", "takeoff tag columns stay on the poc");
             var tofStart = new NodeInfo { InstanceId = G(217), Tag = "eq", Type = NodeType.Equipment, PZ = 0 };
             var tofStartPoc = new PocData { InstanceId = G(218), OwnerId = G(217), UtilityName = "N2" };
             var tofRow = new TraceResult { EndType = EndPointType.Takeoff, StartPocId = tofStartPoc.InstanceId, EndPocId = tofPipe, EndName = "Damper[]", TargetNodeGUID = tofPipe, Line = "x2_m" };

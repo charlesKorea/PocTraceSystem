@@ -25,7 +25,7 @@ namespace PocTrace.Web
 {
     /// <summary>
     /// Viewer MainViewModel의 로드 / 단건 Trace / 배치 / Excel을 HTTP 작업으로 옮긴 것.
-    /// 캐시 파일은 읽기만 하고, Excel은 사용자 PC의 LocalAppData에 둔다.
+    /// Cache 파일은 읽기만 하고, Excel은 사용자 PC의 LocalAppData에 둔다.
     /// </summary>
     internal sealed class PortalService
     {
@@ -99,7 +99,7 @@ namespace PocTrace.Web
                 shared = new
                 {
                     available = result.SharedAvailable,
-                    error = result.SharedError
+                    error = SharedFolderError(result.SharedError)
                 },
                 canDelete = IsAdmin,
                 truncated = result.Truncated,
@@ -326,8 +326,8 @@ namespace PocTrace.Web
                     job.State = "done";
                     job.Percent = 100;
                     job.Message = Msg(
-                        db + " 캐시가 이미 메모리에 있습니다. 태그를 입력하세요.",
-                        db + " 缓存已在内存中。请输入 Tag。");
+                        db + " Cache가 이미 메모리에 있습니다. Tag를 입력하세요.",
+                        db + " Cache已在内存中。请输入 Tag。");
                 }
                 return job.Id;
             }
@@ -341,9 +341,9 @@ namespace PocTrace.Web
             db = RequireDb(db);
             tag = (tag ?? "").Trim();
             if (tag.Length == 0)
-                throw new PortalInputException(Msg("태그를 입력하세요.", "请输入 Tag。"));
+                throw new PortalInputException(Msg("Tag를 입력하세요.", "请输入 Tag。"));
             if (tag.Length > 200)
-                throw new PortalInputException(Msg("태그가 너무 깁니다.", "Tag 过长。"));
+                throw new PortalInputException(Msg("Tag가 너무 깁니다.", "Tag 过长。"));
 
             JobRecord job = BeginJob("trace", db, tag);
             Task.Run(() => RunSingle(job, tag));
@@ -355,7 +355,7 @@ namespace PocTrace.Web
             db = RequireDb(db);
             var tags = SplitTags(text);
             if (tags.Count == 0)
-                throw new PortalInputException(Msg("배치 태그를 입력하세요.", "请输入批量 Tag。"));
+                throw new PortalInputException(Msg("배치 Tag를 입력하세요.", "请输入批量 Tag。"));
             if (tags.Count > MaxBatchTags)
                 throw new PortalInputException(Msg(
                     "배치는 한 번에 " + MaxBatchTags + "개까지입니다. 지금은 " + tags.Count + "개입니다.",
@@ -504,7 +504,7 @@ namespace PocTrace.Web
                 {
                     SetPhase(job, "summary", 93, 98, Msg("요약 Excel 저장 중", "正在保存汇总 Excel"));
                     summaryPath = Path.Combine(outputDir, "Summary.xlsx");
-                    _services.ExcelReport.SaveBatchSummaryReport(summaryPath, summaries);
+                    _services.ExcelReport.SaveBatchSummaryReport(summaryPath, summaries, job.Db);
                 }
 
                 string zipPath = null;
@@ -563,7 +563,7 @@ namespace PocTrace.Web
             int version;
             string source;
             if (!CacheFreshnessGuard.TryGetSavedAt(db, out savedAt, out version, out source))
-                throw new InvalidOperationException(Msg("캐시 시각을 읽지 못했습니다: ", "无法读取缓存时间: ") + db);
+                throw new InvalidOperationException(Msg("Cache 시각을 읽지 못했습니다: ", "无法读取Cache时间: ") + db);
 
             bool same = string.Equals(_loadedDb, db, StringComparison.OrdinalIgnoreCase)
                 && _services.CacheManager.IsInitialized
@@ -581,8 +581,8 @@ namespace PocTrace.Web
             var loaded = _services.GraphLoader.LoadGraphDataAsync(db, progress).GetAwaiter().GetResult();
             if (loaded.Nodes == null)
                 throw new InvalidOperationException(Msg(
-                    db + " 캐시를 읽지 못했습니다. Admin 캐시 갱신 여부를 확인하세요.",
-                    "未能读取 " + db + " 缓存。请确认 Admin 是否已更新缓存。"));
+                    db + " Cache를 읽지 못했습니다. Admin Cache 갱신 여부를 확인하세요.",
+                    "未能读取 " + db + " Cache。请确认 Admin 是否已更新Cache。"));
 
             SetStage(job, CacheLoadStages.UtMapping, lo, hi);
             var utMaps = _services.GraphLoader.LoadUtMapping();
@@ -643,8 +643,8 @@ namespace PocTrace.Web
                     job.Percent = 100;
                     job.ResultCount = 0;
                     job.Message = Msg(
-                        job.Db + " 캐시를 메모리에 올렸습니다. 이제 태그를 입력하세요.",
-                        "已将 " + job.Db + " 缓存载入内存。现在可以输入标签。");
+                        job.Db + " Cache를 메모리에 올렸습니다. 이제 Tag를 입력하세요.",
+                        "已将 " + job.Db + " Cache载入内存。现在可以输入Tag。");
                 }
             }
             catch (Exception ex) when (IsCancelled(ex))
@@ -661,7 +661,7 @@ namespace PocTrace.Web
         {
             var rows = ParseDemolition(text);
             if (rows.Count == 0)
-                throw new PortalInputException(DemolitionUiText.Kz(
+                throw new PortalInputException(Msg(
                     "철거 대상을 입력하세요. 예: X1,EQP-001",
                     "请输入拆除对象。例: X1,EQP-001"));
             return StoreDraft(rows);
@@ -670,11 +670,11 @@ namespace PocTrace.Web
         public object PreviewDemolitionUpload(byte[] bytes, string fileName)
         {
             if (bytes == null || bytes.Length == 0)
-                throw new PortalInputException(DemolitionUiText.Kz("파일이 비어 있습니다.", "文件为空。"));
+                throw new PortalInputException(Msg("파일이 비어 있습니다.", "文件为空。"));
 
             string ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
             if (ext != ".xlsx" && ext != ".xlsm")
-                throw new PortalInputException(DemolitionUiText.Kz(
+                throw new PortalInputException(Msg(
                     "Excel 파일만 올릴 수 있습니다. (xlsx, xlsm)",
                     "只能上传 Excel 文件。(xlsx, xlsm)"));
 
@@ -706,7 +706,7 @@ namespace PocTrace.Web
             {
                 source = ParseDemolition(text);
                 if (source.Count == 0)
-                    throw new PortalInputException(DemolitionUiText.Kz(
+                    throw new PortalInputException(Msg(
                         "철거 대상을 입력하세요. 예: X1,EQP-001",
                         "请输入拆除对象。例: X1,EQP-001"));
                 EnsureRowCap(source);
@@ -715,7 +715,7 @@ namespace PocTrace.Web
             var rows = source.Select(CloneRow).ToList();
             var valid = rows.Where(r => r.IsValid).ToList();
             if (valid.Count == 0)
-                throw new PortalInputException(DemolitionUiText.MsgNoValidEqp);
+                throw new PortalInputException(Msg("유효한 EQPID 행이 없습니다.", "没有有效的EQPID行。"));
 
             string line = valid[0].MappedLine;
             JobRecord job = BeginJob("demolition", line, valid.Count + " eqp");
@@ -734,10 +734,10 @@ namespace PocTrace.Web
                 if (job.State != "running")
                     return true;
                 if (job.CancelSource == null)
-                    throw new PortalInputException(DemolitionUiText.Kz(
+                    throw new PortalInputException(Msg(
                         "이 작업은 취소할 수 없습니다.",
                         "此作业无法取消。"));
-                job.Message = DemolitionUiText.Kz("취소 요청됨", "已请求取消");
+                job.Message = Msg("취소 요청됨", "已请求取消");
                 job.CancelSource.Cancel();
                 return true;
             }
@@ -906,7 +906,7 @@ namespace PocTrace.Web
                     if (src.Count > MaxSummaryRows + 1)
                     {
                         job.SummaryTruncated = true;
-                        job.Warnings.Add(DemolitionUiText.Kz(
+                        job.Warnings.Add(Msg(
                             "종합 표는 화면에서 " + MaxSummaryRows + "행까지 보여 줍니다. 전체는 Excel과 HTML에 있습니다.",
                             "综合表在画面上最多显示 " + MaxSummaryRows + " 行。完整内容在 Excel 和 HTML 中。"));
                     }
@@ -922,7 +922,7 @@ namespace PocTrace.Web
                     job.Percent = 100;
                     job.EtaSeconds = 0;
                     job.State = "done";
-                    job.Message = DemolitionUiText.Kz(
+                    job.Message = Msg(
                         "철거 검수 완료. 설비 " + result.EqpAttempted + "건",
                         "拆除检查完成。设备 " + result.EqpAttempted + " 台");
                 }
@@ -938,7 +938,7 @@ namespace PocTrace.Web
                     job.State = "cancelled";
                     job.Error = null;
                     job.InputRows = SnapshotRows(rows);
-                    job.Message = DemolitionUiText.Kz("철거 검수를 취소했습니다.", "已取消拆除检查。");
+                    job.Message = Msg("철거 검수를 취소했습니다.", "已取消拆除检查。");
                 }
             }
             catch (Exception ex)
@@ -1119,7 +1119,7 @@ namespace PocTrace.Web
                 return false;
             string site = NormHeader(parts[0]);
             string eqp = NormHeader(parts[parts.Length - 1]);
-            bool siteOk = site == "site" || site == "라인" || site == "line" || site == "db" || site == "project";
+            bool siteOk = site == "site" || site == "Line" || site == "line" || site == "db" || site == "project";
             bool eqpOk = eqp == "eqpid" || eqp == "eqp" || eqp == "tag" || eqp == "설비" || eqp == "설비id";
             return siteOk && eqpOk;
         }
@@ -1136,7 +1136,7 @@ namespace PocTrace.Web
         private static void EnsureRowCap(List<DemolitionInputRow> rows)
         {
             if (rows != null && rows.Count > MaxDemolitionRows)
-                throw new PortalInputException(DemolitionUiText.Kz(
+                throw new PortalInputException(Msg(
                     "한 번에 " + MaxDemolitionRows + "행까지입니다. 지금은 " + rows.Count + "행입니다.",
                     "一次最多 " + MaxDemolitionRows + " 行。当前 " + rows.Count + " 行。"));
         }
@@ -1170,7 +1170,7 @@ namespace PocTrace.Web
             {
                 DemolitionDraft draft;
                 if (!_drafts.TryGetValue(id, out draft))
-                    throw new PortalInputException(DemolitionUiText.Kz(
+                    throw new PortalInputException(Msg(
                         "검증 결과가 없습니다. 다시 검증하세요.",
                         "没有验证结果。请重新验证。"));
                 return draft.Rows.ToList();
@@ -1369,7 +1369,7 @@ namespace PocTrace.Web
             db = (db ?? "").Trim();
             bool known = GlobalConfig.TargetDatabases.Any(d => string.Equals(d, db, StringComparison.OrdinalIgnoreCase));
             if (!known)
-                throw new PortalInputException(Msg("대상 라인이 아닙니다: ", "不是目标线路: ") + db);
+                throw new PortalInputException(Msg("대상 Line이 아닙니다: ", "不是目标Line: ") + db);
             string block = FreshnessBlock(db);
             if (block != null)
                 throw new PortalInputException(block);
@@ -1383,14 +1383,14 @@ namespace PocTrace.Web
             string source;
             if (!CacheFreshnessGuard.TryGetSavedAt(db, out savedAt, out version, out source))
                 return Msg(
-                    db + " 캐시가 없습니다. Admin이 캐시를 만든 뒤 다시 실행하세요. 경로: " + GlobalConfig.GetCacheDirectory(db),
-                    db + " 没有缓存。请让 Admin 生成缓存后再执行。路径: " + GlobalConfig.GetCacheDirectory(db));
+                    db + " Cache가 없습니다. Admin이 Cache를 만든 뒤 다시 실행하세요. 경로: " + GlobalConfig.GetCacheDirectory(db),
+                    db + " 没有Cache。请让 Admin 生成Cache后再执行。路径: " + GlobalConfig.GetCacheDirectory(db));
 
             double age = (DateTime.Now - savedAt).TotalHours;
             if (age > GlobalConfig.CacheMaxAgeHours)
                 return Msg(
-                    db + " 캐시가 " + age.ToString("F1") + "시간 전 것입니다. 허용 " + GlobalConfig.CacheMaxAgeHours.ToString("0") + "시간. Admin CacheOnly 또는 Full 이후 다시 실행하세요.",
-                    db + " 缓存是 " + age.ToString("F1") + " 小时前的。允许 " + GlobalConfig.CacheMaxAgeHours.ToString("0") + " 小时。请在 Admin CacheOnly 或 Full 之后再执行。");
+                    db + " Cache가 " + age.ToString("F1") + "시간 전 것입니다. 허용 " + GlobalConfig.CacheMaxAgeHours.ToString("0") + "시간. Admin CacheOnly 또는 Full 이후 다시 실행하세요.",
+                    db + " Cache是 " + age.ToString("F1") + " 小时前的。允许 " + GlobalConfig.CacheMaxAgeHours.ToString("0") + " 小时。请在 Admin CacheOnly 或 Full 之后再执行。");
             return null;
         }
 
@@ -1406,7 +1406,15 @@ namespace PocTrace.Web
 
         private static string Msg(string korean, string chinese)
         {
-            return DemolitionUiText.Kz(korean, chinese);
+            return WebLocalStore.Pick(korean, chinese);
+        }
+
+        private static string SharedFolderError(string code)
+        {
+            if (code == "timeout") return Msg("응답이 없습니다.", "无响应");
+            if (code == "missing") return Msg("폴더가 없습니다.", "文件夹不存在");
+            if (code == "failed") return Msg("확인할 수 없습니다.", "无法确认");
+            return code ?? "";
         }
 
         private static CancellationToken TokenOf(JobRecord job)
@@ -1522,7 +1530,7 @@ namespace PocTrace.Web
                 case "InvalidEqpId":
                     return Msg("EQPID가 비어 있습니다.", "EQPID 为空。");
                 case "InvalidSite":
-                    return Msg("Site를 라인으로 맞출 수 없습니다.", "无法把 Site 对应到线路。");
+                    return Msg("Site를 Line으로 맞출 수 없습니다.", "无法把 Site 对应到Line。");
             }
 
             string trace = row.TraceStatus ?? "";

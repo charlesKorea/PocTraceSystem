@@ -43,5 +43,19 @@ namespace PocTrace.Core.Models
         public string LatestOpTime { get; set; }      // 작업날짜 (yyyy-MM-dd 형식)
         public string LatestUserName { get; set; }    // 작업자 이름
         public string LatestCompanyName { get; set; } // 작업자 귀속 회사
+
+        /// <summary>같은 Tag 안의 설비 이름별 수량. Summary 아래 표와 Web 결과에서 쓴다.</summary>
+        public List<EquipmentNamePart> Names { get; set; } = new List<EquipmentNamePart>();
+    }
+
+    public class EquipmentNamePart
+    {
+        public string Name { get; set; }
+        public string Division { get; set; }
+        public string Subdivision1 { get; set; }
+        public string Subdivision2 { get; set; }
+        public int PocCount { get; set; }
+        public int ErrorPocCount { get; set; }
+        public double LengthM { get; set; }
     }
 }

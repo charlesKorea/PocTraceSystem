@@ -456,7 +456,7 @@ namespace PocTrace.UI.ViewModels
                     string summaryPath = Path.Combine(outputDir, summaryFileName);
 
                     StatusMessage = "Saving Batch Summary Excel...";
-                    await Task.Run(() => _excelReport.SaveBatchSummaryReport(summaryPath, summaryOnlyList));
+                    await Task.Run(() => _excelReport.SaveBatchSummaryReport(summaryPath, summaryOnlyList, SelectedDb));
                 }
 
                 // UI 업데이트

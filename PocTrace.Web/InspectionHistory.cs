@@ -114,16 +114,16 @@ namespace PocTrace.Web
                 string root = RootPath;
                 Task<bool> probe = Task.Run(() => Directory.Exists(root));
                 if (!probe.Wait(TimeSpan.FromSeconds(ProbeSeconds)))
-                    message = "응답이 없습니다 / 无响应";
+                    message = "timeout";
                 else if (!probe.Result)
-                    message = "폴더가 없습니다 / 文件夹不存在";
+                    message = "missing";
                 else
                     ok = true;
             }
             catch (Exception ex)
             {
                 Log.Warning(ex, "[Web] 공용 기록 폴더 확인 실패");
-                message = "확인할 수 없습니다 / 无法确认";
+                message = "failed";
             }
 
             lock (Gate)

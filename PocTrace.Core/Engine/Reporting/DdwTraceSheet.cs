@@ -19,10 +19,10 @@ namespace PocTrace.Core.Engine.Reporting
 
         public static readonly string[] Headers =
         {
-            "Start POC", "End Poc", "End Poc Instance id", "Num", "Start Poc Instance id",
-            "End Type", "End Model Name", "Division", "Subdivision1", "Subdivision2",
-            "Utility Group", "Utility", "Pipe-Size", "length",
-            "pipe number", "tag", "connection tag", "hookup number"
+            "S: Instance Id", "S: Model Name", "S: Poc Name", "S: Poc Instance Id",
+            "Num", "Pipe UT Group", "P: UT", "P: Size", "P: Length", "P: Hookup Number",
+            "T: Poc", "T: Model Name", "T: Type", "T: Division", "T: Subdivision1", "T: Subdivision2",
+            "T: Tag", "T: Connection Tag"
         };
 
         public static List<object[]> Build(IGraphCache cache, IList<TraceResult> results)
@@ -55,24 +55,24 @@ namespace PocTrace.Core.Engine.Reporting
                         LogPipeNumberLookup(cache, result, i, cur, endPocId, attributeOwner, pipeNumber);
                     rows.Add(new object[]
                     {
+                        result.StartNodeGUID == Guid.Empty ? "" : result.StartNodeGUID.ToString(),
+                        result.StartNodeName ?? "",
                         PocLabel(cache, startPocId),
-                        EndLabel(cache, endPocId),
-                        DdwId.Text(endPocId),
-                        i,
                         DdwId.Text(startPocId),
-                        EndType(cache, cur, endPipe),
-                        EndModelName(cache, cur, endPipe),
-                        DivisionText(cache, cur, endPipe),
-                        endPipe ? "" : (cache.GetSubdivision1(cur.NodeId) ?? ""),
-                        endPipe ? "" : (cache.GetSubdivision2(cur.NodeId) ?? ""),
+                        i,
                         UtilityGroup(cache, endPocId),
                         Utility(cache, endPocId, cur, endPipe),
                         PipeSize(cache, cur, endPipe),
                         endPipe ? PipeLength(cache, cur.NodeId) : 0d,
-                        pipeNumber,
+                        Prop(cache, attributeOwner, false),
+                        EndLabel(cache, endPocId),
+                        EndModelName(cache, cur, endPipe),
+                        EndType(cache, cur, endPipe),
+                        DivisionText(cache, cur, endPipe),
+                        endPipe ? "" : (cache.GetSubdivision1(cur.NodeId) ?? ""),
+                        endPipe ? "" : (cache.GetSubdivision2(cur.NodeId) ?? ""),
                         tag,
-                        connectionTag,
-                        Prop(cache, attributeOwner, false)
+                        connectionTag
                     });
                 }
             }

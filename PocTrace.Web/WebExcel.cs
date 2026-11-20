@@ -16,8 +16,8 @@ namespace PocTrace.Web
             {
                 ExcelWorksheet sheet = package.Workbook.Worksheets.Add(zh ? "检查记录" : "검수기록");
                 string[] heads = zh
-                    ? new[] { "日期", "用户", "检查方式", "线路", "检查对象" }
-                    : new[] { "날짜", "사용자", "검수 방식", "라인", "검수대상" };
+                    ? new[] { "日期", "用户", "检查方式", "Line", "检查对象" }
+                    : new[] { "날짜", "사용자", "검수 방식", "Line", "검수대상" };
                 for (int c = 0; c < heads.Length; c++)
                     sheet.Cells[1, c + 1].Value = heads[c];
 
