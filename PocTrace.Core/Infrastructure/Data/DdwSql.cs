@@ -189,6 +189,25 @@ WHERE a." + Live + @"
         }
 
         /// <summary>
+        /// BIM Group 사이드카. JSearchMK의 그룹 이름·capa·live 규칙을 트리 조회로 옮긴다.
+        /// tb_instancegroupmembers 와 tb_attributes 는 조인하지 않는다. 멤버는 약 2천만 행이고,
+        /// 노드 SELECT에 그룹을 중첩하면 S5D에서 이미 막은 타임아웃과 같다.
+        /// </summary>
+        public static string SelectBimGroups(string quotedDb)
+        {
+            return @"
+SELECT
+    " + GuidOf("g.INSTANCE_GROUP_ID") + @" AS GroupId,
+    LTRIM(RTRIM(" + Text("g.INSTANCE_GROUP_NM", 512) + @")) AS Name,
+    ISNULL(" + GuidNull("g.INSTANCE_GROUP_PARENT_ID") + @", CONVERT(uniqueidentifier, '" + ZeroGuid + @"')) AS ParentId
+FROM " + T(quotedDb, "TB_INSTANCEGROUPS") + @" g
+WHERE g." + Live + @"
+  AND g.INSTANCE_GROUP_NM IS NOT NULL
+  AND LTRIM(RTRIM(g.INSTANCE_GROUP_NM)) <> N''
+  AND g.INSTANCE_GROUP_NM NOT LIKE N'%capa%'";
+        }
+
+        /// <summary>
         /// SVDI에서 쿼리마다 실행하는 스크립트. 캐시 버튼이 쓰는 SQL과 같다.
         /// </summary>
         public static string ReviewScript(string quotedDb)
@@ -198,7 +217,7 @@ WHERE a." + Live + @"
             sb.AppendLine("-- 카탈로그는 " + quotedDb + " 이다. 캐시 폴더 키 x2_m 과 다르다.");
             sb.AppendLine("-- 01, 02는 열 이름 확인이다. 03은 배관 version_sequence 와 tb_versions.version_number 가 맞는지 본다.");
             sb.AppendLine("-- 04부터 08은 캐시와 같은 SELECT를 TOP 20으로 감싼 것이다. 열 오류는 여기서 난다.");
-            sb.AppendLine("-- 09부터 13은 캐시 버튼이 제한 없이 실행하는 SQL이다.");
+            sb.AppendLine("-- 09부터 14는 캐시 버튼이 제한 없이 실행하는 SQL이다. 14는 BIM Group 트리다.");
             sb.AppendLine("SET NOCOUNT ON;");
             sb.AppendLine("SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;");
             sb.AppendLine("GO");
@@ -229,6 +248,7 @@ WHERE pi." + Live);
             Batch(sb, "11 cache pipe", SelectPipes(quotedDb));
             Batch(sb, "12 cache model", SelectModels(quotedDb, SchemaKind.TbStar));
             Batch(sb, "13 cache attribute", SelectAttributes(quotedDb));
+            Batch(sb, "14 cache bim group", SelectBimGroups(quotedDb));
             return sb.ToString();
         }
 

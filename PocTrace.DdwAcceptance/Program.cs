@@ -97,6 +97,10 @@ namespace PocTrace.DdwAcceptance
             string pipePocs = DdwSql.SelectPipePocs("[fixture]");
             Check(pipePocs.Contains("00000000-0000-0000-0000-000000000000"), "bare pipe template");
             Check(!pipePocs.Contains("OWNER_TYPE = 256"), "owner type 256 stays off the pipe filter");
+            string bimGroups = DdwSql.SelectBimGroups("[remote_monami].[monami]");
+            Check(bimGroups.Contains("TB_INSTANCEGROUPS") && bimGroups.Contains("INSTANCE_GROUP_PARENT_ID"), "DDW bim group tree");
+            Check(bimGroups.Contains("version_sequence < 1000000000") && bimGroups.Contains("NOT LIKE N'%capa%'"), "DDW bim group live and capa");
+            Check(!bimGroups.Contains("TB_INSTANCEGROUPMEMBERS") && !bimGroups.Contains("TB_ATTRIBUTES"), "DDW bim group cache skips members and attributes");
             Check(DdwLine.CatalogPrefix() == "[remote_monami].[monami]", "DDW catalog prefix");
             Check(DdwLine.IsCacheKey("X2_M") && !DdwLine.IsCacheKey("x2"), "x2_m cache key");
             Check(DdwCapRule.IsCap("End Cap", "2-PIP", "", "") && DdwCapRule.IsCap("pipe", "2-PIP", "cap", ""), "DDW cap name or division");
@@ -546,26 +550,26 @@ namespace PocTrace.DdwAcceptance
             Check((string)sheet[0][12] == "standard" && (double)sheet[0][8] == 12.5, "trace sheet pipe type and length2");
             Check((string)sheet[0][9] == "H9", "pipe hookup number");
 
-            var tofId = G(180);
-            var tofEq = G(181);
-            var tofCache = new GraphCacheManager();
-            tofCache.Initialize(
+            var sheetTofId = G(180);
+            var sheetTofEq = G(181);
+            var sheetTofCache = new GraphCacheManager();
+            sheetTofCache.Initialize(
                 "x2_m",
-                new[] { new NodeInfo { InstanceId = tofEq, Tag = "eqtof", Type = NodeType.Equipment, Name = "EQ" } },
+                new[] { new NodeInfo { InstanceId = sheetTofEq, Tag = "eqtof", Type = NodeType.Equipment, Name = "EQ" } },
                 new PocData[0],
                 new PipeData[0],
-                new[] { new TakeoffData { TakeoffId = tofId, Tag = "" } },
+                new[] { new TakeoffData { TakeoffId = sheetTofId, Tag = "" } },
                 new DynamicPropertiesData[0],
                 null,
                 false);
-            var tofSheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(tofCache, new[]
+            var tofSheet = PocTrace.Core.Engine.Reporting.DdwTraceSheet.Build(sheetTofCache, new[]
             {
                 new TraceResult
                 {
                     Steps = new List<TraceStep>
                     {
-                        new TraceStep { NodeId = tofEq, NodeType = "Equipment" },
-                        new TraceStep { NodeId = tofId, NodeName = "Damper[]", NodeType = "Takeoff" }
+                        new TraceStep { NodeId = sheetTofEq, NodeType = "Equipment" },
+                        new TraceStep { NodeId = sheetTofId, NodeName = "Damper[]", NodeType = "Takeoff" }
                     }
                 }
             });

@@ -789,8 +789,9 @@ namespace PocTrace.Admin.Jobs
         }
 
         /// <summary>
-        /// monami를 읽어 GraphCache_x2_m 만 쓴다. SQL은 docs/ddw-svdi-queries/12-x2m-cache.sql 의 09~13과 같다.
-        /// 2026-11-17에 그 파일의 전 배치가 SVDI SSMS에서 오류 없이 끝났다. S5D 사이드카와 전체 추적은 하지 않는다.
+        /// monami를 읽어 GraphCache_x2_m 과 BimGroupCache_x2_m 만 쓴다.
+        /// 그래프 SQL은 DdwSql.ReviewScript 의 09~13, 그룹 트리는 14와 같다.
+        /// S5D ConfigurationGroupLog 와 전체 추적은 하지 않는다.
         /// </summary>
         private static async Task RunDdwCacheAsync(string connString)
         {
@@ -811,6 +812,7 @@ namespace PocTrace.Admin.Jobs
                     bundle.Pipes,
                     bundle.Takeoffs,
                     bundle.HookupNumbers);
+                await SaveDdwBimGroupsAsync(conn, prefix).ConfigureAwait(false);
             }
 
             var hits = DdwUnknownTypeLog.Snapshot();
@@ -921,6 +923,25 @@ namespace PocTrace.Admin.Jobs
             AdminJobProgress.Complete(
                 $"캐시 갱신 완료 ({dbCount} DB). Viewer는 GraphCache_* 폴더를 읽습니다.",
                 totalSw.Elapsed);
+        }
+
+        /// <summary>
+        /// DDW tb_instancegroups → BimGroupCache_x2_m. 그래프 저장 뒤에 돌고, 실패해도 그래프는 남긴다.
+        /// </summary>
+        private static async Task SaveDdwBimGroupsAsync(IDbConnection conn, string prefix)
+        {
+            try
+            {
+                var rows = await conn.QueryAsync<BimGroupRecord>(
+                    new CommandDefinition(DdwSql.SelectBimGroups(prefix), commandTimeout: 0)).ConfigureAwait(false);
+                var records = rows?.ToList() ?? new List<BimGroupRecord>();
+                new BimGroupCacheRepository().Save(DdwLine.CacheKey, records);
+                Log.Information("[BimGroupCache][{Db}] Saved {Count} DDW groups", DdwLine.CacheKey, records.Count);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[BimGroupCache][{Db}] DDW group save failed (non-fatal)", DdwLine.CacheKey);
+            }
         }
 
         /// <summary>
