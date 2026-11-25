@@ -21,8 +21,11 @@ namespace PocTrace.Core.Engine.Logic
             var resolvedExits = new List<(PocData Poc, Guid TargetId)>();        
             foreach (var p in allPocs.Where(x => x.Outlet.HasValue))
             {
-                Guid targetId = p.Outlet.Value; 
-                if (_cache.TryGetPipe(p.Outlet.Value, out var nextPipe)) targetId = nextPipe.PipeId;
+                Guid targetId = p.Outlet.Value;
+                TakeoffData hopTakeoff;
+                if (TryResolveTakeoff(p.Outlet.Value, out hopTakeoff))
+                    targetId = hopTakeoff.TakeoffId;
+                else if (_cache.TryGetPipe(p.Outlet.Value, out var nextPipe)) targetId = nextPipe.PipeId;
                 else if (_cache.TryGetPoc(p.Outlet.Value, out var nextPoc))
                 {
                     // 🌟 [치명적 버그 수정 2] 다중 간선 압축 시, 출발 설비 한정 초정밀 분리
@@ -70,7 +73,9 @@ namespace PocTrace.Core.Engine.Logic
             {
                 if (!exitPoc.Outlet.HasValue) continue;
                 
-                if (_cache.TryGetPoc(exitPoc.Outlet.Value, out var poc))
+                TakeoffData ownedTakeoff;
+                if (!TryResolveTakeoff(exitPoc.Outlet.Value, out ownedTakeoff)
+                    && _cache.TryGetPoc(exitPoc.Outlet.Value, out var poc))
                 {
                     if (poc.OwnerId == startPoc.OwnerId)
                     {
@@ -98,7 +103,12 @@ namespace PocTrace.Core.Engine.Logic
                     LogDetailed("    ├─ [검증] 나갈 구멍 Outlet({Outlet}) 검사 중...", exitPoc.Outlet.Value);
                     bool isLoop = false;
                     
-                    if (_cache.TryGetPipe(exitPoc.Outlet.Value, out var nextPipe))
+                    TakeoffData nextTakeoff;
+                    if (TryResolveTakeoff(exitPoc.Outlet.Value, out nextTakeoff))
+                    {
+                        isLoop = visitedNodes.Contains(nextTakeoff.TakeoffId);
+                    }
+                    else if (_cache.TryGetPipe(exitPoc.Outlet.Value, out var nextPipe))
                     {
                         isLoop = visitedNodes.Contains(nextPipe.PipeId);
                     }
@@ -114,11 +124,6 @@ namespace PocTrace.Core.Engine.Logic
                             isLoop = visitedNodes.Contains(nextPoc.OwnerId);
                         }
                     }
-                    else if (_cache.TryGetTakeoff(exitPoc.Outlet.Value, out var nextTakeoff))
-                    {
-                        isLoop = visitedNodes.Contains(nextTakeoff.TakeoffId);
-                    }
-
                     if (isLoop)
                     {
                         blockedByVisitedCount++;

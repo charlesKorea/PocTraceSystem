@@ -24,6 +24,7 @@ namespace PocTrace.Core.Engine.Cache
 
         private Dictionary<Guid, PipeData> _pipes;
         private Dictionary<Guid, TakeoffData> _takeoffs;
+        private Dictionary<Guid, TakeoffData> _takeoffsByPoc;
         private Dictionary<Guid, Guid> _outletToPipeId;
         private Dictionary<Guid, DynamicPropertiesData> _dynamicProperties;
 
@@ -202,8 +203,13 @@ namespace PocTrace.Core.Engine.Cache
             // 5. Takeoffs 초기화
             Mark(progress, "Initialize.Dict.Takeoffs", "Initializing Graph: takeoffs", "cap=" + takeoffCapacity);
             _takeoffs = new Dictionary<Guid, TakeoffData>(takeoffCapacity);
+            _takeoffsByPoc = new Dictionary<Guid, TakeoffData>(takeoffCapacity);
             foreach (var takeoff in takeoffList)
+            {
                 _takeoffs[takeoff.TakeoffId] = takeoff;
+                if (takeoff.PocId != Guid.Empty)
+                    _takeoffsByPoc[takeoff.PocId] = takeoff;
+            }
             Log.Information("   -> Takeoffs Loaded: {Count:N0}", _takeoffs.Count);
 
             // 6. dynamicProperties 초기화 (중복 PointID 처리)
@@ -269,6 +275,7 @@ namespace PocTrace.Core.Engine.Cache
             _pocsByOwner = null;
             _pipes = null;
             _takeoffs = null;
+            _takeoffsByPoc = null;
             _outletToPipeId = null;
             _dynamicProperties = null;
             _reverseGraphIndex = null;
@@ -349,7 +356,20 @@ namespace PocTrace.Core.Engine.Cache
 
         public bool TryGetTakeoff(Guid takeoffId, out TakeoffData takeoff)
         {
+            if (_takeoffs == null)
+            {
+                takeoff = null;
+                return false;
+            }
             return _takeoffs.TryGetValue(takeoffId, out takeoff);
+        }
+
+        public bool TryGetTakeoffByPoc(Guid pocId, out TakeoffData takeoff)
+        {
+            takeoff = null;
+            if (pocId == Guid.Empty || _takeoffsByPoc == null)
+                return false;
+            return _takeoffsByPoc.TryGetValue(pocId, out takeoff);
         }
 
         public bool TryFindPipeIdByOutlet(Guid outletId, out Guid pipeId)

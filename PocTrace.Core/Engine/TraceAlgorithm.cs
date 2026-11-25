@@ -80,21 +80,24 @@ namespace PocTrace.Core.Engine.Logic
                         continue;
                     }
 
-                    if (_cache.TryGetTakeoff(currentOutlet.Value, out var takeoff))
+                    if (TryResolveTakeoff(currentOutlet.Value, out var takeoff))
                     {
-                        // [VOC-1] MAIN vent/vac/foreline → Water와 동일하게 BFS 큐로 하류 계속(TOF 미종료).
-                        if (TryContinueFromMainLineTakeoff(
-                            takeoff, state, queue, startPoc, startEquipTag, results,
-                            ref lastProcessedStep, currentLen))
+                        // Water·MainLine은 S5D 전용. DDW takeoff는 POC여도 여기서 TOF로 끝낸다.
+                        if (!IsDdwLine())
                         {
-                            continue;
-                        }
+                            if (TryContinueFromMainLineTakeoff(
+                                takeoff, state, queue, startPoc, startEquipTag, results,
+                                ref lastProcessedStep, currentLen))
+                            {
+                                continue;
+                            }
 
-                        if (TryContinueFromWaterTakeoff(
-                            takeoff, state, queue, startPoc, startEquipTag, results,
-                            ref lastProcessedStep, currentLen))
-                        {
-                            continue;
+                            if (TryContinueFromWaterTakeoff(
+                                takeoff, state, queue, startPoc, startEquipTag, results,
+                                ref lastProcessedStep, currentLen))
+                            {
+                                continue;
+                            }
                         }
 
                         LogDetailed("  🎯 [Priority 1] Takeoff 매칭: {Tag}", takeoff.Tag);
@@ -326,10 +329,12 @@ namespace PocTrace.Core.Engine.Logic
                         foreach (var exit in rawExits.Distinct())
                         {
                             Guid targetId = exit;
-                            if (_cache.TryGetPipe(exit, out var nextPipe)) targetId = nextPipe.PipeId;
+                            TakeoffData exitTakeoff;
+                            if (TryResolveTakeoff(exit, out exitTakeoff))
+                                targetId = exitTakeoff.TakeoffId;
+                            else if (_cache.TryGetPipe(exit, out var nextPipe)) targetId = nextPipe.PipeId;
                             else if (_cache.TryGetPoc(exit, out var nextPoc))
                             {
-                                // 🌟 [치명적 버그 수정 1] 다중 간선 압축 시, 출발 설비 한정 초정밀 분리
                                 // 출발 설비로 향할 때는 구멍(InstanceId)을 기준으로 분리하여 유효 EQP 귀환이 루프에 섞여 압축되는 것을 방지!
                                 targetId = (nextPoc.OwnerId == startPoc.OwnerId) ? nextPoc.InstanceId : nextPoc.OwnerId;
                             }
@@ -343,6 +348,16 @@ namespace PocTrace.Core.Engine.Logic
 
                         foreach (var exit in deduplicatedExits)
                         {
+                            TakeoffData exitTakeoff;
+                            if (TryResolveTakeoff(exit, out exitTakeoff))
+                            {
+                                if (state.VisitedNodes.Contains(exitTakeoff.TakeoffId))
+                                    LogDetailed("    └─ ↳ [미리보기] [사전 차단] 현재 배관에서 나갈 포트({Outlet})는 이미 지나온 Takeoff입니다.", exit);
+                                else
+                                    validExits.Add(exit);
+                                continue;
+                            }
+
                             if (_cache.TryGetPoc(exit, out var poc))
                             {
                                 if (poc.OwnerId == startPoc.OwnerId)
@@ -368,8 +383,13 @@ namespace PocTrace.Core.Engine.Logic
                                                 
                             Guid targetId = exit;
                             bool isLoop = false;
-                            
-                            if (_cache.TryGetPoc(exit, out var nextPoc))
+
+                            if (TryResolveTakeoff(exit, out var loopTakeoff))
+                            {
+                                targetId = loopTakeoff.TakeoffId;
+                                isLoop = state.VisitedNodes.Contains(loopTakeoff.TakeoffId);
+                            }
+                            else if (_cache.TryGetPoc(exit, out var nextPoc))
                             {
                                 targetId = nextPoc.OwnerId;
                                 if (nextPoc.OwnerId == startPoc.OwnerId && nextPoc.InstanceId != startPoc.InstanceId)
@@ -386,11 +406,6 @@ namespace PocTrace.Core.Engine.Logic
                             {
                                 targetId = nextPipe.PipeId;
                                 isLoop = state.VisitedNodes.Contains(nextPipe.PipeId);
-                            }
-                            else if (_cache.TryGetTakeoff(exit, out var exitTakeoff))
-                            {
-                                targetId = exitTakeoff.TakeoffId;
-                                isLoop = state.VisitedNodes.Contains(exitTakeoff.TakeoffId);
                             }
 
                             if (isLoop)

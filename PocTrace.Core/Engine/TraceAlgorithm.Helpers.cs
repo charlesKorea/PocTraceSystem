@@ -32,6 +32,20 @@ namespace PocTrace.Core.Engine.Logic
             return DdwLine.IsCacheKey(_cache.DbName);
         }
 
+        /// <summary>
+        /// S5D는 TakeoffId만 본다. DDW는 그 배관 id 또는 takeoff POC id를 본다.
+        /// POC 사전과 id가 겹쳐도 takeoff가 먼저다.
+        /// </summary>
+        private bool TryResolveTakeoff(Guid id, out TakeoffData takeoff)
+        {
+            if (_cache.TryGetTakeoff(id, out takeoff) && takeoff != null)
+                return true;
+            if (IsDdwLine() && _cache.TryGetTakeoffByPoc(id, out takeoff) && takeoff != null)
+                return true;
+            takeoff = null;
+            return false;
+        }
+
         private bool IsCapName(string targetNodeName, string targetDiv, string targetSubDiv1, string targetSubDiv2)
         {
             if (IsDdwLine())

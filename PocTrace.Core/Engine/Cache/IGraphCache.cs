@@ -26,6 +26,8 @@ namespace PocTrace.Core.Engine.Cache
         string GetNodeName(Guid nodeId);
         string GetNodeTag(Guid nodeId);
         bool TryGetTakeoff(Guid takeoffId, out TakeoffData takeoff);
+        /// <summary>DDW takeoff POC id. S5D TakeoffId와 겹쳐도 이쪽은 PocId만 본다.</summary>
+        bool TryGetTakeoffByPoc(Guid pocId, out TakeoffData takeoff);
         bool TryFindPipeIdByOutlet(Guid outletId, out Guid pipeId);
 
         // [신규 추가] 태그로 시작점(POC) 찾기
