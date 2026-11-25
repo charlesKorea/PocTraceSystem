@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -428,7 +429,7 @@ namespace PocTrace.UI.ViewModels
                             var firstSum = summaryList.First();
                             if (BatchPlacement.KeepsIndividualExcel(results))
                             {
-                                string fileName = $"{SelectedDb}_{tag}_{firstSum.EquipmentCount}_{firstSum.TotalPocCount}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                                string fileName = SelectedDb + "_" + tag + "_" + firstSum.EquipmentCount + "_" + firstSum.TotalPocCount + ".xlsx";
                                 string fullPath = Path.Combine(outputDir, fileName);
                                 _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache, WriteHtmlReport);
                             }
@@ -450,20 +451,15 @@ namespace PocTrace.UI.ViewModels
                 var summaryOnlyList = tempSummaries.ToList();
                 if (summaryOnlyList.Any())
                 {
-                    int totalEqCount = summaryOnlyList.Sum(s => s.EquipmentCount);
-                    int totalPocCount = summaryOnlyList.Sum(s => s.TotalPocCount);
-                    long totalErrCount = summaryOnlyList.Sum(s => s.CountERR);
-                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
-                    string summaryFileName = $"Summary_{timestamp}_Eq{totalEqCount}_Poc{totalPocCount}_Err{totalErrCount}.xlsx";
-                    string summaryPath = Path.Combine(outputDir, summaryFileName);
-
+                    string summaryPath = Path.Combine(outputDir, "Summary.xlsx");
                     StatusMessage = "Saving Batch Summary Excel...";
                     bool html = WriteHtmlReport;
                     var sketchRows = html ? tempAllResults.ToList() : null;
                     await Task.Run(() => _excelReport.SaveBatchSummaryReport(
                         summaryPath, summaryOnlyList, SelectedDb, html, sketchRows, cache));
                 }
+
+                string zipPath = ZipBatchExcels(outputDir, SelectedDb);
 
                 // UI 업데이트
                 var sortedList = tempSummaries.OrderBy(s => s.EquipmentTag).ToList();
@@ -477,9 +473,10 @@ namespace PocTrace.UI.ViewModels
 
                 OnPropertyChanged(nameof(TraceSummaries));
 
+                string saved = string.IsNullOrEmpty(zipPath) ? outputDir : zipPath;
                 StatusMessage = failedTags.IsEmpty
-                    ? $"Batch Complete. Saved to {outputDir} (Hookup Errors: {_allHookupErrors.Count})"
-                    : $"Batch finished with {failedTags.Count} failed tag(s). Saved to {outputDir}";
+                    ? "Batch Complete. ZIP " + saved
+                    : "Batch finished with " + failedTags.Count + " failed tag(s). ZIP " + saved;
                 System.Diagnostics.Process.Start("explorer.exe", outputDir);
                 if (!failedTags.IsEmpty)
                     throw new InvalidOperationException(
@@ -577,6 +574,25 @@ namespace PocTrace.UI.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        private static string ZipBatchExcels(string dir, string db)
+        {
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+                return null;
+            string[] files = Directory.GetFiles(dir, "*.xlsx");
+            if (files.Length == 0)
+                return null;
+            string name = string.IsNullOrWhiteSpace(db) ? "batch" : db.Trim();
+            foreach (char c in Path.GetInvalidFileNameChars())
+                name = name.Replace(c, '_');
+            string zipPath = Path.Combine(dir, name + "_batch_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".zip");
+            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                foreach (string file in files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                    zip.CreateEntryFromFile(file, Path.GetFileName(file), CompressionLevel.Fastest);
+            }
+            return zipPath;
         }
 
     }

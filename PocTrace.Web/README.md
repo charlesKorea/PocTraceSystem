@@ -23,7 +23,7 @@ Viewer exe와 **같이** 쓰는 1차 웹 화면입니다. Viewer를 끄지 않�
 2. 아래 파일을 공유 폴더 한 곳에 둡니다. UI, 철거, 노즐 exe도 그 폴더이고 `PocTrace.Core.dll`은 그 빌드 하나뿐입니다. Admin은 `D:\PocAdmin`에 따로 두고, Core.dll도 그 빌드의 복사본을 D:에 둡니다.
 3. `PocTrace.Web.exe.config`의 `SharedCachePath`, `TargetDatabases`를 Viewer config와 같게 맞춥니다. `AllowDatabaseFallback`은 `false`로 둡니다. DB 비밀번호는 넣지 않습니다.
 
-화면은 CDN을 쓰지 않습니다. `wwwroot` 안의 CSS와 SVG가 하나라도 빠지면 유리 표면이나 아이콘이 비습니다. `wwwroot`는 exe와 같은 폴더에 두고, 그 안의 상대 경로를 유지합니다.
+화면은 CDN을 쓰지 않습니다. `wwwroot`는 exe 안에 들어가지 않습니다. `PocTrace.Web.exe`와 `PocTrace.Core.dll`만 복사하면 화면이 비습니다. `wwwroot` 폴더 전체를 exe와 같은 폴더에 두고, 그 안의 상대 경로를 유지합니다. CSS와 SVG가 하나라도 빠지면 유리 표면이나 아이콘이 비습니다.
 
 ### exe 옆에 두는 파일
 

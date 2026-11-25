@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
+using PocTrace.Core.Engine;
 using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Engine.Validation;
 using PocTrace.Core.Infrastructure;
@@ -36,6 +37,9 @@ namespace PocTrace.Core.Engine.Reporting
         public void SaveSingleFileReport(string path, List<TraceResult> details, IGraphCache cache, bool includeSketch = false)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            details = BatchPlacement.ReportRows(details);
+            if (details.Count == 0)
+                return;
 
             // 요약 데이터 생성 (Core 공통 빌더 사용)
             List<EquipmentTraceSummary> summaries = EquipmentSummaryBuilder.Build(details);
@@ -234,15 +238,12 @@ namespace PocTrace.Core.Engine.Reporting
                 // =========================================================
                 var wsPath = package.Workbook.Worksheets.Add("BOM");
 
-                // 모든 탐색 결과에서 거쳐간 발자국(Steps)을 하나의 리스트로 평탄화(Flatten)
-                var allSteps = details.Where(d => d.Steps != null).SelectMany(d => d.Steps).ToList();
-
-                // 1. UT group별 Fitting 사용 횟수
-                wsPath.Cells["A1"].Value = "Fitting Usage by UT Group";
-                wsPath.Cells["A1:D1"].Merge = true;
+                // 1. 설비 Tag, UT group별 Fitting 사용 횟수
+                wsPath.Cells["A1"].Value = "Fitting Usage by Equipment and UT Group";
+                wsPath.Cells["A1:E1"].Merge = true;
                 wsPath.Cells["A1"].Style.Font.Bold = true;
 
-                string[] fittingHeaders = { "UT Group", "Fitting Name", "QCode", "Usage Count" };
+                string[] fittingHeaders = { "EQ Tag", "UT Group", "Fitting Name", "QCode", "Usage Count" };
                 for (int i = 0; i < fittingHeaders.Length; i++)
                 {
                     wsPath.Cells[2, i + 1].Value = fittingHeaders[i];
@@ -257,57 +258,82 @@ namespace PocTrace.Core.Engine.Reporting
                         .Where(s => s.NodeType == "Fitting" && !string.IsNullOrEmpty(s.NodeName))
                         .Select(s => new
                         {
+                            Tag = EquipmentKey(d),
                             Group = d.StartPocUtilityGroup ?? "",
                             s.NodeName,
                             s.QCode
                         }))
-                    .GroupBy(s => new { s.Group, s.NodeName, s.QCode })
+                    .GroupBy(s => new { s.Tag, s.Group, s.NodeName, s.QCode })
                     .Select(g => new
                     {
+                        g.Key.Tag,
                         Group = g.Key.Group,
                         Name = g.Key.NodeName,
                         QCode = g.Key.QCode,
                         Count = g.Count()
                     })
-                    .OrderBy(x => x.Group)
+                    .OrderBy(x => x.Tag)
+                    .ThenBy(x => x.Group)
                     .ThenByDescending(x => x.Count)
                     .ToList();
 
                 int pathRow = 3;
                 foreach (var f in fittingStats)
                 {
-                    wsPath.Cells[pathRow, 1].Value = f.Group;
-                    wsPath.Cells[pathRow, 2].Value = f.Name;
-                    wsPath.Cells[pathRow, 3].Value = f.QCode;
-                    wsPath.Cells[pathRow, 4].Value = f.Count;
+                    wsPath.Cells[pathRow, 1].Value = f.Tag;
+                    wsPath.Cells[pathRow, 2].Value = f.Group;
+                    wsPath.Cells[pathRow, 3].Value = f.Name;
+                    wsPath.Cells[pathRow, 4].Value = f.QCode;
+                    wsPath.Cells[pathRow, 5].Value = f.Count;
                     pathRow++;
                 }
 
-                // 2. 배관(Pipe) 누적 길이 집계. 피팅 표가 D열까지라 F열부터 둔다.
-                wsPath.Cells["F1"].Value = "Pipe Length Summary";
-                wsPath.Cells["F1:G1"].Merge = true;
-                wsPath.Cells["F1"].Style.Font.Bold = true;
+                // 2. 배관 길이. 설비 Tag, UT group 다음에 길이를 둔다.
+                wsPath.Cells["G1"].Value = "Pipe Length Summary";
+                wsPath.Cells["G1:J1"].Merge = true;
+                wsPath.Cells["G1"].Style.Font.Bold = true;
 
-                string[] pipeHeaders = { "Pipe Name / ID", "Total Length (m)" };
+                string[] pipeHeaders = { "EQ Tag", "UT Group", "Pipe Name / ID", "Total Length (m)" };
                 for (int i = 0; i < pipeHeaders.Length; i++)
                 {
-                    wsPath.Cells[2, i + 6].Value = pipeHeaders[i];
-                    wsPath.Cells[2, i + 6].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    wsPath.Cells[2, i + 6].Style.Fill.BackgroundColor.SetColor(Color.LightGray);
-                    wsPath.Cells[2, i + 6].Style.Font.Bold = true;
+                    wsPath.Cells[2, i + 7].Value = pipeHeaders[i];
+                    wsPath.Cells[2, i + 7].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    wsPath.Cells[2, i + 7].Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+                    wsPath.Cells[2, i + 7].Style.Font.Bold = true;
                 }
 
-                var pipeStats = allSteps.Where(s => s.NodeType.Contains("Pipe"))
-                                        .GroupBy(s => s.NodeName ?? s.NodeId.ToString())
-                                        .Select(g => new { Name = g.Key, TotalLen = g.Sum(x => x.Length) })
-                                        .OrderByDescending(x => x.TotalLen).ToList();
+                var pipeStats = details
+                    .Where(d => d != null && d.Steps != null)
+                    .SelectMany(d => d.Steps
+                        .Where(s => s.NodeType != null && s.NodeType.Contains("Pipe"))
+                        .Select(s => new
+                        {
+                            Tag = EquipmentKey(d),
+                            Group = PipeUt(cache, d, s),
+                            Name = string.IsNullOrEmpty(s.NodeName) ? s.NodeId.ToString() : s.NodeName,
+                            s.Length
+                        }))
+                    .GroupBy(s => new { s.Tag, s.Group, s.Name })
+                    .Select(g => new
+                    {
+                        g.Key.Tag,
+                        Group = g.Key.Group,
+                        Name = g.Key.Name,
+                        TotalLen = g.Sum(x => x.Length)
+                    })
+                    .OrderBy(x => x.Tag)
+                    .ThenBy(x => x.Group)
+                    .ThenByDescending(x => x.TotalLen)
+                    .ToList();
 
                 int pipeRow = 3;
                 foreach (var p in pipeStats)
                 {
-                    wsPath.Cells[pipeRow, 6].Value = p.Name;
-                    wsPath.Cells[pipeRow, 7].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
-                    wsPath.Cells[pipeRow, 7].Style.Numberformat.Format = "0.0";
+                    wsPath.Cells[pipeRow, 7].Value = p.Tag;
+                    wsPath.Cells[pipeRow, 8].Value = p.Group;
+                    wsPath.Cells[pipeRow, 9].Value = p.Name;
+                    wsPath.Cells[pipeRow, 10].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
+                    wsPath.Cells[pipeRow, 10].Style.Numberformat.Format = "0.0";
                     pipeRow++;
                 }
                 wsPath.Cells.AutoFitColumns();
@@ -349,7 +375,7 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     byte[] png = TraceSketch.Render(details, cache);
                     TraceSketch.AddSheet(package, png);
-                    TraceSketch.WriteHtml(Path.ChangeExtension(path, ".html"), summaries, lineName, png);
+                    TraceSketch.WriteHtml(Path.ChangeExtension(path, ".html"), summaries, lineName, details, cache);
                 }
 
                 _logger.Information("💾 [Excel Export] 엑셀 파일 저장을 시도합니다. Path: {Path}", path);
@@ -377,7 +403,10 @@ namespace PocTrace.Core.Engine.Reporting
                 ws.Cells["V1"].Value = TraceAppVersion.Display();
                 var ordered = summaries == null
                     ? new List<EquipmentTraceSummary>()
-                    : summaries.OrderBy(x => x.EquipmentTag).ToList();
+                    : summaries
+                        .Where(s => s == null || !string.Equals(s.Placement, BatchPlacement.Undesigned, StringComparison.Ordinal))
+                        .OrderBy(x => x.EquipmentTag)
+                        .ToList();
                 int row = WriteSummaryTable(ws, ordered, line, 1);
                 WriteNameParts(ws, ordered, row + 4);
                 ws.Cells.AutoFitColumns();
@@ -385,7 +414,7 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     byte[] png = TraceSketch.Render(details, cache);
                     TraceSketch.AddSheet(package, png);
-                    TraceSketch.WriteHtml(Path.ChangeExtension(filePath, ".html"), ordered, line, png);
+                    TraceSketch.WriteHtml(Path.ChangeExtension(filePath, ".html"), ordered, line, details, cache);
                 }
                 package.Save();
             }
@@ -480,6 +509,23 @@ namespace PocTrace.Core.Engine.Reporting
                 }
             }
             return row;
+        }
+
+        private static string EquipmentKey(TraceResult result)
+        {
+            if (result == null)
+                return "";
+            if (!string.IsNullOrEmpty(result.StartEquipmentTag))
+                return result.StartEquipmentTag;
+            return result.StartNodeGUID.ToString();
+        }
+
+        private static string PipeUt(IGraphCache cache, TraceResult result, TraceStep step)
+        {
+            PipeData pipe;
+            if (cache != null && step != null && cache.TryGetPipe(step.NodeId, out pipe) && pipe != null && !string.IsNullOrEmpty(pipe.UtilityName))
+                return pipe.UtilityName;
+            return result == null ? "" : (result.StartPocUtilityGroup ?? "");
         }
     }
 }

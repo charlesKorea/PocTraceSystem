@@ -218,7 +218,7 @@ namespace PocTrace.DdwAcceptance
             Check(DdwGraphNormalizer.NormalizePz(15.6) == 16, "PZ rounds without scale");
             Check(DdwGraphNormalizer.NormalizeCoord(18213.687194144).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) == "18213.7", "coord keeps one decimal");
             Check(BatchPlacement.KeepsIndividualExcel(new[] { new TraceResult { ResultLabel = BatchPlacement.Unplaced } }) == false, "unplaced skips excel");
-            Check(BatchPlacement.KeepsIndividualExcel(new[] { new TraceResult { ResultLabel = BatchPlacement.Undesigned } }), "undesigned keeps excel");
+            Check(BatchPlacement.KeepsIndividualExcel(new[] { new TraceResult { ResultLabel = BatchPlacement.Undesigned } }) == false, "undesigned skips excel");
 
             var sized = DdwGraphNormalizer.Build(
                 null,

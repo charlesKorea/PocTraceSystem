@@ -12,20 +12,39 @@ namespace PocTrace.Core.Engine
         public const string IntegrityIssue = "설비정합오류";
         public const string IntegrityOwner = "ft 기술";
 
-        /// <summary>미배치설비만 있으면 개별 엑셀을 만들지 않는다. 요약에는 남긴다.</summary>
+        /// <summary>미배치설비와 미설계 배치 설비는 개별 엑셀을 만들지 않는다.</summary>
         public static bool KeepsIndividualExcel(IList<TraceResult> results)
         {
             if (results == null || results.Count == 0)
                 return false;
             for (int i = 0; i < results.Count; i++)
             {
-                var row = results[i];
-                if (row == null)
-                    continue;
-                if (!string.Equals(row.ResultLabel, Unplaced, StringComparison.Ordinal))
+                if (!IsSkipped(results[i]))
                     return true;
             }
             return false;
+        }
+
+        /// <summary>배치 엑셀과 Drawing에 넣지 않는 행.</summary>
+        public static bool IsSkipped(TraceResult row)
+        {
+            if (row == null)
+                return true;
+            return string.Equals(row.ResultLabel, Unplaced, StringComparison.Ordinal)
+                || string.Equals(row.ResultLabel, Undesigned, StringComparison.Ordinal);
+        }
+
+        public static List<TraceResult> ReportRows(IList<TraceResult> results)
+        {
+            var list = new List<TraceResult>();
+            if (results == null)
+                return list;
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (!IsSkipped(results[i]))
+                    list.Add(results[i]);
+            }
+            return list;
         }
     }
 }

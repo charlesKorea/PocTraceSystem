@@ -53,10 +53,13 @@ namespace PocTrace.Core.Engine.Reporting
                     // [DEBUG pipe number]
                     if (LogPipeNumberLookupEnabled)
                         LogPipeNumberLookup(cache, result, i, cur, endPocId, attributeOwner, pipeNumber);
+                    Guid ownerId;
+                    string ownerName;
+                    StartOwner(cache, startPocId, prev, out ownerId, out ownerName);
                     rows.Add(new object[]
                     {
-                        result.StartNodeGUID == Guid.Empty ? "" : result.StartNodeGUID.ToString(),
-                        result.StartNodeName ?? "",
+                        DdwId.Text(ownerId),
+                        ownerName,
                         PocLabel(cache, startPocId),
                         DdwId.Text(startPocId),
                         i,
@@ -77,6 +80,26 @@ namespace PocTrace.Core.Engine.Reporting
                 }
             }
             return rows;
+        }
+
+        /// <summary>그 행 시작 POC의 owner. 추적 첫 설비가 아니라 행마다 바뀐다.</summary>
+        private static void StartOwner(IGraphCache cache, Guid startPocId, TraceStep prev, out Guid ownerId, out string modelName)
+        {
+            ownerId = Guid.Empty;
+            modelName = "";
+            PocData poc;
+            if (startPocId != Guid.Empty && cache.TryGetPoc(startPocId, out poc) && poc != null && poc.OwnerId != Guid.Empty)
+                ownerId = poc.OwnerId;
+            else if (prev != null)
+                ownerId = prev.NodeId;
+            if (ownerId == Guid.Empty)
+                return;
+            modelName = cache.GetNodeName(ownerId) ?? "";
+            if (!string.IsNullOrEmpty(modelName))
+                return;
+            PipeData pipe;
+            if (cache.TryGetPipe(ownerId, out pipe))
+                modelName = "pipe";
         }
 
         private static Guid ResolveStartPoc(IGraphCache cache, TraceResult result, TraceStep prev, TraceStep cur, int index)
