@@ -93,8 +93,6 @@ JSearchMK가 보여주는 원격 조회는 **대화형 일부 추출**이다. Po
 
 Admin의 전체 추적과 캐시만 갱신(`RunCacheOnlyAsync`) 모두 이 provider로 그래프를 읽은 뒤 `SaveToCache`로 v10 generation을 쓰고 `current.txt`만 바꾼다. 읽는 쪽은 이전 generation을 유지한다.
 
-`PocTrace.DdwAcceptance`는 합성 fixture로 끝점 왕복과 프로파일 SQL을 본다. 공유 캐시 폴더에서 실행하지 않는다. 그 폴더가 있으면 시험 중 지운다.
-
 ## 5. 캐시가 아직 DDW로 닫히지 않는 곳
 
 | 구멍 | 지금 동작 | 캐시에 미치는 일 |
@@ -104,7 +102,7 @@ Admin의 전체 추적과 캐시만 갱신(`RunCacheOnlyAsync`) 모두 이 provi
 | 일배치 설비 | `GetSelectAllEquipments`도 S5D 로그. Sub1 `1-%`/`6-%`, Tag 필수, 건설코드 Delete 제외 | DDW 그래프를 만들어도 추적 대상 목록은 S5D다. |
 | TbStar Tag | 모델 SQL의 Tag가 `NULL`. `Element ID_Number`는 BimId로만 간다 | 노드가 캐시에 있어도 Tag가 비면 `FindStartPocs`와 일배치가 설비를 못 찾는다. 2026-11-12 담당자 설명으로 Tag 원천이 정해졌다. `tb_attributes`에서 `attribute_nm = 'tag'`인 행의 `owner_id`가 그 객체다. 속성 읽기를 모델 노드에 연결하면 메워진다(코드 변경은 별도 단계, `DDW_Trace_Flow_KO.md` 6절). WebDdw의 `tag` 열 경로는 이 DB에서 쓰지 않는다. |
 | Hookup | dynprops가 빈 채 v10으로 저장된다 | Hookup 시트·ConnectorUse 검수는 이 캐시에서 나오지 않는다. 빈 ConnectorUse는 조회 시 Y라서, 빈 목록은 "전부 Y"로 보일 수 있다. |
-| live 판정 열 | `DdwSql`의 모든 SELECT가 `OPERATIONTYPE < 2`로 거르고, `DdwGraphMapping`도 `OperationType >= 2`를 버린다. `DdwAcceptance`는 그 문자열을 검사한다 | 2026-11-11 SVDI 01에서 `tb_instancegroups`에 `operationtype`이 없다는 오류가 났고, 담당자는 모든 `tb_*`에 그 열이 없고 `version_sequence`가 있다고 확인했다. 2026-11-12 임계가 `version_sequence < 1000000000`으로 확정됐다. 그대로 돌리면 `monami`에서는 쿼리 오류로 그래프를 못 만든다. live 문을 `version_sequence < 1000000000`으로 바꾼다(코드 변경은 별도 단계). |
+| live 판정 열 | `DdwSql`의 모든 SELECT가 `OPERATIONTYPE < 2`로 거르고, `DdwGraphMapping`도 `OperationType >= 2`를 버린다. | 2026-11-11 SVDI 01에서 `tb_instancegroups`에 `operationtype`이 없다는 오류가 났고, 담당자는 모든 `tb_*`에 그 열이 없고 `version_sequence`가 있다고 확인했다. 2026-11-12 임계가 `version_sequence < 1000000000`으로 확정됐다. 그대로 돌리면 `monami`에서는 쿼리 오류로 그래프를 못 만든다. live 문을 `version_sequence < 1000000000`으로 바꾼다(코드 변경은 별도 단계). |
 | 삭제 배관 도구 | `SchemaKind != S5d`이면 시작을 거부한다 | DDW 캐시와 무관한 S5D 로그 스냅샷이다. DDW 캐시 범위에 넣지 않는다. |
 | 증분 | `VERSIONS`는 워터마크 후보이나 미구현 | 캐시는 DB 전체 SQL 후 섹션 전체 저장이 기본이다. |
 
@@ -166,7 +164,7 @@ WebDdw에서만 쓰는 추가 컬럼: 모델 `tag`, `s5_eqcode`, `construction_c
 
 운영 캐시의 `TargetDatabases`에 새 키를 둔다. 예: `ddw_x2m`. `x1`, `x2`, `x2_2`에 DDW 결과를 쓰지 않는다. 같은 `SharedCachePath` 아래 다른 폴더다. 사용자별·exe별 복사본은 만들지 않는다.
 
-Admin은 `D:\PocAdmin`에서만 실행한다. 비밀번호는 그 폴더의 `config\db.secret`만 쓴다. `SchemaKind`는 exe.config 평문이다. 시험 도구 `PocTrace.DdwAcceptance`는 이 공유 경로를 쓰지 않는다.
+Admin은 `D:\PocAdmin`에서만 실행한다. 비밀번호는 그 폴더의 `config\db.secret`만 쓴다. `SchemaKind`는 exe.config 평문이다.
 
 직접 접속이 되는지, Linked Server로만 보이는지를 이 단계에서 적는다. 직접 접속이면 8.2로 간다. Linked Server뿐이면 8.5를 끝내기 전에는 `SaveToCache`를 호출하지 않는다.
 
@@ -281,7 +279,7 @@ D-07(캐시 writer가 v9 3슬롯만 쓴다)은 현재 코드 기준으로 닫혀
 
 이제 원본은 Linked Server `remote_monami.monami.dbo`로 읽는다. SSMS는 이 링크가 등록된 FRM 서버에 붙는다. monami 창에 직접 붙는 접속이 아니다. 이 경로로 테이블 명세와 집계, 잘린 샘플을 받고, 그 회신으로 캐시 SQL을 고정한다. 아래 문장은 캐시 작성기가 아니다. 큰 테이블을 통째로 내리지 않는다.
 
-쿼리 파일은 `docs/ddw-svdi-queries/`에 있다. 사무실에는 이 폴더를 가져간다. 본문은 13절과 같다.
+쿼리 본문은 이 문서 13절에 있다.
 
 한 번에 파일 하나. 비밀번호, 로그인, 전화, 메일, BLOB는 읽지 않는다. GUID와 설비 이름은 앞자리나 길이만 나온다. 결과에 그런 전문이 보이면 지우고 보낸다. 링크 이름이 `remote_monami`가 아니면 01의 `linked_server`만 보고, 그 이름으로 4-part의 첫 조각만 바꾼다. 테이블 이름은 에러가 나도 추측해서 바꾸지 않는다. 에러는 앞 300자만 보낸다. SLOW 파일은 10분이 넘으면 취소하고 `TIMEOUT`이라고 보낸다.
 
@@ -332,7 +330,7 @@ Q=07
 
 ## 13. 쿼리 본문
 
-아래 본문은 `docs/ddw-svdi-queries`와 같다(rev4, 2026-11-12). SSMS에는 그 폴더의 파일을 연다.
+아래가 SSMS에 넣는 쿼리 본문이다(rev4, 2026-11-12).
 
 ### 00-README.txt
 

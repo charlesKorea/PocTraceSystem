@@ -25,8 +25,6 @@
 
 ## 3. 추적 단계
 
-각 단계의 쿼리는 `ddw-svdi-queries/T01-flow-steps.sql`에 있다.
-
 1. **Tag로 설비 id를 찾는다.** `attributes`에서 `attribute_nm = 'tag'`이고 `attribute_val = <TAG>`인 행의 `owner_id`가 그 속성을 가진 객체(`<EQ>`)다.
 2. **설비인지 본다.** `modelinstances`에서 `instance_id = <EQ>`. `model_type = 50594049`이면 설비로 본다. 같은 행의 `model_template_id`는 배치 전 라이브러리 모델의 id다.
 3. **모델 이름과 힌트.** `modeltemplates`에서 `model_template_id`로 `display_nm`(DDW 화면의 객체 이름과 같다)을 본다. `family_key = equipment`는 설비라는 두 번째 힌트다. `bim_yn = 0`은 1차 BIM 설계 객체가 아닌 2차 설계 객체라는 뜻이다.

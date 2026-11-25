@@ -1,12 +1,12 @@
 # DDW SVDI 조회 결과 기록
 
-이 문서는 SVDI(사내망)에서 `docs/ddw-svdi-queries`를 돌린 결과와 거기서 나온 결정을 쌓는 곳이다. 전략과 쿼리 본문은 `DDW_Cache_Strategy_KO.md`가 맡고, 이 문서는 사실, 결정, 후속 작업만 유지한다.
+이 문서는 SVDI(사내망) 조회 결과와 거기서 나온 결정을 쌓는 곳이다. 전략과 쿼리 본문은 `DDW_Cache_Strategy_KO.md` 13절이 맡고, 이 문서는 사실, 결정, 후속 작업만 유지한다.
 
 ## 사용법
 
 1. 쿼리 파일은 한 번에 하나씩 SVDI에서 돌린다. 회신은 `Q=번호`, `분=`, `결과=` 형식이다. 에러는 메시지 앞 300자만 보낸다.
 2. 결과를 받으면 아래 3절에 그 쿼리 항목을 채우고, 4절(결정)과 5절(코드 영향)을 갱신한다. 값은 요약해서 적는다. GUID 전문, Tag 전문, 계정, 서버 주소는 넣지 않는다.
-3. 쿼리를 고쳤으면 `ddw-svdi-queries/`와 전략 문서 13절을 같이 고친다. 고친 날짜는 쿼리 머리 주석의 `rev` 표시로 남긴다.
+3. 쿼리를 고쳤으면 `DDW_Cache_Strategy_KO.md` 13절을 고친다. 고친 날짜는 쿼리 머리 주석의 `rev` 표시로 남긴다.
 4. 아래 2절 진행 표의 상태를 바꾼다.
 
 ## 1. 확정한 사실
@@ -153,7 +153,7 @@
 
 ## 5. 코드 영향
 
-2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. 같은 날 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 전 배치가 SVDI SSMS에서 오류 없이 끝났다. Admin의 DDW Cache 버튼이 그 09~13 조회를 실행해 `GraphCache_x2_m`만 쓴다. Cache Only는 S5D다. UI는 그 폴더를 읽어 추적한다. `x2_m` UT 매핑이 없으면 `x2`를 따른다. Cap은 이름과 division의 `cap`만 보고 S5D 특수 목록은 쓰지 않는다. Water와 MainLine은 아직 S5D 규칙이다.
+2026-11-17에 `DdwSql`의 live 조건을 `version_sequence < 1000000000`으로 바꿨다. 배관 길이는 `length2`, 날배관은 `poc_template_id = 0`, Tag와 건설코드는 `tb_attributes`다. 같은 날 09~13 조회 전 배치가 SVDI SSMS에서 오류 없이 끝났다. Admin의 DDW Cache 버튼이 그 09~13 조회를 실행해 `GraphCache_x2_m`만 쓴다. Cache Only는 S5D다. UI는 그 폴더를 읽어 추적한다. `x2_m` UT 매핑이 없으면 `x2`를 따른다. Cap은 이름과 division의 `cap`만 보고 S5D 특수 목록은 쓰지 않는다. Water와 MainLine은 아직 S5D 규칙이다.
 
 ## 6. 열린 질문
 

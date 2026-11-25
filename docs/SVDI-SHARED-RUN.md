@@ -19,7 +19,6 @@ UI, 철거, 노즐추적은 같은 캐시를 보므로 폴더를 나누지 않�
 - 사용자별, exe별 GraphCache를 만들지 않는다.
 - 캐시를 읽는 코드는 이 공유 경로만 본다. Admin만 그 경로에 쓴다.
 - 삭제 배관 길이의 `cache\deleted-pipe`는 그 공유 캐시의 복사본이 아니다. 삭제된 배관은 GraphCache에 없다. 파일은 그 exe 폴더에만 두고, 사용자별 LocalAppData에는 만들지 않는다. 같은 DB와 기준일이고 만든 지 24시간이 지나지 않았으면 그 파일을 읽는다. 그 뒤에는 DB 로그를 다시 읽어 파일을 바꾼다.
-- `PocTrace.DdwAcceptance.exe`는 공유 폴더에서 실행하지 않는다. `SharedCachePath` 폴더가 있으면 지우고 시험 캐시를 쓴다.
 
 ## 배포 DLL
 

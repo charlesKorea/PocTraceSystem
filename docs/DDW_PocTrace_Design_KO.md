@@ -112,7 +112,7 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 
 1. `DdwSql`의 live 조건은 `version_sequence < 1000000000`이다. 배관 POC는 `poc_template_id = 0`만 보고 길이는 `length2`다.
 2. 노드 Tag와 건설코드, POC의 tag와 ConnectionTag, hookup은 `tb_attributes`에서 채운다. `owner_type = 256` 필터는 주석이다.
-3. Admin의 DDW Cache 버튼이 `x2_m`에만 캐시를 쓴다. 조회는 `docs/ddw-svdi-queries/12-x2m-cache.sql`의 09~13과 같고, 2026-11-17에 그 파일의 전 배치가 SVDI에서 오류 없이 끝났다. Cache Only와 전체 배치는 S5D라 `x2_m`을 건너뛴다. UI 콤보는 그 캐시만 읽는다.
+3. Admin의 DDW Cache 버튼이 `x2_m`에만 캐시를 쓴다. 09~13 조회는 2026-11-17에 SVDI에서 오류 없이 끝났다. Cache Only와 전체 배치는 S5D라 `x2_m`을 건너뛴다. UI 콤보는 그 캐시만 읽는다.
 4. 시험 도구에 넣었던 Tag 하나를 캐시로 다시 걷는다. 끝 status, 지난 배관의 `length2` 합, Takeoff와 노즐의 속성 owner가 시험 도구 Excel과 같은지 본다.
 5. 맞는 설비가 늘어난 뒤에만 일배치 목록을 연다. Water와 MainLine은 그 뒤에 빈 자리에 넣는다. S와 T의 Connector Information은 `poctemplates.memo`다. PocNo는 `connection_order`다.
 
@@ -124,7 +124,6 @@ id 열은 `varbinary(16)`이다. 조회 결과는 `TRY_CONVERT(uniqueidentifier,
 |---|---|---|
 | `PocTrace.Core/Infrastructure/Data/DdwSql.cs` | live는 `version_sequence`. 길이는 `length2`. 배관은 `poc_template_id = 0` | 추적 엔진의 Cap과 Water는 아직 이 쿼리를 규칙으로 쓰지 않는다 |
 | `DdwGraphMapping.cs` | 배관 끝은 배관 id 집합으로 본다. Tag와 건설코드는 속성 | `bim_yn`은 캐시 필드가 아니다. 규칙은 이 문서에만 있다 |
-| `PocTrace.DdwAcceptance` | `version_sequence < 1000000000`과 날배관 GUID 0을 검사 | `OPERATIONTYPE <` 필터가 없어야 한다 |
 | `TraceAlgorithm` Cap, ING, Takeoff | DDW Cap은 이름과 division의 `cap`만 본다. Water와 MainLine은 아직 켜져 있다 | DDW에서는 Water, MainLine을 호출하지 않는다 |
 | 캐시 폴더 | 예전에 `ddw_x2m` 예시 | 라인 이름은 `x2_m` |
 

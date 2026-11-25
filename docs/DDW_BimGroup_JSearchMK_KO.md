@@ -68,4 +68,4 @@ JSearchMK의 `LIKE '%그룹명%'`과 멤버 조인은 캐시 SQL에 넣지 않�
 
 ## 5. 확인
 
-`PocTrace.DdwAcceptance`가 그룹 SQL에 `TB_INSTANCEGROUPS`, live, capa가 있고 멤버·속성 테이블이 없는지만 본다. SVDI에서 14번 배치를 실행해 행 수를 확인하는 일은 아직 하지 않았다. 그룹이 약 9만이라 전체 조회는 가능하지만, 이 환경에는 monami 연결이 없다.
+SVDI에서 14번 배치를 실행해 행 수를 확인하는 일은 아직 하지 않았다. 그룹이 약 9만이라 전체 조회는 가능하지만, 이 환경에는 monami 연결이 없다.

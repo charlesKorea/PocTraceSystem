@@ -590,7 +590,7 @@ namespace PocTrace.UI.ViewModels
             using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
             {
                 foreach (string file in files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
-                    zip.CreateEntryFromFile(file, Path.GetFileName(file), CompressionLevel.Fastest);
+                    zip.CreateEntryFromFile(file, Path.GetFileName(file), System.IO.Compression.CompressionLevel.Fastest);
             }
             return zipPath;
         }
