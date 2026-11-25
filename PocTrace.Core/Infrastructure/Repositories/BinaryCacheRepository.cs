@@ -586,6 +586,12 @@ namespace PocTrace.Core.Infrastructure.Repositories
                     node.ModelType = r.ReadInt32();
                     node.DivisionName = r.ReadString();
                 }
+                if (cacheVersion >= 14)
+                {
+                    node.PosX = r.ReadDouble();
+                    node.PosY = r.ReadDouble();
+                    node.PosZ = r.ReadDouble();
+                }
                 list.Add(node);
             }
             return list;
@@ -695,6 +701,9 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 w.Write(item.BimGroupName ?? "");
                 w.Write(item.ModelType);
                 w.Write(item.DivisionName ?? "");
+                w.Write(item.PosX);
+                w.Write(item.PosY);
+                w.Write(item.PosZ);
             }
         }
 

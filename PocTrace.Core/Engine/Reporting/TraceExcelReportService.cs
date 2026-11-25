@@ -46,7 +46,7 @@ namespace PocTrace.Core.Engine.Reporting
                 // Sheet 1: Summary
                 // =========================================================
                 var wsSum = package.Workbook.Worksheets.Add("Summary");
-                wsSum.Cells["M1"].Value = TraceAppVersion.Display();
+                wsSum.Cells["V1"].Value = TraceAppVersion.Display();
 
                 string lineName = cache != null && !string.IsNullOrEmpty(cache.DbName)
                     ? cache.DbName
@@ -237,12 +237,12 @@ namespace PocTrace.Core.Engine.Reporting
                 // 모든 탐색 결과에서 거쳐간 발자국(Steps)을 하나의 리스트로 평탄화(Flatten)
                 var allSteps = details.Where(d => d.Steps != null).SelectMany(d => d.Steps).ToList();
 
-                // 1. Fitting 사용 횟수 집계
-                wsPath.Cells["A1"].Value = "🔧 Fitting Usage (BOM)";
-                wsPath.Cells["A1:B1"].Merge = true;
+                // 1. UT group별 Fitting 사용 횟수
+                wsPath.Cells["A1"].Value = "Fitting Usage by UT Group";
+                wsPath.Cells["A1:D1"].Merge = true;
                 wsPath.Cells["A1"].Style.Font.Bold = true;
 
-                string[] fittingHeaders = { "Fitting Name", "QCode", "Usage Count" };
+                string[] fittingHeaders = { "UT Group", "Fitting Name", "QCode", "Usage Count" };
                 for (int i = 0; i < fittingHeaders.Length; i++)
                 {
                     wsPath.Cells[2, i + 1].Value = fittingHeaders[i];
@@ -251,39 +251,50 @@ namespace PocTrace.Core.Engine.Reporting
                     wsPath.Cells[2, i + 1].Style.Font.Bold = true;
                 }
 
-                // 💡 [핵심 보완] Name과 QCode를 동시에 묶어서(GroupBy) 집계해야 정확한 수량이 나옵니다.
-                var fittingStats = allSteps.Where(s => s.NodeType == "Fitting" && !string.IsNullOrEmpty(s.NodeName))
-                                           .GroupBy(s => new { s.NodeName, s.QCode })
-                                           .Select(g => new
-                                           {
-                                               Name = g.Key.NodeName,
-                                               QCode = g.Key.QCode,
-                                               Count = g.Count()
-                                           })
-                                           .OrderByDescending(x => x.Count).ToList();
+                var fittingStats = details
+                    .Where(d => d != null && d.Steps != null)
+                    .SelectMany(d => d.Steps
+                        .Where(s => s.NodeType == "Fitting" && !string.IsNullOrEmpty(s.NodeName))
+                        .Select(s => new
+                        {
+                            Group = d.StartPocUtilityGroup ?? "",
+                            s.NodeName,
+                            s.QCode
+                        }))
+                    .GroupBy(s => new { s.Group, s.NodeName, s.QCode })
+                    .Select(g => new
+                    {
+                        Group = g.Key.Group,
+                        Name = g.Key.NodeName,
+                        QCode = g.Key.QCode,
+                        Count = g.Count()
+                    })
+                    .OrderBy(x => x.Group)
+                    .ThenByDescending(x => x.Count)
+                    .ToList();
 
                 int pathRow = 3;
                 foreach (var f in fittingStats)
                 {
-                    wsPath.Cells[pathRow, 1].Value = f.Name;
-                    wsPath.Cells[pathRow, 2].Value = f.QCode; // 💡 B열에 QCode 출력
-                    wsPath.Cells[pathRow, 3].Value = f.Count; // 💡 C열에 수량 출력
+                    wsPath.Cells[pathRow, 1].Value = f.Group;
+                    wsPath.Cells[pathRow, 2].Value = f.Name;
+                    wsPath.Cells[pathRow, 3].Value = f.QCode;
+                    wsPath.Cells[pathRow, 4].Value = f.Count;
                     pathRow++;
                 }
 
-                // 2. 배관(Pipe) 누적 길이 집계 (컬럼 우측으로 이동)
-                wsPath.Cells["E1"].Value = "📏 Pipe Length Summary";
-                wsPath.Cells["E1:F1"].Merge = true;
-                wsPath.Cells["E1"].Style.Font.Bold = true;
+                // 2. 배관(Pipe) 누적 길이 집계. 피팅 표가 D열까지라 F열부터 둔다.
+                wsPath.Cells["F1"].Value = "Pipe Length Summary";
+                wsPath.Cells["F1:G1"].Merge = true;
+                wsPath.Cells["F1"].Style.Font.Bold = true;
 
                 string[] pipeHeaders = { "Pipe Name / ID", "Total Length (m)" };
                 for (int i = 0; i < pipeHeaders.Length; i++)
                 {
-                    // 💡 시작 열을 5(E열)로 변경
-                    wsPath.Cells[2, i + 5].Value = pipeHeaders[i];
-                    wsPath.Cells[2, i + 5].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    wsPath.Cells[2, i + 5].Style.Fill.BackgroundColor.SetColor(Color.LightGray);
-                    wsPath.Cells[2, i + 5].Style.Font.Bold = true;
+                    wsPath.Cells[2, i + 6].Value = pipeHeaders[i];
+                    wsPath.Cells[2, i + 6].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    wsPath.Cells[2, i + 6].Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+                    wsPath.Cells[2, i + 6].Style.Font.Bold = true;
                 }
 
                 var pipeStats = allSteps.Where(s => s.NodeType.Contains("Pipe"))
@@ -294,9 +305,9 @@ namespace PocTrace.Core.Engine.Reporting
                 int pipeRow = 3;
                 foreach (var p in pipeStats)
                 {
-                    wsPath.Cells[pipeRow, 5].Value = p.Name;     // E열
-                    wsPath.Cells[pipeRow, 6].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
-                    wsPath.Cells[pipeRow, 6].Style.Numberformat.Format = "0.0";
+                    wsPath.Cells[pipeRow, 6].Value = p.Name;
+                    wsPath.Cells[pipeRow, 7].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
+                    wsPath.Cells[pipeRow, 7].Style.Numberformat.Format = "0.0";
                     pipeRow++;
                 }
                 wsPath.Cells.AutoFitColumns();
@@ -350,7 +361,7 @@ namespace PocTrace.Core.Engine.Reporting
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
                 var ws = package.Workbook.Worksheets.Add("Summary");
-                ws.Cells["M1"].Value = TraceAppVersion.Display();
+                ws.Cells["V1"].Value = TraceAppVersion.Display();
                 var ordered = summaries == null
                     ? new List<EquipmentTraceSummary>()
                     : summaries.OrderBy(x => x.EquipmentTag).ToList();
@@ -363,7 +374,7 @@ namespace PocTrace.Core.Engine.Reporting
 
         private static readonly string[] SummaryHeaders =
         {
-            "Line", "EQ Code", "Result", "Issues", "Ep Count", "Pocs",
+            "Line", "EQ Code", "Result", "Issues", "eqp count", "Pocs",
             "BreakDown", "BOM(Hop)", "Length(m)", "Date", "Worker", "Company"
         };
 
@@ -416,9 +427,10 @@ namespace PocTrace.Core.Engine.Reporting
 
         private static int WriteNameParts(ExcelWorksheet ws, List<EquipmentTraceSummary> summaries, int startRow)
         {
+            const int firstCol = 2;
             for (int i = 0; i < NameHeaders.Length; i++)
             {
-                var cell = ws.Cells[startRow, i + 1];
+                var cell = ws.Cells[startRow, firstCol + i];
                 cell.Value = NameHeaders[i];
                 cell.Style.Font.Bold = true;
                 cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
@@ -435,16 +447,16 @@ namespace PocTrace.Core.Engine.Reporting
                     continue;
                 foreach (var part in s.Names)
                 {
-                    ws.Cells[row, 1].Value = part.Name;
-                    ws.Cells[row, 2].Value = part.Division;
-                    ws.Cells[row, 3].Value = part.Subdivision1;
-                    ws.Cells[row, 4].Value = part.Subdivision2;
-                    ws.Cells[row, 5].Value = part.PocCount;
-                    ws.Cells[row, 6].Value = part.ErrorPocCount;
-                    ws.Cells[row, 7].Value = part.LengthM;
-                    ws.Cells[row, 7].Style.Numberformat.Format = "0.0";
-                    for (int c = 1; c <= NameHeaders.Length; c++)
-                        ws.Cells[row, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                    ws.Cells[row, firstCol].Value = part.Name;
+                    ws.Cells[row, firstCol + 1].Value = part.Division;
+                    ws.Cells[row, firstCol + 2].Value = part.Subdivision1;
+                    ws.Cells[row, firstCol + 3].Value = part.Subdivision2;
+                    ws.Cells[row, firstCol + 4].Value = part.PocCount;
+                    ws.Cells[row, firstCol + 5].Value = part.ErrorPocCount;
+                    ws.Cells[row, firstCol + 6].Value = part.LengthM;
+                    ws.Cells[row, firstCol + 6].Style.Numberformat.Format = "0.0";
+                    for (int c = 0; c < NameHeaders.Length; c++)
+                        ws.Cells[row, firstCol + c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
                     row++;
                 }
             }

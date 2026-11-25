@@ -425,10 +425,12 @@ namespace PocTrace.UI.ViewModels
 
                             var summaryList = GetGroupedSummaries(results);
                             var firstSum = summaryList.First();
-                            string fileName = $"{SelectedDb}_{tag}_{firstSum.EquipmentCount}_{firstSum.TotalPocCount}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-                            string fullPath = Path.Combine(outputDir, fileName);
-
-                            _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache);
+                            if (BatchPlacement.KeepsIndividualExcel(results))
+                            {
+                                string fileName = $"{SelectedDb}_{tag}_{firstSum.EquipmentCount}_{firstSum.TotalPocCount}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                                string fullPath = Path.Combine(outputDir, fileName);
+                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache);
+                            }
 
                             foreach (var r in results) tempAllResults.Add(r);
                             foreach (var s in summaryList) tempSummaries.Add(s);

@@ -45,6 +45,9 @@ namespace PocTrace.Core.Infrastructure.Data
         public string Sub1Name { get; set; }
         public string Sub2Name { get; set; }
         public int? Sub1DivisionType { get; set; }
+        public double PosX { get; set; }
+        public double PosY { get; set; }
+        public double PosZ { get; set; }
         public long Pz { get; set; }
         public int OperationType { get; set; }
     }
@@ -339,6 +342,9 @@ namespace PocTrace.Core.Infrastructure.Data
                         QCode = row.FamilyKey ?? "",
                         ConstructionCode = FirstFilled(row.ConstructionCode, Lookup(constructions, row.InstanceId)),
                         BimId = bim,
+                        PosX = NormalizeCoord(row.PosX),
+                        PosY = NormalizeCoord(row.PosY),
+                        PosZ = NormalizeCoord(row.PosZ),
                         PZ = row.Pz
                     });
                 }
@@ -365,6 +371,11 @@ namespace PocTrace.Core.Infrastructure.Data
         public static long NormalizePz(double posz)
         {
             return (long)Math.Round(posz, 0, MidpointRounding.AwayFromZero);
+        }
+
+        public static double NormalizeCoord(double value)
+        {
+            return Math.Round(value, 1, MidpointRounding.AwayFromZero);
         }
 
         public static string ParseModuleName(string attributeVal)

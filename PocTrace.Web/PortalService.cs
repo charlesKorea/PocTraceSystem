@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JLic;
 using PocTrace.Core.Composition;
+using PocTrace.Core.Engine;
 using PocTrace.Core.Engine.Reporting;
 using PocTrace.Core.Infrastructure;
 using PocTrace.Core.Licensing;
@@ -470,15 +471,18 @@ namespace PocTrace.Web
                             AppendIssues(results, issues, ref truncated);
                             var part = EquipmentSummaryBuilder.Build(results);
                             summaries.AddRange(part);
-                            var first = part.FirstOrDefault();
-                            string name = SafeFile(job.Db + "_" + tag
-                                + "_" + (first == null ? 0 : first.EquipmentCount)
-                                + "_" + (first == null ? 0 : first.TotalPocCount));
-                            _services.ExcelReport.SaveSingleFileReport(
-                                Path.Combine(outputDir, UniqueFileName(outputDir, name, ".xlsx")),
-                                results,
-                                _services.CacheManager);
-                            savedFiles++;
+                            if (BatchPlacement.KeepsIndividualExcel(results))
+                            {
+                                var first = part.FirstOrDefault();
+                                string name = SafeFile(job.Db + "_" + tag
+                                    + "_" + (first == null ? 0 : first.EquipmentCount)
+                                    + "_" + (first == null ? 0 : first.TotalPocCount));
+                                _services.ExcelReport.SaveSingleFileReport(
+                                    Path.Combine(outputDir, UniqueFileName(outputDir, name, ".xlsx")),
+                                    results,
+                                    _services.CacheManager);
+                                savedFiles++;
+                            }
                         }
                     }
                     catch (Exception ex) when (IsCancelled(ex))

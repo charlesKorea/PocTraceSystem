@@ -60,6 +60,9 @@ SELECT
     " + sub1 + @" AS Sub1Name,
     " + sub2 + @" AS Sub2Name,
     " + IntNull("sub1.DIVISION_TYPE") + @" AS Sub1DivisionType,
+    CAST(ROUND(mi.POSX, 1) AS float) AS PosX,
+    CAST(ROUND(mi.POSY, 1) AS float) AS PosY,
+    CAST(ROUND(mi.POSZ, 1) AS float) AS PosZ,
     ISNULL(TRY_CAST(ROUND(mi.POSZ, 0) AS bigint), 0) AS Pz,
     " + Op + @"
 FROM " + T(quotedDb, "TB_MODELINSTANCES") + @" mi

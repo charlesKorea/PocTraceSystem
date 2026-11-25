@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using PocTrace.Core.Engine;
 using PocTrace.Core.Engine.Cache;
 using PocTrace.Core.Engine.Logic;
 using PocTrace.Core.Enums;
@@ -88,6 +89,8 @@ namespace PocTrace.DdwAcceptance
             Check(pipes.Contains("TB_VERSIONS") && pipes.Contains("VERSION_NUMBER") && pipes.Contains("LOGIN_ID") && pipes.Contains("TB_NEW_USERS"), "version user lookup");
             Check(!pipes.Contains("*1000") && !pipes.Contains("TOP 1") && !pipes.Contains("Origin"), "DDW pipe SQL limits");
             Check(tb.Contains("TRY_CONVERT(uniqueidentifier, mi.INSTANCE_ID)"), "model id is uniqueidentifier");
+            Check(tb.Contains("ROUND(mi.POSX, 1)") && tb.Contains("ROUND(mi.POSY, 1)") && tb.Contains("ROUND(mi.POSZ, 1)"), "model xyz one decimal");
+            Check(web.Contains("ROUND(mi.POSX, 1)"), "WebDdw xyz one decimal");
             Check(pipes.Contains("AS float"), "pipe length is float");
             Check(pipes.Contains("pi.DIAMETER1") && !pipes.Contains("PIPESIZE_ID"), "pipe size is diameter1");
             Check(DdwSql.SelectModelPocs("[fixture]", SchemaKind.TbStar).Contains("= 768"), "model pocs only");
@@ -213,6 +216,9 @@ namespace PocTrace.DdwAcceptance
             Check(DdwGraphNormalizer.NormalizeLength(1.25) == 1.3, "length rounds to 0.1");
             Check(DdwGraphNormalizer.NormalizeLength(0) == 0, "non positive length is 0");
             Check(DdwGraphNormalizer.NormalizePz(15.6) == 16, "PZ rounds without scale");
+            Check(DdwGraphNormalizer.NormalizeCoord(18213.687194144).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) == "18213.7", "coord keeps one decimal");
+            Check(BatchPlacement.KeepsIndividualExcel(new[] { new TraceResult { ResultLabel = BatchPlacement.Unplaced } }) == false, "unplaced skips excel");
+            Check(BatchPlacement.KeepsIndividualExcel(new[] { new TraceResult { ResultLabel = BatchPlacement.Undesigned } }), "undesigned keeps excel");
 
             var sized = DdwGraphNormalizer.Build(
                 null,
@@ -339,16 +345,30 @@ namespace PocTrace.DdwAcceptance
             }
             pipe.ReplaceEndpoints(endpoints);
 
+            var node = new NodeInfo
+            {
+                InstanceId = G(81),
+                Tag = "T",
+                Name = "N",
+                Type = NodeType.Equipment,
+                PosX = 18213.7,
+                PosY = -12.3,
+                PosZ = 15050.1
+            };
             var repo = new BinaryCacheRepository();
-            repo.SaveToCache("fixture", new List<NodeInfo>(), new List<PocData>(), new List<PipeData> { pipe },
+            repo.SaveToCache("fixture", new List<NodeInfo> { node }, new List<PocData>(), new List<PipeData> { pipe },
                 new List<TakeoffData>(), new List<DynamicPropertiesData>());
 
             int version;
             DateTime savedAt;
             Check(repo.TryPeekManifest("fixture", out version, out savedAt), "manifest readable");
-            Check(version == CacheConstants.CurrentVersion && version == 10, "CACHE-01 version 10");
+            Check(version == CacheConstants.CurrentVersion, "CACHE-01 current version");
 
             var loaded = repo.LoadFromCache("fixture");
+            var loadedNode = loaded.Nodes.Single();
+            Check(loadedNode.PosX.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) == "18213.7", "CACHE-01 posx");
+            Check(loadedNode.PosY.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) == "-12.3", "CACHE-01 posy");
+            Check(loadedNode.PosZ.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) == "15050.1", "CACHE-01 posz");
             var again = loaded.Pipes.Single();
             Check(again.Endpoints.Count == 115, "CACHE-01 115 endpoints");
             Check(again.Endpoints[0].ConnectionOrder == 0 && again.Endpoints[114].ConnectionOrder == 228, "orders survived");

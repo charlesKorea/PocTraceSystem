@@ -30,7 +30,6 @@ function Read-Version([string]$raw) {
 $current = Read-Version (Get-Content -Path $txt -Raw)
 $major = $current[0]
 $minor = $current[1]
-$text = Format-Version $major $minor
 
 if ($Bump) {
     $minor++
@@ -39,10 +38,10 @@ if ($Bump) {
         $major++
         if ($major -gt 9) { $major = 9; $minor = 999 }
     }
-    $next = Format-Version $major $minor
-    Set-Content -Path $txt -Value $next -Encoding ascii
-    exit 0
+    Set-Content -Path $txt -Value (Format-Version $major $minor) -Encoding ascii
 }
+
+$text = Format-Version $major $minor
 
 $body = @"
 using System.Reflection;

@@ -136,6 +136,9 @@ SELECT
     CONVERT(nvarchar(256), sub1.DIVISION_VALUE) AS Sub1Name,
     CONVERT(nvarchar(256), sub2.DIVISION_VALUE) AS Sub2Name,
     TRY_CAST(sub1.DIVISION_TYPE AS int) AS Sub1DivisionType,
+    CAST(ROUND(mi.POSX, 1) AS float) AS PosX,
+    CAST(ROUND(mi.POSY, 1) AS float) AS PosY,
+    CAST(ROUND(mi.POSZ, 1) AS float) AS PosZ,
     ISNULL(TRY_CAST(ROUND(mi.POSZ, 0) AS bigint), 0) AS Pz,
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_MODELINSTANCES mi
@@ -262,6 +265,9 @@ SELECT
     CONVERT(nvarchar(256), sub1.DIVISION_VALUE) AS Sub1Name,
     CONVERT(nvarchar(256), sub2.DIVISION_VALUE) AS Sub2Name,
     TRY_CAST(sub1.DIVISION_TYPE AS int) AS Sub1DivisionType,
+    CAST(ROUND(mi.POSX, 1) AS float) AS PosX,
+    CAST(ROUND(mi.POSY, 1) AS float) AS PosY,
+    CAST(ROUND(mi.POSZ, 1) AS float) AS PosZ,
     ISNULL(TRY_CAST(ROUND(mi.POSZ, 0) AS bigint), 0) AS Pz,
     CAST(0 AS int) AS OperationType
 FROM [remote_monami].[monami].dbo.TB_MODELINSTANCES mi

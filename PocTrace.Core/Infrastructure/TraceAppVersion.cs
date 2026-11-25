@@ -3,7 +3,7 @@ using System.Reflection;
 namespace PocTrace.Core.Infrastructure
 {
     /// <summary>
-    /// UI가 컴파일 때 올린 x.xxx 버전. 엑셀 Summary M1과 폼 하단에 같은 문자열을 쓴다.
+    /// UI가 컴파일 때 올린 x.xxx 버전. 엑셀 Summary V1과 폼 하단에 같은 문자열을 쓴다.
     /// MetroForm.ProductVersion(문자열)과 이름이 겹치지 않게 둔다.
     /// </summary>
     public static class TraceAppVersion

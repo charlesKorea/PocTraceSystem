@@ -29,5 +29,11 @@ namespace PocTrace.Core.Models
         /// <summary>ConfigurationLog.Name (BIM Group / Revit 파일 경로명). BinaryCache v8+.</summary>
         public string BimGroupName { get; set; }
         public long PZ { get; set; } //26.05.26 높이 z값
+        /// <summary>tb_modelinstances.posx. 캐시 v14+. 소수 1자리. 없으면 0.</summary>
+        public double PosX { get; set; }
+        /// <summary>tb_modelinstances.posy. 캐시 v14+. 소수 1자리. 없으면 0.</summary>
+        public double PosY { get; set; }
+        /// <summary>tb_modelinstances.posz. 캐시 v14+. 소수 1자리. 없으면 0.</summary>
+        public double PosZ { get; set; }
     }
 }
