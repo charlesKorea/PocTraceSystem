@@ -274,7 +274,7 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/traces")
                 {
                     var body = ReadJson(context.Request);
-                    string id = _portal.StartTrace(Value(body, "db"), Value(body, "tag"));
+                    string id = _portal.StartTrace(Value(body, "db"), Value(body, "tag"), Flag(body, "html"));
                     WriteJson(context, 202, new { jobId = id });
                     return;
                 }
@@ -282,7 +282,7 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/batches")
                 {
                     var body = ReadJson(context.Request);
-                    string id = _portal.StartBatch(Value(body, "db"), Value(body, "text"));
+                    string id = _portal.StartBatch(Value(body, "db"), Value(body, "text"), Flag(body, "html"));
                     WriteJson(context, 202, new { jobId = id });
                     return;
                 }
@@ -575,7 +575,11 @@ namespace PocTrace.Web
                 string text = reader.ReadToEnd();
                 if (string.IsNullOrWhiteSpace(text))
                     return new JObject();
-                return JObject.Parse(text);
+                using (var json = new JsonTextReader(new StringReader(text)))
+                {
+                    json.DateParseHandling = DateParseHandling.None;
+                    return JObject.Load(json);
+                }
             }
         }
 
@@ -583,6 +587,16 @@ namespace PocTrace.Web
         {
             var token = body[name];
             return token == null ? "" : token.ToString();
+        }
+
+        private static bool Flag(JObject body, string name)
+        {
+            var token = body == null ? null : body[name];
+            if (token == null || token.Type == JTokenType.Null)
+                return false;
+            if (token.Type == JTokenType.Boolean)
+                return token.Value<bool>();
+            return string.Equals(token.ToString(), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void WriteRaw(HttpListenerContext context, int status, string json)

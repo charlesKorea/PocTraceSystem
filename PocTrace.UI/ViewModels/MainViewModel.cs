@@ -35,6 +35,7 @@ namespace PocTrace.UI.ViewModels
         private readonly Func<ITraceEngine> _engineFactory; // 배치: 태그별(스레드별) 새 엔진 생성
         private readonly GraphCacheManager _cacheManager;
         private readonly TraceExcelReportService _excelReport;
+        public bool WriteHtmlReport { get; set; }
         private readonly IDialogService _dialog;
 
         private IGraphCache CurrentCache => _cacheManager;
@@ -429,7 +430,7 @@ namespace PocTrace.UI.ViewModels
                             {
                                 string fileName = $"{SelectedDb}_{tag}_{firstSum.EquipmentCount}_{firstSum.TotalPocCount}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
                                 string fullPath = Path.Combine(outputDir, fileName);
-                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache);
+                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache, WriteHtmlReport);
                             }
 
                             foreach (var r in results) tempAllResults.Add(r);
@@ -458,7 +459,10 @@ namespace PocTrace.UI.ViewModels
                     string summaryPath = Path.Combine(outputDir, summaryFileName);
 
                     StatusMessage = "Saving Batch Summary Excel...";
-                    await Task.Run(() => _excelReport.SaveBatchSummaryReport(summaryPath, summaryOnlyList, SelectedDb));
+                    bool html = WriteHtmlReport;
+                    var sketchRows = html ? tempAllResults.ToList() : null;
+                    await Task.Run(() => _excelReport.SaveBatchSummaryReport(
+                        summaryPath, summaryOnlyList, SelectedDb, html, sketchRows, cache));
                 }
 
                 // UI 업데이트
@@ -557,7 +561,7 @@ namespace PocTrace.UI.ViewModels
                     var currentDetails = _allTraceResults;
 
                     // 2. Core 리포팅 서비스 호출
-                    _excelReport.SaveSingleFileReport(filePath, currentDetails, CurrentCache);
+                    _excelReport.SaveSingleFileReport(filePath, currentDetails, CurrentCache, WriteHtmlReport);
                 });
 
                 StatusMessage = "Export Complete.";

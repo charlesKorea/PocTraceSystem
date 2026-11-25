@@ -45,6 +45,7 @@ namespace PocTrace.UI
         {
             InitializeComponent();
             _viewModel = viewModel;
+            AddHtmlOption();
             TraceAppVersion.Current = AppVersion.Text;
             lblVersion.Text = AppVersion.Text;
 
@@ -620,6 +621,24 @@ namespace PocTrace.UI
             return _recentSearches.ToList();
         }
 
+        private MetroFramework.Controls.MetroCheckBox chkHtmlReport;
+
+        private void AddHtmlOption()
+        {
+            chkHtmlReport = new MetroFramework.Controls.MetroCheckBox();
+            chkHtmlReport.Name = "chkHtmlReport";
+            chkHtmlReport.Text = "HTML 생성";
+            chkHtmlReport.Location = new System.Drawing.Point(330, 30);
+            chkHtmlReport.AutoSize = true;
+            chkHtmlReport.TabIndex = 9;
+            panelInput.Controls.Add(chkHtmlReport);
+        }
+
+        private void ApplyHtmlOption()
+        {
+            _viewModel.WriteHtmlReport = chkHtmlReport != null && chkHtmlReport.Checked;
+        }
+
         private async void btnExport_Click(object sender, EventArgs e)
         {
             // 데이터가 없으면 경고
@@ -650,6 +669,7 @@ namespace PocTrace.UI
                     try
                     {
                         // ViewModel에게는 "경로"만 전달 (ViewModel이 팝업 띄우지 않도록 주의)
+                        ApplyHtmlOption();
                         await _viewModel.ExportToExcelAsync(sfd.FileName);
                         MessageBox.Show("Export Complete!", "Success");
                     }
@@ -719,6 +739,7 @@ namespace PocTrace.UI
 
             try
             {
+                ApplyHtmlOption();
                 string input = txtBatchInput.Text;
 
                 // 1. [중요] 작업 전 연결 끊기 (그리드가 변경사항을 못 보게 함)

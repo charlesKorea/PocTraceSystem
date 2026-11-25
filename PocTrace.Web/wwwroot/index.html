@@ -105,6 +105,7 @@
     </section>
 
     <section class="grid-2 panel locked" id="panel-trace" role="tabpanel" aria-labelledby="tab-trace" data-panel="trace">
+      <label class="html-opt"><input type="checkbox" id="htmlOpt" /> <span data-i18n="htmlOpt">HTML 생성 (Summary, Drawing)</span></label>
       <article class="card">
         <p class="eyebrow" data-i18n="stepTag">2 · Tag</p>
         <p class="hint" id="traceGate" data-i18n="traceGate">Cache가 메모리에 올라온 뒤에 Tag를 입력합니다.</p>
@@ -209,6 +210,7 @@
       <p class="hint" id="resultHint"></p>
       <div class="actions">
         <a id="excel" class="primary" href="#" hidden data-i18n="excel">Excel 받기</a>
+        <a id="traceHtml" class="primary" href="#" hidden data-i18n="htmlTrace">HTML 받기</a>
         <a id="excelZip" class="primary" href="#" hidden data-i18n="excelZip">전체 ZIP 받기</a>
       </div>
       <div class="table-wrap" id="traceWrap">
@@ -323,6 +325,8 @@
         batchPh: "줄바꿈, 쉼표, 공백으로 구분",
         batchBtn: "배치 Trace",
         excel: "Excel 받기",
+        htmlOpt: "HTML 생성 (Summary, Drawing)",
+        htmlTrace: "HTML 받기",
         excelZip: "전체 ZIP 받기 (개별 + Summary)",
         hEq: "설비",
         hRes: "검수결과",
@@ -459,6 +463,8 @@
         batchPh: "可用换行、逗号或空格分隔",
         batchBtn: "Batch Trace",
         excel: "下载 Excel",
+        htmlOpt: "生成 HTML（Summary、Drawing）",
+        htmlTrace: "下载 HTML",
         excelZip: "下载全部 ZIP（单独 + Summary）",
         hEq: "设备",
         hRes: "检验结果",
@@ -900,6 +906,7 @@
       lastJob = null;
       $("jobCard").hidden = true;
       $("excel").hidden = true;
+      $("traceHtml").hidden = true;
       $("excelZip").hidden = true;
     }
 
@@ -1525,6 +1532,13 @@
       } else {
         link.hidden = true;
       }
+      var htmlLink = $("traceHtml");
+      if (job.kind !== "demolition" && job.kind !== "load" && job.kind !== "nozzle" && job.htmlReady) {
+        htmlLink.hidden = false;
+        htmlLink.href = "/api/jobs/" + encodeURIComponent(job.id) + "/html";
+      } else if (htmlLink) {
+        htmlLink.hidden = true;
+      }
       var zipLink = $("excelZip");
       if (job.kind === "batch" && job.zipReady) {
         zipLink.hidden = false;
@@ -1600,6 +1614,7 @@
       $("rows").innerHTML = "";
       $("nozzleRows").innerHTML = "";
       $("excel").hidden = true;
+      $("traceHtml").hidden = true;
       $("excelZip").hidden = true;
       $("resultHint").textContent = "";
       $("kpiRows").textContent = "0";
@@ -1641,7 +1656,7 @@
       if (!$("db").value) { rejectInput("needTag"); return; }
       rememberTag(tag);
       localStorage.setItem(DB_KEY, $("db").value);
-      start("/api/traces", { db: $("db").value, tag: tag });
+      start("/api/traces", { db: $("db").value, tag: tag, html: $("htmlOpt").checked });
     }
     function startBatch() {
       if (!cacheReady) { rejectInput("needCache"); return; }
@@ -1651,7 +1666,7 @@
       if (!count) { rejectInput("needBatch"); return; }
       if (count > max) { rejectInput("overBatch", { max: max, n: count }); return; }
       localStorage.setItem(DB_KEY, $("db").value);
-      start("/api/batches", { db: $("db").value, text: text });
+      start("/api/batches", { db: $("db").value, text: text, html: $("htmlOpt").checked });
     }
     function startNozzle() {
       if (!cacheReady) { rejectInput("needCache"); return; }

@@ -127,7 +127,7 @@ namespace PocTrace.Web
             {
                 if (!File.Exists(HistoryPath()))
                     return new List<HistoryEntry>();
-                List<HistoryEntry> list = JsonConvert.DeserializeObject<List<HistoryEntry>>(File.ReadAllText(HistoryPath()));
+                List<HistoryEntry> list = SharedHistoryStore.ParseHistory<List<HistoryEntry>>(File.ReadAllText(HistoryPath()));
                 return list ?? new List<HistoryEntry>();
             }
             catch

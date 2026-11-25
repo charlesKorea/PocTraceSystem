@@ -29,6 +29,6 @@
 | `DDW_PocTrace_Design_KO.md` | 한국어 | **DDW POC 추적 최초 설계**(2026-11-16). 엔진은 하나, 로더와 규칙만 S5D/DDW로 가른다. 캐시 라인 `x2_m`. live는 `version_sequence` |
 | `DDW_BimGroup_JSearchMK_KO.md` | 한국어 | **JSearchMK DDW BIM Group을 PocTrace 사이드카로 옮긴 범위**. 그룹 트리는 `BimGroupCache_x2_m`. 멤버 2천만 행은 넣지 않는다 |
 | `DDW_SVDI_Results_KO.md` | 한국어 | **SVDI에서 받은 DDW 조회 결과와 결정 기록**. 확정 사실, 진행 표, 코드 영향, 열린 질문을 쌓는다 |
-| `WORKFLOW_KO.md` | 한국어 | **작업 반영 방식**. 별도 요청이 없는 한 코드·문서를 고치면 main에 반영한다(2026-11-12 지시) |
+| `WORKFLOW_KO.md` | 한국어 | **작업 반영 방식**. 별도 요청이 없는 한 코드·문서를 고치면 main에 반영한다(2026-11-12 지시). 답변은 코드 위주이고 고화질 화면 이미지는 넣지 않는다 |
 
 CSV는 UTF-8 BOM이라 Excel에서 한글/중국어가 깨지지 않습니다.

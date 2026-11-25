@@ -33,7 +33,7 @@ namespace PocTrace.Core.Engine.Reporting
         /// 단일 파일 리포트(Summary / Details / Path Analytics / Hookup_Validation / 5D_Update_Upload)를 생성한다.
         /// 기존 MainViewModel.SaveSingleExcel 로직을 그대로 이전.
         /// </summary>
-        public void SaveSingleFileReport(string path, List<TraceResult> details, IGraphCache cache)
+        public void SaveSingleFileReport(string path, List<TraceResult> details, IGraphCache cache, bool includeSketch = false)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -345,6 +345,13 @@ namespace PocTrace.Core.Engine.Reporting
                 }
                 */
 
+                if (includeSketch)
+                {
+                    byte[] png = TraceSketch.Render(details, cache);
+                    TraceSketch.AddSheet(package, png);
+                    TraceSketch.WriteHtml(Path.ChangeExtension(path, ".html"), summaries, lineName, png);
+                }
+
                 _logger.Information("💾 [Excel Export] 엑셀 파일 저장을 시도합니다. Path: {Path}", path);
                 package.Save();
                 _logger.Information("🎉 [Excel Export] 엑셀 파일이 성공적으로 생성되었습니다.");
@@ -354,7 +361,13 @@ namespace PocTrace.Core.Engine.Reporting
         /// <summary>
         /// 배치 실행 시 통합 요약 파일(Summary 시트)을 생성한다.
         /// </summary>
-        public void SaveBatchSummaryReport(string filePath, List<EquipmentTraceSummary> summaries, string line = null)
+        public void SaveBatchSummaryReport(
+            string filePath,
+            List<EquipmentTraceSummary> summaries,
+            string line = null,
+            bool includeSketch = false,
+            IList<TraceResult> details = null,
+            IGraphCache cache = null)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -368,6 +381,12 @@ namespace PocTrace.Core.Engine.Reporting
                 int row = WriteSummaryTable(ws, ordered, line, 1);
                 WriteNameParts(ws, ordered, row + 4);
                 ws.Cells.AutoFitColumns();
+                if (includeSketch)
+                {
+                    byte[] png = TraceSketch.Render(details, cache);
+                    TraceSketch.AddSheet(package, png);
+                    TraceSketch.WriteHtml(Path.ChangeExtension(filePath, ".html"), ordered, line, png);
+                }
                 package.Save();
             }
         }

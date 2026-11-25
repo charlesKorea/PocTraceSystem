@@ -73,6 +73,7 @@
     <Compile Include="Engine\Reporting\DdwTraceSheet.cs" />
     <Compile Include="Engine\Reporting\EquipmentSummaryBuilder.cs" />
     <Compile Include="Engine\Reporting\TraceExcelReportService.cs" />
+    <Compile Include="Engine\Reporting\TraceSketch.cs" />
     <Compile Include="Engine\Reporting\TraceResultExcelExporter.cs" />
     <Compile Include="Engine\Reporting\HookupExcelReportWriter.cs" />
     <Compile Include="Engine\ReverseTrace\IReverseTraceOrigin.cs" />

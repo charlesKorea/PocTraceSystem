@@ -337,7 +337,7 @@ namespace PocTrace.Web
             return job.Id;
         }
 
-        public string StartTrace(string db, string tag)
+        public string StartTrace(string db, string tag, bool writeHtml)
         {
             db = RequireDb(db);
             tag = (tag ?? "").Trim();
@@ -347,11 +347,12 @@ namespace PocTrace.Web
                 throw new PortalInputException(Msg("Tag가 너무 깁니다.", "Tag 过长。"));
 
             JobRecord job = BeginJob("trace", db, tag);
+            job.WriteHtml = writeHtml;
             Task.Run(() => RunSingle(job, tag));
             return job.Id;
         }
 
-        public string StartBatch(string db, string text)
+        public string StartBatch(string db, string text, bool writeHtml)
         {
             db = RequireDb(db);
             var tags = SplitTags(text);
@@ -363,6 +364,7 @@ namespace PocTrace.Web
                     "批量一次最多 " + MaxBatchTags + " 个。当前 " + tags.Count + " 个。"));
 
             JobRecord job = BeginJob("batch", db, tags.Count + " tags");
+            job.WriteHtml = writeHtml;
             Task.Run(() => RunBatch(job, tags));
             return job.Id;
         }
@@ -398,7 +400,7 @@ namespace PocTrace.Web
                 bool truncated = false;
                 AppendIssues(results, issues, ref truncated);
                 string path = Path.Combine(JobDirectory(job), SafeFile(job.Db + "_" + tag) + ".xlsx");
-                _services.ExcelReport.SaveSingleFileReport(path, results, _services.CacheManager);
+                _services.ExcelReport.SaveSingleFileReport(path, results, _services.CacheManager, job.WriteHtml);
 
                 lock (_gate)
                 {
@@ -408,6 +410,8 @@ namespace PocTrace.Web
                     if (truncated)
                         job.Warnings.Add(IssueCapWarning());
                     job.ExcelPath = path;
+                    if (job.WriteHtml)
+                        job.HtmlPath = Path.ChangeExtension(path, ".html");
                     job.ResultCount = results.Count;
                     job.Percent = 100;
                     job.State = "done";
@@ -431,6 +435,7 @@ namespace PocTrace.Web
         {
             string outputDir = null;
             var summaries = new List<EquipmentTraceSummary>();
+            var sketchRows = job.WriteHtml ? new List<TraceResult>() : null;
             var issues = new List<TraceIssueView>();
             bool truncated = false;
             int savedFiles = 0;
@@ -471,6 +476,8 @@ namespace PocTrace.Web
                             AppendIssues(results, issues, ref truncated);
                             var part = EquipmentSummaryBuilder.Build(results);
                             summaries.AddRange(part);
+                            if (sketchRows != null)
+                                sketchRows.AddRange(results);
                             if (BatchPlacement.KeepsIndividualExcel(results))
                             {
                                 var first = part.FirstOrDefault();
@@ -480,7 +487,8 @@ namespace PocTrace.Web
                                 _services.ExcelReport.SaveSingleFileReport(
                                     Path.Combine(outputDir, UniqueFileName(outputDir, name, ".xlsx")),
                                     results,
-                                    _services.CacheManager);
+                                    _services.CacheManager,
+                                    job.WriteHtml);
                                 savedFiles++;
                             }
                         }
@@ -508,7 +516,10 @@ namespace PocTrace.Web
                 {
                     SetPhase(job, "summary", 93, 98, Msg("요약 Excel 저장 중", "正在保存汇总 Excel"));
                     summaryPath = Path.Combine(outputDir, "Summary.xlsx");
-                    _services.ExcelReport.SaveBatchSummaryReport(summaryPath, summaries, job.Db);
+                    _services.ExcelReport.SaveBatchSummaryReport(
+                        summaryPath, summaries, job.Db, job.WriteHtml, sketchRows, _services.CacheManager);
+                    if (job.WriteHtml)
+                        job.HtmlPath = Path.ChangeExtension(summaryPath, ".html");
                 }
 
                 string zipPath = null;
@@ -1589,6 +1600,7 @@ namespace PocTrace.Web
         public string ExcelPath { get; set; }
         public string ZipPath { get; set; }
         public string HtmlPath { get; set; }
+        public bool WriteHtml { get; set; }
         public string OutputDirectory { get; set; }
         public DateTime CreatedUtc { get; set; }
         public int? EtaSeconds { get; set; }

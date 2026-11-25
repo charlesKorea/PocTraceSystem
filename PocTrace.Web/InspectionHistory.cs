@@ -192,7 +192,7 @@ namespace PocTrace.Web
                                 continue;
                             try
                             {
-                                HistoryEntry entry = JsonConvert.DeserializeObject<HistoryEntry>(text);
+                                HistoryEntry entry = ParseHistory<HistoryEntry>(text);
                                 if (entry != null)
                                     list.Add(entry);
                             }
@@ -213,9 +213,36 @@ namespace PocTrace.Web
 
         public const string TombstoneFile = "deleted.tomb";
 
+        /// <summary>
+        /// 시각 문자열을 Date로 바꾸지 않는다. 바꾸면 삭제 키가 파일의 시각과 달라져 행이 남는다.
+        /// </summary>
+        private static readonly JsonSerializerSettings HistoryJson = new JsonSerializerSettings
+        {
+            DateParseHandling = DateParseHandling.None
+        };
+
+        public static T ParseHistory<T>(string json) where T : class
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+            return JsonConvert.DeserializeObject<T>(json, HistoryJson);
+        }
+
         public static string KeyOf(string at, string user, string method, string line, string target)
         {
-            return (at ?? "") + "\u001f" + (user ?? "") + "\u001f" + (method ?? "") + "\u001f" + (line ?? "") + "\u001f" + (target ?? "");
+            return CanonicalAt(at) + "\u001f" + (user ?? "") + "\u001f" + (method ?? "") + "\u001f" + (line ?? "") + "\u001f" + (target ?? "");
+        }
+
+        /// <summary>
+        /// 삭제 키는 화면에서 돌아온 시각 문자열과 파일의 시각 문자열이 같아 보이게 맞춘다.
+        /// JSON이 시각을 Date로 바꾸면 초 단위가 달라져 표식이 행을 못 찾는다.
+        /// </summary>
+        public static string CanonicalAt(string at)
+        {
+            DateTime parsed = ParseUtc(at);
+            if (parsed == DateTime.MinValue)
+                return (at ?? "").Trim();
+            return parsed.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -240,7 +267,7 @@ namespace PocTrace.Web
                             continue;
                         try
                         {
-                            var item = JsonConvert.DeserializeObject<TombstoneLine>(text);
+                            var item = ParseHistory<TombstoneLine>(text);
                             if (item != null && !string.IsNullOrEmpty(item.Key))
                                 keys.Add(item.Key);
                         }
@@ -347,7 +374,7 @@ namespace PocTrace.Web
                             if (text.Length == 0)
                                 continue;
                             HistoryEntry entry = null;
-                            try { entry = JsonConvert.DeserializeObject<HistoryEntry>(text); }
+                            try { entry = ParseHistory<HistoryEntry>(text); }
                             catch (JsonException) { }
 
                             if (entry == null)
