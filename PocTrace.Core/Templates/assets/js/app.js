@@ -318,8 +318,8 @@ function renderDetailPage(dto, meta, history) {
             </div>
             <div class="col-md-3">
                 <div class="chart-container-wrapper">
-                    <h5 class="fw-bold">${T('label_issue_belong')}</h5>
-                    <div id="pieChartBelong" class="chart-body"></div>
+                    <h5 class="fw-bold">${T('chart_error_top')}</h5>
+                    <div id="errorTopTrend" class="chart-body"></div>
                 </div>
             </div>
                         <div class="col-md-3">

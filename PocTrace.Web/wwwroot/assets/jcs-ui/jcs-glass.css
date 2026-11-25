@@ -275,7 +275,6 @@ a.headlink, a.back { --ico: var(--ico-history); }
 }
 .kpi-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
-.html-opt { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; }
 .grid-2 > * { min-width: 0; }
 .card { min-width: 0; }
 label { display: block; font-weight: 600; margin: 4px 0 6px; font-size: 15px; }
@@ -292,6 +291,32 @@ input, select, textarea {
 textarea { min-height: 120px; resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--focus); border-color: transparent; }
 input:disabled, select:disabled, textarea:disabled { opacity: 0.55; }
+.option-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 600;
+}
+.option-panel span { min-width: 0; }
+.option-panel input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: #0a84ff;
+  cursor: pointer;
+}
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 button.primary, a.primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;

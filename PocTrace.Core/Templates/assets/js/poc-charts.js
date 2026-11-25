@@ -217,11 +217,7 @@ PT.initDetailCharts = function(dto, history) {
     // A. Error Type Pie (Left)
     // ----------------------------
     initPieChart('pieChartError', dto.ErrorStats, 'No Error');
-
-        // ----------------------------
-    // B. [New] Issue Belong Pie (Right)
-    // ----------------------------
-    initPieChart('pieChartBelong', dto.BelongStats, 'No Data');
+    PT.renderTopErrorTrend(dto.ErrorStats, history || []);
 
     // ----------------------------
     // C. [New] Hookup Validation Pie Chart
@@ -463,6 +459,52 @@ PT.updateTrend = function(mode) {
 
 PT.groupByTime = function(data, unit) {
     return PT.aggregateHistory(data, unit);
+};
+
+PT.renderTopErrorTrend = function(errorStats, history) {
+    const dom = document.getElementById('errorTopTrend');
+    if (!dom) return;
+    const ranked = Object.keys(errorStats || {}).map(function (name) {
+        return { name: name, value: Number(errorStats[name]) || 0 };
+    }).filter(function (item) { return item.name && item.value > 0; })
+      .sort(function (a, b) { return b.value - a.value; })
+      .slice(0, 2);
+    let rows = (history || []).filter(function (row) { return row && row.Date; })
+      .slice().sort(function (a, b) { return String(a.Date).localeCompare(String(b.Date)); });
+    if (!rows.length) rows = [{ Date: 'today', ErrorTypeStats: errorStats || {} }];
+    const colors = ['#f72585', '#0a84ff'];
+    const series = ranked.map(function (item, index) {
+        return {
+            name: item.name,
+            type: 'line',
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 6,
+            connectNulls: false,
+            color: colors[index],
+            data: rows.map(function (row, rowIndex) {
+                let stats = row.ErrorTypeStats;
+                if (!stats && rowIndex === rows.length - 1) stats = errorStats;
+                if (!stats) return null;
+                const value = stats[item.name];
+                return value == null ? 0 : (Number(value) || 0);
+            })
+        };
+    });
+    if (PT.state.errorTopTrend) {
+        try { PT.state.errorTopTrend.dispose(); } catch (e) { /* ignore */ }
+    }
+    const chart = echarts.init(dom);
+    PT.state.errorTopTrend = chart;
+    PT.state.charts.push(chart);
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 10, textStyle: { fontSize: 11 } },
+        grid: { left: '4%', right: '4%', bottom: '8%', top: '22%', containLabel: true },
+        xAxis: { type: 'category', data: rows.map(function (row) { return row.Date; }) },
+        yAxis: { type: 'value', minInterval: 1 },
+        series: series
+    });
 };
 
 PT.showErrorTrendForType = function(issueType, history) {

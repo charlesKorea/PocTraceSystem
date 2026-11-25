@@ -290,10 +290,10 @@ namespace PocTrace.Core.Engine.Reporting
 
                 // 2. 배관 길이. 설비 Tag, UT group 다음에 길이를 둔다.
                 wsPath.Cells["G1"].Value = "Pipe Length Summary";
-                wsPath.Cells["G1:J1"].Merge = true;
+                wsPath.Cells["G1:I1"].Merge = true;
                 wsPath.Cells["G1"].Style.Font.Bold = true;
 
-                string[] pipeHeaders = { "EQ Tag", "UT Group", "Pipe Name / ID", "Total Length (m)" };
+                string[] pipeHeaders = { "EQ Tag", "UT Group", "Total Length (m)" };
                 for (int i = 0; i < pipeHeaders.Length; i++)
                 {
                     wsPath.Cells[2, i + 7].Value = pipeHeaders[i];
@@ -310,15 +310,13 @@ namespace PocTrace.Core.Engine.Reporting
                         {
                             Tag = EquipmentKey(d),
                             Group = PipeUt(cache, d, s),
-                            Name = string.IsNullOrEmpty(s.NodeName) ? s.NodeId.ToString() : s.NodeName,
                             s.Length
                         }))
-                    .GroupBy(s => new { s.Tag, s.Group, s.Name })
+                    .GroupBy(s => new { s.Tag, s.Group })
                     .Select(g => new
                     {
                         g.Key.Tag,
                         Group = g.Key.Group,
-                        Name = g.Key.Name,
                         TotalLen = g.Sum(x => x.Length)
                     })
                     .OrderBy(x => x.Tag)
@@ -331,9 +329,8 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     wsPath.Cells[pipeRow, 7].Value = p.Tag;
                     wsPath.Cells[pipeRow, 8].Value = p.Group;
-                    wsPath.Cells[pipeRow, 9].Value = p.Name;
-                    wsPath.Cells[pipeRow, 10].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
-                    wsPath.Cells[pipeRow, 10].Style.Numberformat.Format = "0.0";
+                    wsPath.Cells[pipeRow, 9].Value = Math.Round(p.TotalLen / EquipmentSummaryBuilder.MillimetersPerMeter, 1);
+                    wsPath.Cells[pipeRow, 9].Style.Numberformat.Format = "0.0";
                     pipeRow++;
                 }
                 wsPath.Cells.AutoFitColumns();

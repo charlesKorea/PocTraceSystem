@@ -175,7 +175,6 @@ namespace PocTrace.Core.Engine.Reporting
             float MapX(float px, float py) => left + (IsoX(px, py) - minX) * scale;
             float MapY(float px, float py, float pz) => top + (maxY - IsoY(px, py, pz)) * scale;
 
-            using (var pen = new Pen(Color.FromArgb(12, 110, 104), 2f))
             using (var labelBrush = new SolidBrush(Color.FromArgb(8, 62, 59)))
             using (var plate = new SolidBrush(Color.FromArgb(230, 255, 255, 255)))
             {
@@ -187,7 +186,8 @@ namespace PocTrace.Core.Engine.Reporting
                     float y1 = MapY(s.X1, s.Y1, s.Z1);
                     float x2 = MapX(s.X2, s.Y2);
                     float y2 = MapY(s.X2, s.Y2, s.Z2);
-                    g.DrawLine(pen, x1, y1, x2, y2);
+                    using (var pen = new Pen(LineColor(s.Color), 2f))
+                        g.DrawLine(pen, x1, y1, x2, y2);
                     float pix = (float)Math.Sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
                     if (pix < 36f || string.IsNullOrEmpty(s.Ut))
                         continue;
@@ -266,37 +266,41 @@ namespace PocTrace.Core.Engine.Reporting
                     order.Add(key);
                 }
                 Point3? prev = Locate(cache, result.StartNodeGUID);
+                Point3? last = prev;
                 string carryUt = result.StartPocUtilityGroup ?? "";
                 if (prev.HasValue)
-                    group.Markers.Add(new SketchMark { X = prev.Value.X, Y = prev.Value.Y, Z = prev.Value.Z, Status = "EQP" });
-                if (result.Steps == null)
-                    continue;
-                for (int i = 0; i < result.Steps.Count; i++)
+                    AddNameOnce(group, prev.Value, ObjectName(result));
+                if (result.Steps != null)
                 {
-                    var step = result.Steps[i];
-                    if (step == null)
-                        continue;
-                    string ut = PipeUt(cache, result, step);
-                    if (!string.IsNullOrEmpty(ut))
-                        carryUt = ut;
-                    Point3? point = Locate(cache, step.NodeId);
-                    if (!point.HasValue)
-                        continue;
-                    if (prev.HasValue && segments < MaxSegments && Apart(prev.Value, point.Value))
+                    for (int i = 0; i < result.Steps.Count; i++)
                     {
-                        group.Segments.Add(new SketchSeg
+                        var step = result.Steps[i];
+                        if (step == null)
+                            continue;
+                        string ut = PipeUt(cache, result, step);
+                        if (!string.IsNullOrEmpty(ut))
+                            carryUt = ut;
+                        Point3? point = Locate(cache, step.NodeId);
+                        if (!point.HasValue)
+                            continue;
+                        if (prev.HasValue && segments < MaxSegments && Apart(prev.Value, point.Value))
                         {
-                            X1 = prev.Value.X, Y1 = prev.Value.Y, Z1 = prev.Value.Z,
-                            X2 = point.Value.X, Y2 = point.Value.Y, Z2 = point.Value.Z,
-                            Ut = Short(carryUt)
-                        });
-                        segments++;
+                            group.Segments.Add(new SketchSeg
+                            {
+                                X1 = prev.Value.X, Y1 = prev.Value.Y, Z1 = prev.Value.Z,
+                                X2 = point.Value.X, Y2 = point.Value.Y, Z2 = point.Value.Z,
+                                Ut = Short(carryUt),
+                                Color = LineColors[group.Segments.Count % LineColors.Length]
+                            });
+                            segments++;
+                        }
+                        prev = point;
+                        last = point;
                     }
-                    string status = StatusOf(step, result, i == result.Steps.Count - 1);
-                    if (!string.IsNullOrEmpty(status))
-                        group.Markers.Add(new SketchMark { X = point.Value.X, Y = point.Value.Y, Z = point.Value.Z, Status = status });
-                    prev = point;
                 }
+                string end = result.STATUS;
+                if (IsEndCode(end) && last.HasValue)
+                    AddMark(group, last.Value, end);
             }
             var list = new List<SketchGroup>();
             foreach (string key in order)
@@ -327,24 +331,66 @@ namespace PocTrace.Core.Engine.Reporting
             return result.StartPocUtilityGroup ?? "";
         }
 
-        private static string StatusOf(TraceStep step, TraceResult result, bool last)
+        private static readonly string[] LineColors =
         {
-            if (last && result != null)
+            "#0c6e68", "#0a84ff", "#b45309", "#7c3aed", "#db2777",
+            "#059669", "#d97706", "#2563eb", "#be123c", "#0f766e",
+            "#9333ea", "#ea580c", "#0369a1", "#65a30d", "#c026d3"
+        };
+
+        private static Color LineColor(string hex)
+        {
+            try
             {
-                string end = result.STATUS;
-                if (end == "NOZ" || end == "TOF" || end == "CAP" || end == "EMP" || end == "EQP" || end == "ING")
-                    return end;
+                if (!string.IsNullOrEmpty(hex))
+                    return ColorTranslator.FromHtml(hex);
             }
-            string type = step.NodeType ?? "";
-            if (type.IndexOf("Nozzle", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "NOZ";
-            if (type.IndexOf("Takeoff", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "TOF";
-            if (type.IndexOf("Fitting", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "FIT";
-            if (type.IndexOf("Equipment", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "EQP";
-            return "";
+            catch (Exception)
+            {
+            }
+            return Color.FromArgb(12, 110, 104);
+        }
+
+        private static string ObjectName(TraceResult result)
+        {
+            if (result == null)
+                return "";
+            if (!string.IsNullOrEmpty(result.StartNodeName))
+                return Short(result.StartNodeName);
+            return Short(result.StartEquipmentTag);
+        }
+
+        private static bool IsEndCode(string status)
+        {
+            return status == "NOZ" || status == "TOF" || status == "CAP" || status == "EMP" || status == "ING";
+        }
+
+        private static void AddNameOnce(SketchGroup group, Point3 point, string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return;
+            for (int i = 0; i < group.Markers.Count; i++)
+            {
+                if (!IsEndCode(group.Markers[i].Status))
+                    return;
+            }
+            AddMark(group, point, name);
+        }
+
+        private static void AddMark(SketchGroup group, Point3 point, string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return;
+            for (int i = 0; i < group.Markers.Count; i++)
+            {
+                var mark = group.Markers[i];
+                if (mark.Status == text
+                    && Math.Abs(mark.X - point.X) < 0.05f
+                    && Math.Abs(mark.Y - point.Y) < 0.05f
+                    && Math.Abs(mark.Z - point.Z) < 0.05f)
+                    return;
+            }
+            group.Markers.Add(new SketchMark { X = point.X, Y = point.Y, Z = point.Z, Status = text });
         }
 
         private static string Short(string value)
@@ -383,7 +429,8 @@ namespace PocTrace.Core.Engine.Reporting
                     var s = group.Segments[i];
                     sb.Append("{\"ut\":").Append(Json(s.Ut));
                     sb.Append(",\"a\":[").Append(Num(s.X1)).Append(',').Append(Num(s.Y1)).Append(',').Append(Num(s.Z1)).Append(']');
-                    sb.Append(",\"b\":[").Append(Num(s.X2)).Append(',').Append(Num(s.Y2)).Append(',').Append(Num(s.Z2)).Append("]}");
+                    sb.Append(",\"b\":[").Append(Num(s.X2)).Append(',').Append(Num(s.Y2)).Append(',').Append(Num(s.Z2)).Append(']');
+                    sb.Append(",\"c\":").Append(Json(s.Color)).Append('}');
                 }
                 sb.Append("],\"marks\":[");
                 for (int i = 0; i < group.Markers.Count; i++)
@@ -448,7 +495,7 @@ namespace PocTrace.Core.Engine.Reporting
             "function rot(p,b){var x=(p[0]-b.cx)/b.span,y=(p[1]-b.cy)/b.span,z=(p[2]-b.cz)/b.span;var c=Math.cos(yaw),s=Math.sin(yaw);var x1=x*c-y*s,y1=x*s+y*c;var cp=Math.cos(pitch),sp=Math.sin(pitch);return {x:x1,y:y1*cp-z*sp,z:y1*sp+z*cp};}" +
             "function draw(){var w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);var items=pack();if(!items.segs.length&&!items.marks.length){ctx.fillStyle='#5e6563';ctx.font='16px sans-serif';ctx.fillText('좌표가 있는 배관이 없습니다.',24,40);return;}var b=bounds(items);var scale=Math.min(w,h)*0.72*zoom;var taken=[];" +
             "function scr(p){var r=rot(p,b);return {x:w/2+r.x*scale,y:h/2-r.y*scale,z:r.z};}" +
-            "ctx.lineWidth=2;ctx.strokeStyle='#0c6e68';items.segs.forEach(function(s){var a=scr(s.a),c=scr(s.b);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();var dx=c.x-a.x,dy=c.y-a.y,pix=Math.sqrt(dx*dx+dy*dy);if(!s.ut||pix<42)return;var size=Math.max(11,Math.min(18,pix/7));ctx.font=size+'px sans-serif';var tw=ctx.measureText(s.ut).width,th=size+4;var tx=(a.x+c.x)/2-tw/2,ty=(a.y+c.y)/2-th/2;for(var i=0;i<taken.length;i++){var t=taken[i];if(!(tx>t.x+t.w||t.x>tx+tw||ty>t.y+t.h||t.y>ty+th))return;}taken.push({x:tx,y:ty,w:tw,h:th});ctx.fillStyle='rgba(255,255,255,0.88)';ctx.fillRect(tx-2,ty-1,tw+4,th);ctx.fillStyle='#083e3b';ctx.fillText(s.ut,tx,ty+size);});" +
+            "ctx.lineWidth=2;items.segs.forEach(function(s){var a=scr(s.a),c=scr(s.b);ctx.strokeStyle=s.c||'#0c6e68';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();var dx=c.x-a.x,dy=c.y-a.y,pix=Math.sqrt(dx*dx+dy*dy);if(!s.ut||pix<42)return;var size=Math.max(11,Math.min(18,pix/7));ctx.font=size+'px sans-serif';var tw=ctx.measureText(s.ut).width,th=size+4;var tx=(a.x+c.x)/2-tw/2,ty=(a.y+c.y)/2-th/2;for(var i=0;i<taken.length;i++){var t=taken[i];if(!(tx>t.x+t.w||t.x>tx+tw||ty>t.y+t.h||t.y>ty+th))return;}taken.push({x:tx,y:ty,w:tw,h:th});ctx.fillStyle='rgba(255,255,255,0.88)';ctx.fillRect(tx-2,ty-1,tw+4,th);ctx.fillStyle='#083e3b';ctx.fillText(s.ut,tx,ty+size);});" +
             "ctx.font='700 12px sans-serif';items.marks.forEach(function(m){var p=scr(m.p);ctx.fillStyle='#0a84ff';ctx.beginPath();ctx.arc(p.x,p.y,4,0,6.3);ctx.fill();if(m.s){ctx.fillStyle='#1c1c1e';ctx.fillText(m.s,p.x+7,p.y-4);}});}" +
             "sel.onchange=draw;cv.onmousedown=function(e){drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};};window.addEventListener('mouseup',function(){drag=null;});" +
             "window.addEventListener('mousemove',function(e){if(!drag)return;yaw=drag.yaw+(e.clientX-drag.x)*0.01;pitch=Math.max(-1.2,Math.min(1.2,drag.pitch+(e.clientY-drag.y)*0.01));draw();});" +
@@ -478,6 +525,7 @@ namespace PocTrace.Core.Engine.Reporting
         {
             public float X1, Y1, Z1, X2, Y2, Z2;
             public string Ut;
+            public string Color;
         }
 
         private sealed class SketchMark

@@ -573,7 +573,8 @@ namespace PocTrace.Admin.Jobs
                         AvgPassRate = Math.Round(avgPassRate, 1),
                         HookupPassRate = Math.Round(hookupPassRate, 1),
                         HookupTotal = reportDto.HookupStats?.TotalObjects ?? 0,
-                        CheckRulesCount = checkRulesCount
+                        CheckRulesCount = checkRulesCount,
+                        ErrorTypeStats = reportDto.ErrorStats
                     };
 
                     List<DailyStat> history = new List<DailyStat>();
@@ -1050,6 +1051,8 @@ namespace PocTrace.Admin.Jobs
         public int? HookupTotal { get; set; }
         /// <summary>등록된 Check Rules(IValidationRule) 수량.</summary>
         public int CheckRulesCount { get; set; }
+        /// <summary>그날의 오류 유형별 건수. 구버전 History에는 없다.</summary>
+        public Dictionary<string, int> ErrorTypeStats { get; set; }
     }
 
     // [New] 쿼리 매핑용 DTO 클래스

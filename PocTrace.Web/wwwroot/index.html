@@ -105,7 +105,10 @@
     </section>
 
     <section class="grid-2 panel locked" id="panel-trace" role="tabpanel" aria-labelledby="tab-trace" data-panel="trace">
-      <label class="html-opt"><input type="checkbox" id="htmlOpt" /> <span data-i18n="htmlOpt">HTML 생성 (Summary, Drawing)</span></label>
+      <div class="option-panel">
+        <span data-i18n="htmlOpt">HTML 생성 (Summary, Drawing)</span>
+        <input type="checkbox" id="htmlOpt" />
+      </div>
       <article class="card">
         <p class="eyebrow" data-i18n="stepTag">2 · Tag</p>
         <p class="hint" id="traceGate" data-i18n="traceGate">Cache가 메모리에 올라온 뒤에 Tag를 입력합니다.</p>
@@ -1353,44 +1356,12 @@
           toggle();
         });
         body.appendChild(row);
-        var names = namePartRow(summary.Names || summary.names || []);
-        names.className = "name-block";
-        body.appendChild(names);
       });
     }
     function meters(value) {
       var n = Number(value);
       if (!isFinite(n)) return "";
       return (Math.round(n * 10) / 10).toFixed(1);
-    }
-    function namePartRow(parts) {
-      var row = document.createElement("tr");
-      var cell = document.createElement("td");
-      cell.colSpan = 12;
-      var table = document.createElement("table");
-      table.className = "name-parts";
-      table.innerHTML =
-        "<thead><tr>" +
-        "<th>Name</th><th>Division</th><th>Subdivision1</th><th>Subdivision2</th>" +
-        "<th class='num'>Poc Count</th><th class='num'>Error Poc Count</th><th class='num'>Length(m)</th>" +
-        "</tr></thead>";
-      var body = document.createElement("tbody");
-      (parts || []).forEach(function (part) {
-        var tr = document.createElement("tr");
-        tr.innerHTML =
-          "<td>" + esc(part.Name || part.name) + "</td>" +
-          "<td>" + esc(part.Division || part.division) + "</td>" +
-          "<td>" + esc(part.Subdivision1 || part.subdivision1) + "</td>" +
-          "<td>" + esc(part.Subdivision2 || part.subdivision2) + "</td>" +
-          "<td class='num'>" + num(part.PocCount != null ? part.PocCount : part.pocCount) + "</td>" +
-          "<td class='num'>" + num(part.ErrorPocCount != null ? part.ErrorPocCount : part.errorPocCount) + "</td>" +
-          "<td class='num'>" + meters(part.LengthM != null ? part.LengthM : part.lengthM) + "</td>";
-        body.appendChild(tr);
-      });
-      table.appendChild(body);
-      cell.appendChild(table);
-      row.appendChild(cell);
-      return row;
     }
     function paintNozzleTable(job) {
       $("traceTable").hidden = true;
