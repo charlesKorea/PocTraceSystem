@@ -71,7 +71,7 @@ SELECT
     src.y,
     src.z,
     src.bx,
-    src.by
+    src.byk
 INTO #model
 FROM (
 SELECT
@@ -83,7 +83,7 @@ SELECT
     ROUND(mi.POSY, 2) AS y,
     ROUND(mi.POSZ, 2) AS z,
     CAST(ROUND(mi.POSX, 0) AS int) AS bx,
-    CAST(ROUND(mi.POSY, 0) AS int) AS by
+    CAST(ROUND(mi.POSY, 0) AS int) AS byk
 FROM remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
 LEFT JOIN remote_monami.monami.dbo.tb_modeltemplates AS mt WITH (NOLOCK)
     ON mt.MODEL_TEMPLATE_ID = mi.MODEL_TEMPLATE_ID
@@ -154,7 +154,7 @@ SELECT
     ROUND(p.POSY, 2) AS y,
     ROUND(p.POSZ, 2) AS z,
     CAST(ROUND(p.POSX, 0) AS int) AS bx,
-    CAST(ROUND(p.POSY, 0) AS int) AS by
+    CAST(ROUND(p.POSY, 0) AS int) AS byk
 INTO #vac
 FROM #pump AS pump
 LEFT JOIN #pump_attr AS attr
@@ -170,9 +170,9 @@ WHERE LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) LIKE N'%fore-line%'
   AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ll)%'
   AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ps)%';
 
-CREATE CLUSTERED INDEX ix_vac_xy ON #vac(bx, by);
+CREATE CLUSTERED INDEX ix_vac_xy ON #vac(bx, byk);
 
-SELECT instance_id, instance_nm, x, y, z, bx, by
+SELECT instance_id, instance_nm, x, y, z, bx, byk
 INTO #mid
 FROM #model
 WHERE sub1 = N'기타'
@@ -181,7 +181,7 @@ WHERE sub1 = N'기타'
   AND x IS NOT NULL
   AND y IS NOT NULL;
 
-CREATE CLUSTERED INDEX ix_mid_xy ON #mid(bx, by);
+CREATE CLUSTERED INDEX ix_mid_xy ON #mid(bx, byk);
 
 -- 정수 mm 칸과 옆 칸만 보고, X 와 Y 가 각각 1 이내인 피팅을 센다.
 SELECT
@@ -191,7 +191,7 @@ INTO #fit_for
 FROM #vac AS v
 JOIN #mid AS m
     ON m.bx BETWEEN v.bx - 1 AND v.bx + 1
-   AND m.by BETWEEN v.by - 1 AND v.by + 1
+   AND m.byk BETWEEN v.byk - 1 AND v.byk + 1
    AND ABS(m.x - v.x) <= 1
    AND ABS(m.y - v.y) <= 1
 WHERE v.x IS NOT NULL
@@ -208,12 +208,12 @@ INTO #poc_near
 FROM #vac AS v
 JOIN #mid AS m
     ON m.bx BETWEEN v.bx - 1 AND v.bx + 1
-   AND m.by BETWEEN v.by - 1 AND v.by + 1
+   AND m.byk BETWEEN v.byk - 1 AND v.byk + 1
    AND ABS(m.x - v.x) <= 1
    AND ABS(m.y - v.y) <= 1
 JOIN #vac AS o
     ON o.bx BETWEEN m.bx - 1 AND m.bx + 1
-   AND o.by BETWEEN m.by - 1 AND m.by + 1
+   AND o.byk BETWEEN m.byk - 1 AND m.byk + 1
    AND o.x IS NOT NULL
    AND o.y IS NOT NULL
    AND ABS(o.x - m.x) <= 1
