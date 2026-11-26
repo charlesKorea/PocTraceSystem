@@ -127,7 +127,7 @@
         <div class="inline-file">
           <button id="batchFileBtn" class="ghost" type="button" data-i18n="batchFileBtn" disabled>Excel에서 불러오기</button>
           <input id="batchFile" type="file" accept=".xlsx,.xlsm" />
-          <p class="hint" id="batchFileInfo" data-i18n="batchFileHint">첫 행의 eq code 열을 설비 Tag로 읽습니다.</p>
+          <p class="hint" id="batchFileInfo" data-i18n="batchFileHint">첫 행의 eq code를 설비 Tag로 읽습니다. x2-m은 大分类, 小分类, 건설CODE, 设计社, 设备搬入日, 出图需求日도 열 위치와 상관없이 결과서에 넣습니다.</p>
         </div>
         <div class="actions">
           <button id="batchBtn" class="primary" type="button" data-i18n="batchBtn" disabled>배치 Trace</button>
@@ -422,7 +422,7 @@
         factLines: "Line <b>{done}/{total}</b>",
         factEqp: "EQPID <b>{done}/{total}</b>",
         batchFileBtn: "Excel에서 불러오기",
-        batchFileHint: "첫 행의 eq code 열을 설비 Tag로 읽습니다.",
+        batchFileHint: "첫 행의 eq code를 설비 Tag로 읽습니다. x2-m은 大分类, 小分类, 건설CODE, 设计社, 设备搬入日, 出图需求日도 열 위치와 상관없이 결과서에 넣습니다.",
         batchFileOk: "{file}: {count}건을 불러왔습니다. 빈 칸 제외, 중복 {dup}건 제외.",
         batchFileFail: "Excel을 읽지 못했습니다.",
         batchFileOver: "{count}건을 불러왔지만 한 번에 {max}개까지입니다. 파일을 나누어 주세요."
@@ -560,7 +560,7 @@
         factLines: "Line <b>{done}/{total}</b>",
         factEqp: "EQPID <b>{done}/{total}</b>",
         batchFileBtn: "从 Excel 导入",
-        batchFileHint: "把首行 eq code 列读成设备 Tag。",
+        batchFileHint: "把首行 eq code 读成设备 Tag。x2-m 还会读取 大分类、小分类、건설CODE、设计社、设备搬入日、出图需求日，列位置不限。",
         batchFileOk: "{file}: 已导入 {count} 条。已排除空白，重复 {dup} 条已排除。",
         batchFileFail: "无法读取 Excel。",
         batchFileOver: "已导入 {count} 条，但一次最多 {max} 个。请拆分文件。"
@@ -593,7 +593,7 @@
           <p>Tag를 줄바꿈, 쉼표, 공백으로 구분해 붙여 넣고 <b>배치 Trace</b>를 누릅니다. 한 번에 300개까지입니다.</p>
           <h4>Excel로 올리기</h4>
           <ol>
-            <li>Excel 첫 행의 <b>eq code</b> 열을 설비 Tag로 읽습니다. Tag가 없으면 미배치설비, Tag는 있으나 연결 배관이 없으면 미설계 배치 설비로 결과 행을 남깁니다.</li>
+            <li>Excel 첫 행의 <b>eq code</b> 열을 설비 Tag로 읽습니다. x2-m은 大分类, 小分类, 건설CODE, 设计社, 设备搬入日, 出图需求日도 열 위치와 상관없이 결과서에 넣습니다. Tag가 없으면 미배치설비, Tag는 있으나 연결 배관이 없으면 미설계 배치 설비로 결과 행을 남깁니다.</li>
             <li><b>Excel에서 불러오기</b>로 파일(xlsx, xlsm)을 고르면 입력칸에 EQPID가 채워집니다. 중복과 빈 칸은 빠집니다.</li>
             <li>내용을 확인하고 <b>배치 Trace</b>를 누릅니다. 진행 표시에 Tag n/m 과 현재 Tag가 나옵니다.</li>
           </ol>
@@ -658,7 +658,7 @@
           <p>用换行、逗号或空格分隔 Tag 后粘贴，点击 <b>Batch Trace</b>。一次最多 300 个。</p>
           <h4>用 Excel 上传</h4>
           <ol>
-            <li>把 Excel 首行的 <b>eq code</b> 列读成设备 Tag。没有该 Tag 时结果为未布置设备，有 Tag 但没有连接配管时保留未设计布置设备的 Trace 行。</li>
+            <li>把 Excel 首行的 <b>eq code</b> 列读成设备 Tag。x2-m 还会读取 大分类、小分类、건설CODE、设计社、设备搬入日、出图需求日，列位置不限。没有该 Tag 时结果为未布置设备，有 Tag 但没有连接配管时保留未设计布置设备的 Trace 行。</li>
             <li>点击<b>从 Excel 导入</b>选择文件（xlsx、xlsm），EQPID 会填入输入框。重复和空白会被排除。</li>
             <li>确认内容后点击 <b>Batch Trace</b>。进度中会显示 Tag n/m 和当前 Tag。</li>
           </ol>
@@ -714,6 +714,8 @@
     var demoTimer = null;
     var activeTab = "trace";
     var busy = false;
+    var batchRows = null;
+    var fillingBatch = false;
     var cacheReady = false;
     var JOB_KEY = "poc_last_job";
     var JOBS_KEY = "poc_recent_jobs";
@@ -1637,7 +1639,7 @@
       if (!count) { rejectInput("needBatch"); return; }
       if (count > max) { rejectInput("overBatch", { max: max, n: count }); return; }
       localStorage.setItem(DB_KEY, $("db").value);
-      start("/api/batches", { db: $("db").value, text: text, html: $("htmlOpt").checked });
+      start("/api/batches", { db: $("db").value, text: text, html: $("htmlOpt").checked, rows: batchRows });
     }
     function startNozzle() {
       if (!cacheReady) { rejectInput("needCache"); return; }
@@ -2005,7 +2007,10 @@
         var res = await fetch("/api/batches/preview", { method: "POST", body: form });
         var data = await res.json();
         if (!res.ok) { setBatchInfo(data.error || t("batchFileFail"), true); return; }
+        fillingBatch = true;
         $("batch").value = data.text || "";
+        batchRows = data.rows || null;
+        fillingBatch = false;
         var max = limits().maxBatchTags || data.max || 300;
         if (data.count > max) setBatchInfo(fill(t("batchFileOver"), { count: data.count, max: max }), true);
         else setBatchInfo(fill(t("batchFileOk"), { file: data.fileName, count: data.count, dup: data.duplicates }), false);
@@ -2020,6 +2025,9 @@
       $("batchFile").click();
     };
     $("batchFile").addEventListener("change", uploadBatchExcel);
+    $("batch").addEventListener("input", function () {
+      if (!fillingBatch) batchRows = null;
+    });
 
     var helpOpener = null;
     var helpCurrent = "start";

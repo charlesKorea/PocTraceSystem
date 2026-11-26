@@ -71,26 +71,47 @@ namespace PocTrace.Core.Engine.Reporting
             picture.SetPosition(2, 0, 0, 0);
         }
 
-        public static void WriteHtml(string path, IList<EquipmentTraceSummary> summaries, string line, IList<TraceResult> details, IGraphCache cache)
+        public static void WriteHtml(string path, IList<EquipmentTraceSummary> summaries, string line, IList<TraceResult> details, IGraphCache cache, bool drawing)
         {
-            var groups = BuildGroups(details, cache);
+            bool ddw = false;
+            if (summaries != null)
+            {
+                for (int i = 0; i < summaries.Count; i++)
+                {
+                    if (summaries[i] != null && summaries[i].DdwColumns)
+                    {
+                        ddw = true;
+                        break;
+                    }
+                }
+            }
             var sb = new StringBuilder();
             sb.Append("<!DOCTYPE html><html lang=\"ko\"><head><meta charset=\"utf-8\" />");
             sb.Append("<title>Summary</title><style>");
             sb.Append("body{font-family:'Malgun Gothic',sans-serif;background:#f6f4ef;color:#1c1c1e;margin:24px;}");
             sb.Append("table{border-collapse:collapse;background:#fff;margin:0 0 28px;}");
             sb.Append("th,td{border:1px solid #e4e0d8;padding:6px 10px;font-size:14px;}");
-            sb.Append("th{background:#e7f3f1;} canvas{width:100%;height:auto;background:#fff;border:1px solid #e4e0d8;}");
+            sb.Append("th{background:#e7f3f1;} td.fail{color:#d92d20;font-weight:700;}");
+            sb.Append("canvas{width:100%;height:auto;background:#fff;border:1px solid #e4e0d8;}");
             sb.Append(".draw-layout{display:flex;gap:16px;align-items:flex-start;} .draw-layout canvas{flex:1;min-width:0;}");
             sb.Append(".draw-side{width:280px;flex:none;background:#fff;border:1px solid #e4e0d8;}");
-            sb.Append(".draw-side h2{font-size:15px;margin:10px 12px;} .draw-side td.st{color:#0a84ff;font-weight:700;}");
+            sb.Append(".draw-side h2{font-size:15px;margin:10px 12px;}");
+            sb.Append(".st-ok{color:#128a3e;font-weight:700;} .st-bad{color:#d92d20;font-weight:700;} .st-emp{color:#1c1c1e;font-weight:700;}");
             sb.Append("select{font:inherit;margin-left:8px;} p.hint{color:#5e6563;}");
             sb.Append("</style></head><body><h1>Summary</h1>");
             sb.Append("<table><thead><tr>");
-            string[] headers = {
-                "Line", "EQ Code", "Result", "Issues", "eqp count", "Pocs",
-                "BreakDown", "BOM(Hop)", "Length(m)", "Date", "Worker", "Company"
-            };
+            string[] headers = ddw
+                ? new[]
+                {
+                    "Line", "大分类", "小分类", "건설CODE", "EQ Code", "设计社", "设备搬入日", "出图需求日",
+                    "Result", "Issues", "eqp count", "Pocs", "BreakDown", "BOM(Hop)", "Length(m)",
+                    "Date", "Worker", "Company", "비고"
+                }
+                : new[]
+                {
+                    "Line", "EQ Code", "Result", "Issues", "eqp count", "Pocs",
+                    "BreakDown", "BOM(Hop)", "Length(m)", "Date", "Worker", "Company"
+                };
             for (int i = 0; i < headers.Length; i++)
                 sb.Append("<th>").Append(Esc(headers[i])).Append("</th>");
             sb.Append("</tr></thead><tbody>");
@@ -100,11 +121,24 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     if (s == null || string.Equals(s.Placement, "미설계 배치 설비", StringComparison.Ordinal))
                         continue;
+                    bool fail = string.Equals(s.CheckResult, "FAIL", StringComparison.OrdinalIgnoreCase);
                     sb.Append("<tr>");
                     Cell(sb, line);
+                    if (ddw)
+                    {
+                        Cell(sb, s.MajorClass);
+                        Cell(sb, s.MinorClass);
+                        Cell(sb, s.UploadConstructionCode);
+                    }
                     Cell(sb, s.EquipmentTag);
-                    Cell(sb, s.CheckResult);
-                    Cell(sb, s.CountERR.ToString(CultureInfo.InvariantCulture));
+                    if (ddw)
+                    {
+                        Cell(sb, s.DesignCompany);
+                        Cell(sb, s.MoveInDate);
+                        Cell(sb, s.DrawingNeedDate);
+                    }
+                    Cell(sb, s.CheckResult, fail);
+                    Cell(sb, s.CountERR.ToString(CultureInfo.InvariantCulture), fail);
                     Cell(sb, s.EquipmentCount.ToString(CultureInfo.InvariantCulture));
                     Cell(sb, s.TotalPocCount.ToString(CultureInfo.InvariantCulture));
                     Cell(sb, s.DerivedBranchCount.ToString(CultureInfo.InvariantCulture));
@@ -113,20 +147,28 @@ namespace PocTrace.Core.Engine.Reporting
                     Cell(sb, s.LatestOpTime);
                     Cell(sb, s.LatestUserName);
                     Cell(sb, s.LatestCompanyName);
+                    if (ddw)
+                        Cell(sb, s.Remark);
                     sb.Append("</tr>");
                 }
             }
-            sb.Append("</tbody></table><h1>Drawing</h1>");
-            sb.Append("<p class=\"hint\">드래그로 돌리고 휠로 확대합니다. 같은 UT는 같은 색이고, 이름은 연결된 가닥 중 가장 긴 곳에 한 번만 적습니다.</p>");
-            sb.Append("<p>설비<select id=\"drawPick\"></select></p>");
-            sb.Append("<div class=\"draw-layout\"><canvas id=\"draw3d\" width=\"1100\" height=\"720\"></canvas>");
-            sb.Append("<div class=\"draw-side\"><h2>POC Status</h2><table><thead><tr><th>POC</th><th>Status</th></tr></thead><tbody id=\"drawStatusBody\"></tbody></table></div></div>");
-            sb.Append("<script>");
-            sb.Append("var DRAW=");
-            AppendScene(sb, groups);
-            sb.Append(";");
-            sb.Append(ViewerScript);
-            sb.Append("</script></body></html>");
+            sb.Append("</tbody></table>");
+            if (drawing)
+            {
+                var groups = BuildGroups(details, cache);
+                sb.Append("<h1>Drawing</h1>");
+                sb.Append("<p class=\"hint\">드래그로 돌리고 휠로 확대합니다. 같은 UT는 같은 색이고, 이름은 연결된 가닥 중 가장 긴 곳에 한 번만 적습니다.</p>");
+                sb.Append("<p>설비<select id=\"drawPick\"></select></p>");
+                sb.Append("<div class=\"draw-layout\"><canvas id=\"draw3d\" width=\"1100\" height=\"720\"></canvas>");
+                sb.Append("<div class=\"draw-side\"><h2>POC Status</h2><table><thead><tr><th>POC</th><th>Status</th></tr></thead><tbody id=\"drawStatusBody\"></tbody></table></div></div>");
+                sb.Append("<script>");
+                sb.Append("var DRAW=");
+                AppendScene(sb, groups);
+                sb.Append(";");
+                sb.Append(ViewerScript);
+                sb.Append("</script>");
+            }
+            sb.Append("</body></html>");
             File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
         }
 
@@ -637,9 +679,9 @@ namespace PocTrace.Core.Engine.Reporting
             return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
         }
 
-        private static void Cell(StringBuilder sb, string value)
+        private static void Cell(StringBuilder sb, string value, bool fail = false)
         {
-            sb.Append("<td>").Append(Esc(value)).Append("</td>");
+            sb.Append(fail ? "<td class=\"fail\">" : "<td>").Append(Esc(value)).Append("</td>");
         }
 
         private static string Esc(string value)
@@ -672,11 +714,13 @@ namespace PocTrace.Core.Engine.Reporting
             "items.segs.forEach(function(s){add(s.a);add(s.b);});items.marks.forEach(function(m){add(m.p);});" +
             "if(!b)b={x0:0,x1:1,y0:0,y1:1,z0:0,z1:1};b.cx=(b.x0+b.x1)/2;b.cy=(b.y0+b.y1)/2;b.cz=(b.z0+b.z1)/2;b.span=Math.max(1,b.x1-b.x0,b.y1-b.y0,b.z1-b.z0);return b;}" +
             "function rot(p,b){var x=(p[0]-b.cx)/b.span,y=(p[1]-b.cy)/b.span,z=(p[2]-b.cz)/b.span;var c=Math.cos(yaw),s=Math.sin(yaw);var x1=x*c-y*s,y1=x*s+y*c;var cp=Math.cos(pitch),sp=Math.sin(pitch);return {x:x1,y:y1*cp-z*sp,z:y1*sp+z*cp};}" +
-            "function endCode(s){return s==='NOZ'||s==='TOF'||s==='CAP'||s==='EMP'||s==='ING';}" +
-            "function draw(){var w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);var items=pack();var body=document.getElementById('drawStatusBody');if(body){body.innerHTML='';(items.rows||[]).forEach(function(r){var tr=document.createElement('tr');var a=document.createElement('td');a.textContent=r.poc||'';var c=document.createElement('td');c.className='st';c.textContent=r.st||'';tr.appendChild(a);tr.appendChild(c);body.appendChild(tr);});}if(!items.segs.length&&!items.marks.length){ctx.fillStyle='#5e6563';ctx.font='16px sans-serif';ctx.fillText('좌표가 있는 배관이 없습니다.',24,40);return;}var b=bounds(items);var scale=Math.min(w,h)*0.72*zoom;var taken=[];" +
+            "function endCode(s){return s==='NOZ'||s==='TOF'||s==='CAP'||s==='EMP'||s==='ING'||s==='EQP'||s==='ERR';}" +
+            "function statusColor(s){if(s==='NOZ'||s==='TOF'||s==='CAP'||s==='EQP')return '#128a3e';if(s==='ING'||s==='ERR')return '#d92d20';if(s==='EMP')return '#1c1c1e';return '';}" +
+            "function statusClass(s){if(s==='NOZ'||s==='TOF'||s==='CAP'||s==='EQP')return 'st-ok';if(s==='ING'||s==='ERR')return 'st-bad';if(s==='EMP')return 'st-emp';return '';}" +
+            "function draw(){var w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);var items=pack();var body=document.getElementById('drawStatusBody');if(body){body.innerHTML='';(items.rows||[]).forEach(function(r){var tr=document.createElement('tr');var a=document.createElement('td');a.textContent=r.poc||'';var c=document.createElement('td');c.className=statusClass(r.st||'');c.textContent=r.st||'';tr.appendChild(a);tr.appendChild(c);body.appendChild(tr);});}if(!items.segs.length&&!items.marks.length){ctx.fillStyle='#5e6563';ctx.font='16px sans-serif';ctx.fillText('좌표가 있는 배관이 없습니다.',24,40);return;}var b=bounds(items);var scale=Math.min(w,h)*0.72*zoom;var taken=[];" +
             "function scr(p){var r=rot(p,b);return {x:w/2+r.x*scale,y:h/2-r.y*scale,z:r.z};}" +
             "ctx.lineWidth=2;items.segs.forEach(function(s){var a=scr(s.a),c=scr(s.b);ctx.strokeStyle=s.c||'#0c6e68';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();var dx=c.x-a.x,dy=c.y-a.y,pix=Math.sqrt(dx*dx+dy*dy);if(!s.ut||pix<42)return;var size=Math.max(11,Math.min(18,pix/7));ctx.font=size+'px sans-serif';var tw=ctx.measureText(s.ut).width,th=size+4;var tx=(a.x+c.x)/2-tw/2,ty=(a.y+c.y)/2-th/2;for(var i=0;i<taken.length;i++){var t=taken[i];if(!(tx>t.x+t.w||t.x>tx+tw||ty>t.y+t.h||t.y>ty+th))return;}taken.push({x:tx,y:ty,w:tw,h:th});ctx.fillStyle='rgba(255,255,255,0.88)';ctx.fillRect(tx-2,ty-1,tw+4,th);ctx.fillStyle='#083e3b';ctx.fillText(s.ut,tx,ty+size);});" +
-            "ctx.font='700 12px sans-serif';items.marks.forEach(function(m){var p=scr(m.p);ctx.fillStyle='#0a84ff';ctx.beginPath();ctx.arc(p.x,p.y,4,0,6.3);ctx.fill();if(!m.s)return;var dy=0;if(m.s==='EMP'){for(var i=0;i<items.marks.length;i++){var o=items.marks[i];if(!o.s||endCode(o.s))continue;if(Math.abs(o.p[0]-m.p[0])<0.05&&Math.abs(o.p[1]-m.p[1])<0.05&&Math.abs(o.p[2]-m.p[2])<0.05){dy=18;break;}}}ctx.fillStyle=endCode(m.s)?'#0a84ff':'#1c1c1e';ctx.fillText(m.s,p.x+8,p.y-4+dy);});}" +
+            "ctx.font='700 12px sans-serif';items.marks.forEach(function(m){var p=scr(m.p);var sc=statusColor(m.s);ctx.fillStyle=sc||'#1c1c1e';ctx.beginPath();ctx.arc(p.x,p.y,4,0,6.3);ctx.fill();if(!m.s)return;var dy=0;if(m.s==='EMP'){for(var i=0;i<items.marks.length;i++){var o=items.marks[i];if(!o.s||endCode(o.s))continue;if(Math.abs(o.p[0]-m.p[0])<0.05&&Math.abs(o.p[1]-m.p[1])<0.05&&Math.abs(o.p[2]-m.p[2])<0.05){dy=18;break;}}}ctx.fillStyle=sc||'#1c1c1e';ctx.fillText(m.s,p.x+8,p.y-4+dy);});}" +
             "sel.onchange=draw;cv.onmousedown=function(e){drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};};window.addEventListener('mouseup',function(){drag=null;});" +
             "window.addEventListener('mousemove',function(e){if(!drag)return;yaw=drag.yaw+(e.clientX-drag.x)*0.01;pitch=Math.max(-1.2,Math.min(1.2,drag.pitch+(e.clientY-drag.y)*0.01));draw();});" +
             "cv.addEventListener('wheel',function(e){e.preventDefault();zoom=Math.max(0.4,Math.min(4,zoom*(e.deltaY>0?0.9:1.1)));draw();},{passive:false});draw();})();";

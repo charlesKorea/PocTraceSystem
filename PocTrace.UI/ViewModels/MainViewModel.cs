@@ -113,6 +113,15 @@ namespace PocTrace.UI.ViewModels
             set { _batchInputText = value; OnPropertyChanged(); }
         }
 
+        private List<EqCodeSheet.BatchUploadRow> _batchUpload;
+
+        public void SetBatchUpload(IList<EqCodeSheet.BatchUploadRow> rows)
+        {
+            _batchUpload = rows == null || rows.Count == 0
+                ? null
+                : new List<EqCodeSheet.BatchUploadRow>(rows);
+        }
+
         public int LimitCount { get; set; } = 0; // 0 = Unlimited
 
         // 생성자
@@ -301,6 +310,7 @@ namespace PocTrace.UI.ViewModels
                 TraceSummaries.Clear();
                 _allTraceResults.Clear();
                 _allHookupErrors.Clear();
+                _batchUpload = null;
 
                 if (!CurrentCache.IsInitialized)
                     throw new InvalidOperationException("Cache is not initialized. Please load data first.");
@@ -431,7 +441,7 @@ namespace PocTrace.UI.ViewModels
                             {
                                 string fileName = SelectedDb + "_" + tag + "_" + firstSum.EquipmentCount + "_" + firstSum.TotalPocCount + ".xlsx";
                                 string fullPath = Path.Combine(outputDir, fileName);
-                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache, WriteHtmlReport);
+                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache, WriteHtmlReport, _batchUpload);
                             }
 
                             foreach (var r in results) tempAllResults.Add(r);
@@ -455,8 +465,9 @@ namespace PocTrace.UI.ViewModels
                     StatusMessage = "Saving Batch Summary Excel...";
                     bool html = WriteHtmlReport;
                     var sketchRows = html ? tempAllResults.ToList() : null;
+                    var upload = _batchUpload;
                     await Task.Run(() => _excelReport.SaveBatchSummaryReport(
-                        summaryPath, summaryOnlyList, SelectedDb, html, sketchRows, cache));
+                        summaryPath, summaryOnlyList, SelectedDb, html, sketchRows, cache, upload));
                 }
 
                 string zipPath = ZipBatchExcels(outputDir, SelectedDb);
@@ -558,7 +569,7 @@ namespace PocTrace.UI.ViewModels
                     var currentDetails = _allTraceResults;
 
                     // 2. Core 리포팅 서비스 호출
-                    _excelReport.SaveSingleFileReport(filePath, currentDetails, CurrentCache, WriteHtmlReport);
+                    _excelReport.SaveSingleFileReport(filePath, currentDetails, CurrentCache, WriteHtmlReport, _batchUpload);
                 });
 
                 StatusMessage = "Export Complete.";

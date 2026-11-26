@@ -34,7 +34,12 @@ namespace PocTrace.Core.Engine.Reporting
         /// 단일 파일 리포트(Summary / Details / Path Analytics / Hookup_Validation / 5D_Update_Upload)를 생성한다.
         /// 기존 MainViewModel.SaveSingleExcel 로직을 그대로 이전.
         /// </summary>
-        public void SaveSingleFileReport(string path, List<TraceResult> details, IGraphCache cache, bool includeSketch = false)
+        public void SaveSingleFileReport(
+            string path,
+            List<TraceResult> details,
+            IGraphCache cache,
+            bool includeSketch = false,
+            IList<EqCodeSheet.BatchUploadRow> upload = null)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             details = BatchPlacement.ReportRows(details);
@@ -43,6 +48,10 @@ namespace PocTrace.Core.Engine.Reporting
 
             // 요약 데이터 생성 (Core 공통 빌더 사용)
             List<EquipmentTraceSummary> summaries = EquipmentSummaryBuilder.Build(details);
+            string lineName = cache != null && !string.IsNullOrEmpty(cache.DbName)
+                ? cache.DbName
+                : (details != null && details.Count > 0 ? details[0].Line : "");
+            BatchUploadBinder.Apply(summaries, upload, cache, lineName);
 
             using (var package = new ExcelPackage(new FileInfo(path)))
             {
@@ -52,9 +61,6 @@ namespace PocTrace.Core.Engine.Reporting
                 var wsSum = package.Workbook.Worksheets.Add("Summary");
                 wsSum.Cells["V1"].Value = TraceAppVersion.Display();
 
-                string lineName = cache != null && !string.IsNullOrEmpty(cache.DbName)
-                    ? cache.DbName
-                    : (details != null && details.Count > 0 ? details[0].Line : "");
                 int row = WriteSummaryTable(wsSum, summaries, lineName, 1);
                 WriteNameParts(wsSum, summaries, row + 4);
 
@@ -372,7 +378,13 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     byte[] png = TraceSketch.Render(details, cache);
                     TraceSketch.AddSheet(package, png);
-                    TraceSketch.WriteHtml(Path.ChangeExtension(path, ".html"), summaries, lineName, details, cache);
+                    TraceSketch.WriteHtml(
+                        Path.ChangeExtension(path, ".html"),
+                        summaries,
+                        lineName,
+                        details,
+                        cache,
+                        DdwLine.IsCacheKey(lineName));
                 }
 
                 _logger.Information("💾 [Excel Export] 엑셀 파일 저장을 시도합니다. Path: {Path}", path);
@@ -390,9 +402,11 @@ namespace PocTrace.Core.Engine.Reporting
             string line = null,
             bool includeSketch = false,
             IList<TraceResult> details = null,
-            IGraphCache cache = null)
+            IGraphCache cache = null,
+            IList<EqCodeSheet.BatchUploadRow> upload = null)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            BatchUploadBinder.Apply(summaries, upload, cache, line);
 
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
@@ -411,7 +425,13 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     byte[] png = TraceSketch.Render(details, cache);
                     TraceSketch.AddSheet(package, png);
-                    TraceSketch.WriteHtml(Path.ChangeExtension(filePath, ".html"), ordered, line, details, cache);
+                    TraceSketch.WriteHtml(
+                        Path.ChangeExtension(filePath, ".html"),
+                        ordered,
+                        line,
+                        details,
+                        cache,
+                        DdwLine.IsCacheKey(line));
                 }
                 package.Save();
             }
@@ -423,6 +443,13 @@ namespace PocTrace.Core.Engine.Reporting
             "BreakDown", "BOM(Hop)", "Length(m)", "Date", "Worker", "Company"
         };
 
+        private static readonly string[] DdwSummaryHeaders =
+        {
+            "Line", "大分类", "小分类", "건설CODE", "EQ Code", "设计社", "设备搬入日", "出图需求日",
+            "Result", "Issues", "eqp count", "Pocs", "BreakDown", "BOM(Hop)", "Length(m)",
+            "Date", "Worker", "Company", "비고"
+        };
+
         private static readonly string[] NameHeaders =
         {
             "Name", "Division", "Subdivision1", "Subdivision2",
@@ -431,10 +458,23 @@ namespace PocTrace.Core.Engine.Reporting
 
         private static int WriteSummaryTable(ExcelWorksheet ws, List<EquipmentTraceSummary> summaries, string line, int startRow)
         {
-            for (int i = 0; i < SummaryHeaders.Length; i++)
+            bool ddw = false;
+            if (summaries != null)
+            {
+                for (int i = 0; i < summaries.Count; i++)
+                {
+                    if (summaries[i] != null && summaries[i].DdwColumns)
+                    {
+                        ddw = true;
+                        break;
+                    }
+                }
+            }
+            string[] headers = ddw ? DdwSummaryHeaders : SummaryHeaders;
+            for (int i = 0; i < headers.Length; i++)
             {
                 var cell = ws.Cells[startRow, i + 1];
-                cell.Value = SummaryHeaders[i];
+                cell.Value = headers[i];
                 cell.Style.Font.Bold = true;
                 cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
                 cell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
@@ -446,24 +486,55 @@ namespace PocTrace.Core.Engine.Reporting
                 return row;
             foreach (var s in summaries)
             {
-                ws.Cells[row, 1].Value = line ?? "";
-                ws.Cells[row, 2].Value = s.EquipmentTag;
-                ws.Cells[row, 3].Value = s.CheckResult;
+                int col = 1;
+                int resultCol = 0;
+                int issueCol = 0;
+                void Put(object value, bool resultCell = false, bool issueCell = false)
+                {
+                    if (resultCell)
+                        resultCol = col;
+                    if (issueCell)
+                        issueCol = col;
+                    ws.Cells[row, col].Value = value;
+                    col++;
+                }
+
+                Put(line ?? "");
+                if (ddw)
+                {
+                    Put(s.MajorClass);
+                    Put(s.MinorClass);
+                    Put(s.UploadConstructionCode);
+                }
+                Put(s.EquipmentTag);
+                if (ddw)
+                {
+                    Put(s.DesignCompany);
+                    Put(s.MoveInDate);
+                    Put(s.DrawingNeedDate);
+                }
+                Put(s.CheckResult, true);
+                Put(s.CountERR, false, true);
+                Put(s.EquipmentCount);
+                Put(s.TotalPocCount);
+                Put(s.DerivedBranchCount);
+                Put(s.TotalHopCount);
+                ws.Cells[row, col].Value = Math.Round(s.TotalLength, 1);
+                ws.Cells[row, col].Style.Numberformat.Format = "0.0";
+                col++;
+                Put(s.LatestOpTime);
+                Put(s.LatestUserName);
+                Put(s.LatestCompanyName);
+                if (ddw)
+                    Put(s.Remark);
                 if (s.CheckResult == "FAIL")
-                    ws.Cells[row, 3].Style.Font.Color.SetColor(Color.Red);
+                {
+                    ws.Cells[row, resultCol].Style.Font.Color.SetColor(Color.Red);
+                    ws.Cells[row, issueCol].Style.Font.Color.SetColor(Color.Red);
+                }
                 else if (s.CheckResult == "PASS")
-                    ws.Cells[row, 3].Style.Font.Color.SetColor(Color.Green);
-                ws.Cells[row, 4].Value = s.CountERR;
-                ws.Cells[row, 5].Value = s.EquipmentCount;
-                ws.Cells[row, 6].Value = s.TotalPocCount;
-                ws.Cells[row, 7].Value = s.DerivedBranchCount;
-                ws.Cells[row, 8].Value = s.TotalHopCount;
-                ws.Cells[row, 9].Value = Math.Round(s.TotalLength, 1);
-                ws.Cells[row, 9].Style.Numberformat.Format = "0.0";
-                ws.Cells[row, 10].Value = s.LatestOpTime;
-                ws.Cells[row, 11].Value = s.LatestUserName;
-                ws.Cells[row, 12].Value = s.LatestCompanyName;
-                for (int c = 1; c <= SummaryHeaders.Length; c++)
+                    ws.Cells[row, resultCol].Style.Font.Color.SetColor(Color.Green);
+                for (int c = 1; c < col; c++)
                     ws.Cells[row, c].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
                 row++;
             }

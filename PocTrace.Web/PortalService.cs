@@ -20,6 +20,7 @@ using PocTrace.Demolition.Jobs;
 using PocTrace.NozzleTrace.Input;
 using PocTrace.NozzleTrace.Jobs;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Serilog;
 
 namespace PocTrace.Web
@@ -226,7 +227,18 @@ namespace PocTrace.Web
                 nonBlank = read.NonBlank,
                 duplicates = read.Duplicates,
                 max = MaxBatchTags,
-                text = string.Join("\n", read.Values)
+                text = string.Join("\n", read.Values),
+                rows = read.Rows.Select(r => new
+                {
+                    eqCode = r.EqCode,
+                    major = r.Major,
+                    minor = r.Minor,
+                    constructionCode = r.ConstructionCode,
+                    designer = r.Designer,
+                    moveInDate = r.MoveInDate,
+                    drawingNeedDate = r.DrawingNeedDate,
+                    constructionPresent = r.ConstructionPresent
+                }).ToList()
             };
         }
 
@@ -352,7 +364,7 @@ namespace PocTrace.Web
             return job.Id;
         }
 
-        public string StartBatch(string db, string text, bool writeHtml)
+        public string StartBatch(string db, string text, bool writeHtml, JToken rows = null)
         {
             db = RequireDb(db);
             var tags = SplitTags(text);
@@ -365,8 +377,56 @@ namespace PocTrace.Web
 
             JobRecord job = BeginJob("batch", db, tags.Count + " tags");
             job.WriteHtml = writeHtml;
+            job.UploadRows = ReadUploadRows(rows);
             Task.Run(() => RunBatch(job, tags));
             return job.Id;
+        }
+
+        private static List<EqCodeSheet.BatchUploadRow> ReadUploadRows(JToken token)
+        {
+            var list = new List<EqCodeSheet.BatchUploadRow>();
+            var arr = token as JArray;
+            if (arr == null)
+                return list;
+            foreach (var item in arr)
+            {
+                var row = item as JObject;
+                if (row == null)
+                    continue;
+                string eq = TokenText(row, "eqCode");
+                if (eq.Length == 0)
+                    continue;
+                list.Add(new EqCodeSheet.BatchUploadRow
+                {
+                    EqCode = eq,
+                    Major = TokenText(row, "major"),
+                    Minor = TokenText(row, "minor"),
+                    ConstructionCode = TokenText(row, "constructionCode"),
+                    Designer = TokenText(row, "designer"),
+                    MoveInDate = TokenText(row, "moveInDate"),
+                    DrawingNeedDate = TokenText(row, "drawingNeedDate"),
+                    ConstructionPresent = TokenFlag(row, "constructionPresent")
+                });
+            }
+            return list;
+        }
+
+        private static string TokenText(JObject row, string name)
+        {
+            var token = row[name];
+            if (token == null || token.Type == JTokenType.Null)
+                return "";
+            return (token.ToString() ?? "").Trim();
+        }
+
+        private static bool TokenFlag(JObject row, string name)
+        {
+            var token = row[name];
+            if (token == null || token.Type == JTokenType.Null)
+                return false;
+            if (token.Type == JTokenType.Boolean)
+                return token.Value<bool>();
+            return string.Equals(token.ToString(), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public JobRecord FindJob(string id)
@@ -488,7 +548,8 @@ namespace PocTrace.Web
                                     Path.Combine(outputDir, UniqueFileName(outputDir, name, ".xlsx")),
                                     results,
                                     _services.CacheManager,
-                                    job.WriteHtml);
+                                    job.WriteHtml,
+                                    job.UploadRows);
                                 savedFiles++;
                             }
                         }
@@ -517,7 +578,7 @@ namespace PocTrace.Web
                     SetPhase(job, "summary", 93, 98, Msg("요약 Excel 저장 중", "正在保存汇总 Excel"));
                     summaryPath = Path.Combine(outputDir, "Summary.xlsx");
                     _services.ExcelReport.SaveBatchSummaryReport(
-                        summaryPath, summaries, job.Db, job.WriteHtml, sketchRows, _services.CacheManager);
+                        summaryPath, summaries, job.Db, job.WriteHtml, sketchRows, _services.CacheManager, job.UploadRows);
                     if (job.WriteHtml)
                         job.HtmlPath = Path.ChangeExtension(summaryPath, ".html");
                 }
@@ -1601,6 +1662,7 @@ namespace PocTrace.Web
         public string ZipPath { get; set; }
         public string HtmlPath { get; set; }
         public bool WriteHtml { get; set; }
+        public List<EqCodeSheet.BatchUploadRow> UploadRows { get; set; }
         public string OutputDirectory { get; set; }
         public DateTime CreatedUtc { get; set; }
         public int? EtaSeconds { get; set; }

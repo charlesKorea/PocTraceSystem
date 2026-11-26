@@ -721,12 +721,14 @@ namespace PocTrace.UI
                 }
 
                 txtBatchInput.Text = string.Join(Environment.NewLine, read.Values);
+                _viewModel.SetBatchUpload(read.Rows);
                 await BtnBatchTrace_ClickAsync();
             }
         }
 
         private async void BtnBatchTrace_Click(object sender, EventArgs e)
         {
+            _viewModel.SetBatchUpload(null);
             await BtnBatchTrace_ClickAsync();
         }
 

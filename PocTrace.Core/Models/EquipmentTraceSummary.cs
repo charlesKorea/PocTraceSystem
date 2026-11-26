@@ -29,6 +29,14 @@ namespace PocTrace.Core.Models
 
         /// <summary>배치 분류. 미배치설비, 미설계 배치 설비.</summary>
         public string Placement { get; set; }
+        public bool DdwColumns { get; set; }
+        public string MajorClass { get; set; }
+        public string MinorClass { get; set; }
+        public string UploadConstructionCode { get; set; }
+        public string DesignCompany { get; set; }
+        public string MoveInDate { get; set; }
+        public string DrawingNeedDate { get; set; }
+        public string Remark { get; set; }
 
         // [New] 2. 검수결과 (Logic: Issue Count > 0 ? FAIL : PASS). 배치 분류가 있으면 그 문구.
         public string CheckResult => !string.IsNullOrEmpty(Placement) ? Placement : (CountERR > 0 ? "FAIL" : "PASS");

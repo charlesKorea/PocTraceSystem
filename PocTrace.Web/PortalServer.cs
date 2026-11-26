@@ -282,7 +282,7 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/batches")
                 {
                     var body = ReadJson(context.Request);
-                    string id = _portal.StartBatch(Value(body, "db"), Value(body, "text"), Flag(body, "html"));
+                    string id = _portal.StartBatch(Value(body, "db"), Value(body, "text"), Flag(body, "html"), body["rows"]);
                     WriteJson(context, 202, new { jobId = id });
                     return;
                 }
