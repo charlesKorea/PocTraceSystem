@@ -27,17 +27,20 @@
 -- middle foreline: Subdivision1 = 기타, Subdivision2 = middle foreline,
 --   객체명에 foreline 이 있다. 좌표는 tb_modelinstances.posx, posy 이다.
 --
--- 판정 키는 ROUND(x, 1), ROUND(y, 1) 이다. 캐시 v15 POC 좌표, v14 모델 좌표와 같다.
--- 같은 키에 진공 POC 1개와 middle foreline 1개만 있으면 직선 대응이다.
+-- 비교 좌표는 ROUND(x, 2), ROUND(y, 2) 이다. 높이 posz 는 비교하지 않는다.
+-- X 차이와 Y 차이가 각각 1 이하면 같은 위치다. 77629.95 와 77630 은 일치다.
+-- 소수 1자리 버킷은 77629.95 를 77629.9 로 떨어뜨려 77630 과 갈라질 수 있어 쓰지 않는다.
+-- 같은 위치의 피팅이 1개이고, 그 피팅에서 1 이내인 진공 POC 도 1개일 때만 직선 대응이다.
 -- 피팅이 없거나, 피팅이 둘 이상이거나, 진공 POC가 둘 이상이면 그 POC 는 불일치다.
 -- pump 에 진공 POC 가 여러 개여도 POC 마다 따로 본다.
 --
 -- 전체 pump 와 전체 피팅을 곱하지 않는다.
--- 이름 조건으로 두 집합을 먼저 줄이고, 좌표 키로 묶은 뒤 그 묶음의 개수만 비교한다.
+-- 이름 조건으로 두 집합을 먼저 줄이고, 정수 mm 칸과 그 옆 칸만 본 뒤 1 이내인지 확인한다.
 --
 -- 예. middle foreline (207669.97, 47104.53), (207669.97, 46604.53)
---     POC (207666.97, 47054.53) 는 같은 키가 없다.
+--     POC (207666.97, 47054.53) 는 X 가 3 만큼 멀다.
 --     POC (207669.97, 46604.53) 는 두 번째 피팅과 1:1 이다.
+--     Y 77629.95 와 77630 은 차이가 0.05 라 일치다.
 --     그 pump 의 어긋난 POC 한 행이 결과에 남는다.
 --     pump 이름, tag, construction code, 좌표가 같이 있다.
 --
@@ -55,8 +58,8 @@ IF OBJECT_ID('tempdb..#attr_named') IS NOT NULL DROP TABLE #attr_named;
 IF OBJECT_ID('tempdb..#pump_attr') IS NOT NULL DROP TABLE #pump_attr;
 IF OBJECT_ID('tempdb..#vac') IS NOT NULL DROP TABLE #vac;
 IF OBJECT_ID('tempdb..#mid') IS NOT NULL DROP TABLE #mid;
-IF OBJECT_ID('tempdb..#fit_at') IS NOT NULL DROP TABLE #fit_at;
-IF OBJECT_ID('tempdb..#poc_at') IS NOT NULL DROP TABLE #poc_at;
+IF OBJECT_ID('tempdb..#fit_for') IS NOT NULL DROP TABLE #fit_for;
+IF OBJECT_ID('tempdb..#poc_near') IS NOT NULL DROP TABLE #poc_near;
 IF OBJECT_ID('tempdb..#judged') IS NOT NULL DROP TABLE #judged;
 
 SELECT
@@ -64,9 +67,11 @@ SELECT
     src.instance_nm,
     src.sub1,
     src.sub2,
-    src.xk,
-    src.yk,
-    src.posz
+    src.x,
+    src.y,
+    src.z,
+    src.bx,
+    src.by
 INTO #model
 FROM (
 SELECT
@@ -74,9 +79,11 @@ SELECT
     COALESCE(NULLIF(CONVERT(nvarchar(512), mi.INSTANCE_NM), N''), CONVERT(nvarchar(512), mt.DISPLAY_NM)) AS instance_nm,
     LOWER(CONVERT(nvarchar(256), sub1.DIVISION_VALUE)) AS sub1,
     LOWER(CONVERT(nvarchar(256), sub2.DIVISION_VALUE)) AS sub2,
-    ROUND(mi.POSX, 1) AS xk,
-    ROUND(mi.POSY, 1) AS yk,
-    ROUND(mi.POSZ, 1) AS posz
+    ROUND(mi.POSX, 2) AS x,
+    ROUND(mi.POSY, 2) AS y,
+    ROUND(mi.POSZ, 2) AS z,
+    CAST(ROUND(mi.POSX, 0) AS int) AS bx,
+    CAST(ROUND(mi.POSY, 0) AS int) AS by
 FROM remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
 LEFT JOIN remote_monami.monami.dbo.tb_modeltemplates AS mt WITH (NOLOCK)
     ON mt.MODEL_TEMPLATE_ID = mi.MODEL_TEMPLATE_ID
@@ -99,7 +106,7 @@ WHERE src.instance_id IS NOT NULL
         )
       );
 
-SELECT instance_id, instance_nm, xk, yk, posz
+SELECT instance_id, instance_nm, x, y, z
 INTO #pump
 FROM #model
 WHERE sub1 = N'4-pcs'
@@ -138,14 +145,16 @@ SELECT
     attr.tag AS pump_tag,
     pump.instance_nm AS pump_name,
     attr.construction_code AS pump_construction_code,
-    pump.xk AS pump_x,
-    pump.yk AS pump_y,
-    pump.posz AS pump_z,
+    pump.x AS pump_x,
+    pump.y AS pump_y,
+    pump.z AS pump_z,
     TRY_CONVERT(uniqueidentifier, p.INSTANCE_ID) AS poc_id,
     CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM) AS poc_name,
-    ROUND(p.POSX, 1) AS xk,
-    ROUND(p.POSY, 1) AS yk,
-    ROUND(p.POSZ, 1) AS posz
+    ROUND(p.POSX, 2) AS x,
+    ROUND(p.POSY, 2) AS y,
+    ROUND(p.POSZ, 2) AS z,
+    CAST(ROUND(p.POSX, 0) AS int) AS bx,
+    CAST(ROUND(p.POSY, 0) AS int) AS by
 INTO #vac
 FROM #pump AS pump
 LEFT JOIN #pump_attr AS attr
@@ -161,33 +170,59 @@ WHERE LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) LIKE N'%fore-line%'
   AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ll)%'
   AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ps)%';
 
-CREATE CLUSTERED INDEX ix_vac_xy ON #vac(xk, yk);
+CREATE CLUSTERED INDEX ix_vac_xy ON #vac(bx, by);
 
-SELECT instance_id, instance_nm, xk, yk, posz
+SELECT instance_id, instance_nm, x, y, z, bx, by
 INTO #mid
 FROM #model
 WHERE sub1 = N'기타'
   AND sub2 = N'middle foreline'
   AND LOWER(ISNULL(instance_nm, N'')) LIKE N'%foreline%'
-  AND xk IS NOT NULL
-  AND yk IS NOT NULL;
+  AND x IS NOT NULL
+  AND y IS NOT NULL;
 
-CREATE CLUSTERED INDEX ix_mid_xy ON #mid(xk, yk);
+CREATE CLUSTERED INDEX ix_mid_xy ON #mid(bx, by);
 
-SELECT xk, yk, COUNT(*) AS fit_count
-INTO #fit_at
-FROM #mid
-GROUP BY xk, yk;
+-- 정수 mm 칸과 옆 칸만 보고, X 와 Y 가 각각 1 이내인 피팅을 센다.
+SELECT
+    v.poc_id,
+    COUNT(*) AS fit_count
+INTO #fit_for
+FROM #vac AS v
+JOIN #mid AS m
+    ON m.bx BETWEEN v.bx - 1 AND v.bx + 1
+   AND m.by BETWEEN v.by - 1 AND v.by + 1
+   AND ABS(m.x - v.x) <= 1
+   AND ABS(m.y - v.y) <= 1
+WHERE v.x IS NOT NULL
+  AND v.y IS NOT NULL
+GROUP BY v.poc_id;
 
-CREATE UNIQUE CLUSTERED INDEX ix_fit_at ON #fit_at(xk, yk);
+CREATE CLUSTERED INDEX ix_fit_for ON #fit_for(poc_id);
 
-SELECT xk, yk, COUNT(*) AS poc_count
-INTO #poc_at
-FROM #vac
-WHERE xk IS NOT NULL AND yk IS NOT NULL
-GROUP BY xk, yk;
+-- 그 피팅에서 1 이내인 진공 POC 수. 피팅 하나를 두 POC 가 같이 쓰면 1:1 이 아니다.
+SELECT
+    v.poc_id,
+    COUNT(DISTINCT o.poc_id) AS poc_count
+INTO #poc_near
+FROM #vac AS v
+JOIN #mid AS m
+    ON m.bx BETWEEN v.bx - 1 AND v.bx + 1
+   AND m.by BETWEEN v.by - 1 AND v.by + 1
+   AND ABS(m.x - v.x) <= 1
+   AND ABS(m.y - v.y) <= 1
+JOIN #vac AS o
+    ON o.bx BETWEEN m.bx - 1 AND m.bx + 1
+   AND o.by BETWEEN m.by - 1 AND m.by + 1
+   AND o.x IS NOT NULL
+   AND o.y IS NOT NULL
+   AND ABS(o.x - m.x) <= 1
+   AND ABS(o.y - m.y) <= 1
+WHERE v.x IS NOT NULL
+  AND v.y IS NOT NULL
+GROUP BY v.poc_id;
 
-CREATE UNIQUE CLUSTERED INDEX ix_poc_at ON #poc_at(xk, yk);
+CREATE CLUSTERED INDEX ix_poc_near ON #poc_near(poc_id);
 
 SELECT
     v.pump_id,
@@ -199,24 +234,24 @@ SELECT
     v.pump_z,
     v.poc_id,
     v.poc_name,
-    v.xk AS poc_x,
-    v.yk AS poc_y,
-    v.posz AS poc_z,
+    v.x AS poc_x,
+    v.y AS poc_y,
+    v.z AS poc_z,
     ISNULL(f.fit_count, 0) AS fitting_count_at_xy,
-    pa.poc_count AS poc_count_at_xy,
+    ISNULL(n.poc_count, 0) AS poc_count_at_xy,
     CASE
-        WHEN v.xk IS NULL OR v.yk IS NULL THEN N'좌표없음'
+        WHEN v.x IS NULL OR v.y IS NULL THEN N'좌표없음'
         WHEN ISNULL(f.fit_count, 0) = 0 THEN N'middle foreline 없음'
         WHEN f.fit_count > 1 THEN N'middle foreline 여러개'
-        WHEN pa.poc_count > 1 THEN N'진공POC 여러개'
+        WHEN ISNULL(n.poc_count, 0) > 1 THEN N'진공POC 여러개'
         ELSE N'일치'
     END AS align_result
 INTO #judged
 FROM #vac AS v
-LEFT JOIN #fit_at AS f
-    ON f.xk = v.xk AND f.yk = v.yk
-LEFT JOIN #poc_at AS pa
-    ON pa.xk = v.xk AND pa.yk = v.yk;
+LEFT JOIN #fit_for AS f
+    ON f.poc_id = v.poc_id
+LEFT JOIN #poc_near AS n
+    ON n.poc_id = v.poc_id;
 
 -- 불일치 POC 한 행. pump 이름, tag, construction code, 좌표와 그 POC 정보를 같이 둔다.
 SELECT
