@@ -376,15 +376,19 @@ namespace PocTrace.Core.Engine.Reporting
 
                 if (includeSketch)
                 {
-                    byte[] png = TraceSketch.Render(details, cache);
-                    TraceSketch.AddSheet(package, png);
+                    bool ddw = DdwLine.IsCacheKey(lineName);
+                    if (ddw)
+                    {
+                        byte[] png = TraceSketch.Render(details, cache);
+                        TraceSketch.AddSheet(package, png);
+                    }
                     TraceSketch.WriteHtml(
                         Path.ChangeExtension(path, ".html"),
                         summaries,
                         lineName,
                         details,
                         cache,
-                        DdwLine.IsCacheKey(lineName));
+                        ddw);
                 }
 
                 _logger.Information("💾 [Excel Export] 엑셀 파일 저장을 시도합니다. Path: {Path}", path);
@@ -423,15 +427,19 @@ namespace PocTrace.Core.Engine.Reporting
                 ws.Cells.AutoFitColumns();
                 if (includeSketch)
                 {
-                    byte[] png = TraceSketch.Render(details, cache);
-                    TraceSketch.AddSheet(package, png);
+                    bool ddw = DdwLine.IsCacheKey(line);
+                    if (ddw)
+                    {
+                        byte[] png = TraceSketch.Render(details, cache);
+                        TraceSketch.AddSheet(package, png);
+                    }
                     TraceSketch.WriteHtml(
                         Path.ChangeExtension(filePath, ".html"),
                         ordered,
                         line,
                         details,
                         cache,
-                        DdwLine.IsCacheKey(line));
+                        ddw);
                 }
                 package.Save();
             }
