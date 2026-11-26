@@ -1,6 +1,24 @@
 -- pump fore-line POC 와 middle foreline 피팅의 X, Y 1:1.
 -- 높이 posz 는 비교하지 않는다. 명칭은 대소문자를 무시한다.
 --
+-- 이 카탈로그는 monami TbStar 다. 캐시 DdwSql.SelectModels(TbStar) 와 SelectAttributes 와 같은 출처를 쓴다.
+-- tb_modelinstances, tb_pocinstances 에 아래 열은 없다. 읽으면 열 오류가 난다.
+--   tag, s5_eqcode, construction_code, elementId_number
+-- tb_modeltemplates 의 Subdivision_1_name, Subdivision_2_name 도 없다.
+-- tb_pocinstances 의 tag, connectionTag 도 없다.
+--
+-- Subdivision1, Subdivision2 는 템플릿의 subdivision id 를 tb_division.division_value 로 읽는다.
+-- tag 는 tb_attributes.attribute_nm = 'tag' 이다.
+-- 건설코드는 tb_attributes.attribute_nm = 'Construction-code' 이다.
+-- 두 속성의 owner_id 가 그 객체 id 다. 캐시는 인스턴스 열이 비면 이 속성으로 채운다.
+-- 속성은 약 1천만 행이다. attribute_nm IN 으로 먼저 줄이고, 줄어든 pump id 와만 맞춘다.
+-- 모델 전체에 속성을 상관 조인하지 않는다.
+--
+-- 이후 배관검수도 같은 출처를 쓴다.
+--   배관 번호 S5_LATERAL_NUMBER, hookup HookupNumber, POC tag, ConnectionTag 는 tb_attributes 다.
+--   설비와 피팅의 Subdivision 은 tb_division 이다.
+--   좌표만 tb_modelinstances, tb_pocinstances 의 posx, posy, posz 다.
+--
 -- pump: Subdivision1 = 4-pcs, Subdivision2 = pump
 -- 진공 POC: 그 설비의 owner_type 768 POC 이고 POC template name 에 fore-line 이 있다.
 --   POC 좌표는 tb_pocinstances.posx, posy 이다.
@@ -18,26 +36,30 @@
 -- 예. middle foreline (207669.97, 47104.53), (207669.97, 46604.53)
 --     POC (207666.97, 47054.53) 는 같은 키가 없다.
 --     POC (207669.97, 46604.53) 는 두 번째 피팅과 1:1 이다.
---     그 pump 의 어긋난 POC 한 행이 결과에 남는다. pump 이름, tag, construction code, 좌표가 같이 있다.
+--     그 pump 의 어긋난 POC 한 행이 결과에 남는다.
+--     pump 이름, tag, construction code, 좌표가 같이 있다.
 --
 -- 연결 서버나 카탈로그가 다르면 remote_monami.monami 를 바꾼다.
 -- live 는 version_sequence < 1000000000 이다.
+-- 같은 owner 에 tag 또는 Construction-code 가 둘 이상이면 값 하나만 남긴다.
+-- 캐시는 먼저 읽은 값을 두고 중복을 센다.
 
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 IF OBJECT_ID('tempdb..#model') IS NOT NULL DROP TABLE #model;
 IF OBJECT_ID('tempdb..#pump') IS NOT NULL DROP TABLE #pump;
+IF OBJECT_ID('tempdb..#attr_named') IS NOT NULL DROP TABLE #attr_named;
+IF OBJECT_ID('tempdb..#pump_attr') IS NOT NULL DROP TABLE #pump_attr;
 IF OBJECT_ID('tempdb..#vac') IS NOT NULL DROP TABLE #vac;
 IF OBJECT_ID('tempdb..#mid') IS NOT NULL DROP TABLE #mid;
 IF OBJECT_ID('tempdb..#fit_at') IS NOT NULL DROP TABLE #fit_at;
 IF OBJECT_ID('tempdb..#poc_at') IS NOT NULL DROP TABLE #poc_at;
+IF OBJECT_ID('tempdb..#judged') IS NOT NULL DROP TABLE #judged;
 
 SELECT
     src.instance_id,
-    src.tag,
     src.instance_nm,
-    src.construction_code,
     src.sub1,
     src.sub2,
     src.xk,
@@ -46,19 +68,13 @@ SELECT
 INTO #model
 FROM (
 SELECT
-    mi.INSTANCE_ID AS instance_id,
-    CASE
-        WHEN mt.BIM_YN = 0 THEN CONVERT(nvarchar(512), mi.[tag])
-        WHEN mt.BIM_YN = 1 THEN COALESCE(NULLIF(CONVERT(nvarchar(512), mi.[s5_eqcode]), N''), CONVERT(nvarchar(512), mi.[tag]))
-        ELSE CONVERT(nvarchar(512), mi.[tag])
-    END AS tag,
-    CONVERT(nvarchar(512), mi.INSTANCE_NM) AS instance_nm,
-    CONVERT(nvarchar(512), mi.[construction_code]) AS construction_code,
-    LOWER(COALESCE(NULLIF(CONVERT(nvarchar(256), mt.[Subdivision_1_name]), N''), CONVERT(nvarchar(256), sub1.DIVISION_VALUE))) AS sub1,
-    LOWER(COALESCE(NULLIF(CONVERT(nvarchar(256), mt.[Subdivision_2_name]), N''), CONVERT(nvarchar(256), sub2.DIVISION_VALUE))) AS sub2,
+    TRY_CONVERT(uniqueidentifier, mi.INSTANCE_ID) AS instance_id,
+    COALESCE(NULLIF(CONVERT(nvarchar(512), mi.INSTANCE_NM), N''), CONVERT(nvarchar(512), mt.DISPLAY_NM)) AS instance_nm,
+    LOWER(CONVERT(nvarchar(256), sub1.DIVISION_VALUE)) AS sub1,
+    LOWER(CONVERT(nvarchar(256), sub2.DIVISION_VALUE)) AS sub2,
     ROUND(mi.POSX, 1) AS xk,
     ROUND(mi.POSY, 1) AS yk,
-    mi.POSZ AS posz
+    ROUND(mi.POSZ, 1) AS posz
 FROM remote_monami.monami.dbo.tb_modelinstances AS mi WITH (NOLOCK)
 LEFT JOIN remote_monami.monami.dbo.tb_modeltemplates AS mt WITH (NOLOCK)
     ON mt.MODEL_TEMPLATE_ID = mi.MODEL_TEMPLATE_ID
@@ -71,14 +87,17 @@ LEFT JOIN remote_monami.monami.dbo.tb_division AS sub2 WITH (NOLOCK)
    AND sub2.version_sequence < 1000000000
 WHERE mi.version_sequence < 1000000000
 ) AS src
-WHERE (src.sub1 = N'4-pcs' AND src.sub2 = N'pump')
-   OR (
-        src.sub1 = N'기타'
-        AND src.sub2 = N'middle foreline'
-        AND LOWER(ISNULL(src.instance_nm, N'')) LIKE N'%foreline%'
+WHERE src.instance_id IS NOT NULL
+  AND (
+        (src.sub1 = N'4-pcs' AND src.sub2 = N'pump')
+        OR (
+            src.sub1 = N'기타'
+            AND src.sub2 = N'middle foreline'
+            AND LOWER(ISNULL(src.instance_nm, N'')) LIKE N'%foreline%'
+        )
       );
 
-SELECT instance_id, tag, instance_nm, construction_code, xk, yk, posz
+SELECT instance_id, instance_nm, xk, yk, posz
 INTO #pump
 FROM #model
 WHERE sub1 = N'4-pcs'
@@ -86,23 +105,50 @@ WHERE sub1 = N'4-pcs'
 
 CREATE CLUSTERED INDEX ix_pump ON #pump(instance_id);
 
+-- 이름 필터만 원격에 둔다. pump id 조인은 로컬에서 한다.
+SELECT
+    TRY_CONVERT(uniqueidentifier, a.OWNER_ID) AS owner_id,
+    CONVERT(nvarchar(256), a.ATTRIBUTE_NM) AS attribute_nm,
+    LTRIM(RTRIM(CONVERT(nvarchar(512), a.ATTRIBUTE_VAL))) AS attribute_val
+INTO #attr_named
+FROM remote_monami.monami.dbo.tb_attributes AS a WITH (NOLOCK)
+WHERE a.version_sequence < 1000000000
+  AND a.ATTRIBUTE_NM IN (N'tag', N'Construction-code')
+  AND a.ATTRIBUTE_VAL IS NOT NULL
+  AND LTRIM(RTRIM(CONVERT(nvarchar(512), a.ATTRIBUTE_VAL))) <> N'';
+
+SELECT
+    a.owner_id,
+    MAX(CASE WHEN a.attribute_nm = N'tag' THEN a.attribute_val END) AS tag,
+    MAX(CASE WHEN a.attribute_nm = N'Construction-code' THEN a.attribute_val END) AS construction_code
+INTO #pump_attr
+FROM #attr_named AS a
+JOIN #pump AS p
+    ON p.instance_id = a.owner_id
+WHERE a.owner_id IS NOT NULL
+GROUP BY a.owner_id;
+
+DROP TABLE #attr_named;
+
 SELECT
     pump.instance_id AS pump_id,
-    pump.tag AS pump_tag,
+    attr.tag AS pump_tag,
     pump.instance_nm AS pump_name,
-    pump.construction_code AS pump_construction_code,
+    attr.construction_code AS pump_construction_code,
     pump.xk AS pump_x,
     pump.yk AS pump_y,
     pump.posz AS pump_z,
-    p.INSTANCE_ID AS poc_id,
+    TRY_CONVERT(uniqueidentifier, p.INSTANCE_ID) AS poc_id,
     CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM) AS poc_name,
     ROUND(p.POSX, 1) AS xk,
     ROUND(p.POSY, 1) AS yk,
-    p.POSZ AS posz
+    ROUND(p.POSZ, 1) AS posz
 INTO #vac
 FROM #pump AS pump
+LEFT JOIN #pump_attr AS attr
+    ON attr.owner_id = pump.instance_id
 JOIN remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
-    ON p.OWNER_INSTANCE_ID = pump.instance_id
+    ON TRY_CONVERT(uniqueidentifier, p.OWNER_INSTANCE_ID) = pump.instance_id
    AND p.version_sequence < 1000000000
    AND ISNULL(TRY_CAST(p.OWNER_TYPE AS int), 0) = 768
 JOIN remote_monami.monami.dbo.tb_poctemplates AS pt WITH (NOLOCK)
@@ -112,7 +158,7 @@ WHERE LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) LIKE N'%fore-line%';
 
 CREATE CLUSTERED INDEX ix_vac_xy ON #vac(xk, yk);
 
-SELECT instance_id, tag, instance_nm, xk, yk, posz
+SELECT instance_id, instance_nm, xk, yk, posz
 INTO #mid
 FROM #model
 WHERE sub1 = N'기타'
@@ -137,8 +183,6 @@ WHERE xk IS NOT NULL AND yk IS NOT NULL
 GROUP BY xk, yk;
 
 CREATE UNIQUE CLUSTERED INDEX ix_poc_at ON #poc_at(xk, yk);
-
-IF OBJECT_ID('tempdb..#judged') IS NOT NULL DROP TABLE #judged;
 
 SELECT
     v.pump_id,
