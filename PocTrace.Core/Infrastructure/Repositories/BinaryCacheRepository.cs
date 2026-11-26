@@ -622,6 +622,12 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 poc.ModuleName = r.ReadString();
                 if (cacheVersion >= 11)
                     poc.ConnectionOrder = r.ReadInt32();
+                if (cacheVersion >= 15)
+                {
+                    poc.PosX = r.ReadDouble();
+                    poc.PosY = r.ReadDouble();
+                    poc.PosZ = r.ReadDouble();
+                }
                 list.Add(poc);
             }
             return list;
@@ -726,6 +732,9 @@ namespace PocTrace.Core.Infrastructure.Repositories
                 w.Write(item.UtilityGroupName ?? "");
                 w.Write(item.ModuleName ?? "");
                 w.Write(item.ConnectionOrder ?? 0);
+                w.Write(item.PosX);
+                w.Write(item.PosY);
+                w.Write(item.PosZ);
             }
         }
 

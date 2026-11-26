@@ -24,5 +24,12 @@ namespace PocTrace.Core.Models
 
         /// <summary>DDW tb_pocinstances.connection_order. v10 이하 캐시에서는 null.</summary>
         public int? ConnectionOrder { get; set; }
+
+        /// <summary>tb_pocinstances.posx. 캐시 v15+. 소수 1자리. 없으면 0.</summary>
+        public double PosX { get; set; }
+        /// <summary>tb_pocinstances.posy. 캐시 v15+. 소수 1자리. 없으면 0.</summary>
+        public double PosY { get; set; }
+        /// <summary>tb_pocinstances.posz. 캐시 v15+. 소수 1자리. 없으면 0.</summary>
+        public double PosZ { get; set; }
     }
 }

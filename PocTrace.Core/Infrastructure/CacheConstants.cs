@@ -14,13 +14,14 @@ namespace PocTrace.Core.Infrastructure
     /// v12: nodes에 ModelType·DivisionName, pipes에 PipeType·PipeSizeMm, dynprops에 PipeNumber.
     /// v13: takeoffs에 ConnectionTag, PocId, DuctPipeId. v12 이하는 빈 값.
     /// v14: nodes에 PosX, PosY, PosZ. tb_modelinstances 좌표를 소수 1자리로 둔다. v13 이하는 0.
+    /// v15: pocs에 PosX, PosY, PosZ. tb_pocinstances 좌표를 소수 1자리로 둔다. v14 이하는 0.
     /// Folder layout (independent of record version): GraphCache_{db}/current.txt
     /// points at g{utc}_{id}/ containing all section bins + manifest. Legacy flat
     /// GraphCache_{db}/*.bin is still readable. Manifest may append per-section versions.
     /// </summary>
     public static class CacheConstants
     {
-        public const int CurrentVersion = 14;
+        public const int CurrentVersion = 15;
         /// <summary>v5+ split still loadable (newer fields defaulted). Prefer Admin re-save to CurrentVersion.</summary>
         public const int MinimumSupportedVersion = 5;
 

@@ -72,6 +72,9 @@ namespace PocTrace.Core.Infrastructure.Data
         public string Memo { get; set; }
         public string Tag { get; set; }
         public string ConnectionTag { get; set; }
+        public double PosX { get; set; }
+        public double PosY { get; set; }
+        public double PosZ { get; set; }
         public int OperationType { get; set; }
         public Guid? TargetInstanceId { get; set; }
         public int? TargetOwnerType { get; set; }
@@ -274,7 +277,10 @@ namespace PocTrace.Core.Infrastructure.Data
                         Size = ResolveSize(row),
                         UtilityName = utility ?? "",
                         UtilityGroupName = group ?? "",
-                        ModuleName = module ?? ""
+                        ModuleName = module ?? "",
+                        PosX = NormalizeCoord(row.PosX),
+                        PosY = NormalizeCoord(row.PosY),
+                        PosZ = NormalizeCoord(row.PosZ)
                     });
                 }
             }
