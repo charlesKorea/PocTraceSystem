@@ -20,7 +20,9 @@
 --   좌표만 tb_modelinstances, tb_pocinstances 의 posx, posy, posz 다.
 --
 -- pump: Subdivision1 = 4-pcs, Subdivision2 = pump
+--   설비명에 _LL_ 이 있으면 로드락 펌프라 모수에서 뺀다. 대소문자는 무시한다.
 -- 진공 POC: 그 설비의 owner_type 768 POC 이고 POC template name 에 fore-line 이 있다.
+--   POC 이름에 (LL) 또는 (PS) 가 있으면 그 POC 는 모수에서 뺀다. 대소문자는 무시한다.
 --   POC 좌표는 tb_pocinstances.posx, posy 이다.
 -- middle foreline: Subdivision1 = 기타, Subdivision2 = middle foreline,
 --   객체명에 foreline 이 있다. 좌표는 tb_modelinstances.posx, posy 이다.
@@ -101,7 +103,8 @@ SELECT instance_id, instance_nm, xk, yk, posz
 INTO #pump
 FROM #model
 WHERE sub1 = N'4-pcs'
-  AND sub2 = N'pump';
+  AND sub2 = N'pump'
+  AND LOWER(ISNULL(instance_nm, N'')) NOT LIKE N'%\_ll\_%' ESCAPE N'\';
 
 CREATE CLUSTERED INDEX ix_pump ON #pump(instance_id);
 
@@ -154,7 +157,9 @@ JOIN remote_monami.monami.dbo.tb_pocinstances AS p WITH (NOLOCK)
 JOIN remote_monami.monami.dbo.tb_poctemplates AS pt WITH (NOLOCK)
     ON pt.POC_TEMPLATE_ID = p.POC_TEMPLATE_ID
    AND pt.version_sequence < 1000000000
-WHERE LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) LIKE N'%fore-line%';
+WHERE LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) LIKE N'%fore-line%'
+  AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ll)%'
+  AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ps)%';
 
 CREATE CLUSTERED INDEX ix_vac_xy ON #vac(xk, yk);
 
