@@ -8,9 +8,9 @@ namespace PocTrace.Core.Engine.Logic
   public partial class TraceAlgorithm
   {
     /// <summary>
-    /// 시작 POC의 Utility Group에 "water"가 포함되면 Takeoff에서 TOF로 종료하지 않고
+    /// 시작 POC의 Utility Group에 "water"가 포함되고 아직 방문하지 않은 하류가 있으면
     /// Takeoff.PipeId(또는 분기 배관)를 통해 기존 BFS를 계속한다.
-    /// Water가 아니면 false를 반환하여 호출부의 기존 TOF 로직을 그대로 수행한다.
+    /// Water가 아니거나 미방문 하류가 없으면 false를 반환해 호출부가 TOF로 끝낸다.
     /// </summary>
     private bool TryContinueFromWaterTakeoff(
       TakeoffData takeoff,
@@ -46,11 +46,10 @@ namespace PocTrace.Core.Engine.Logic
 
       if (!TryResolveTakeoffContinuationPoint(takeoff, state.VisitedNodes, out var continuationOutlet))
       {
-        LogDetailed("  💧 [Water UT] Takeoff({Tag})에 연결된 배관 PipeId를 찾지 못했습니다 — ING 처리.", takeoff.Tag);
-        results.Add(CreateResult(
-          startEquipTag, startPoc, EndPointType.Broken, ValidationStatus.Error,
-          steps, currentLen, $"Water Takeoff[{takeoff.Tag}] - No connected pipe", takeoff.TakeoffId));
-        return true;
+        // S5D TakeoffLog.PipeID는 방금 걸어온 배관인 경우가 많다. 그 배관을 하류로 다시 넣으면 Open Pipe ING가 된다.
+        // 미방문 하류가 없으면 Takeoff 자체가 끝이다. 호출부가 TOF를 기록한다.
+        LogDetailed("  💧 [Water UT] Takeoff({Tag})에 미방문 하류 배관이 없습니다 — TOF로 종료합니다.", takeoff.Tag);
+        return false;
       }
 
       var visited = new HashSet<Guid>(state.VisitedNodes) { takeoff.TakeoffId };
@@ -84,7 +83,9 @@ namespace PocTrace.Core.Engine.Logic
     {
       nextOutlet = Guid.Empty;
 
-      if (takeoff.PipeId != Guid.Empty && _cache.TryGetPipe(takeoff.PipeId, out _))
+      if (takeoff.PipeId != Guid.Empty
+          && (visitedNodes == null || !visitedNodes.Contains(takeoff.PipeId))
+          && _cache.TryGetPipe(takeoff.PipeId, out _))
       {
         nextOutlet = takeoff.PipeId;
         return true;

@@ -14,7 +14,7 @@ Outlet이 Takeoff(Damper)이면 **아래 순서**로 처리합니다 (`TraceAlgo
 | 우선순위 | 특례 이름 | 조건(시작 POC/설비) | 동작 | STATUS 결과 경향 |
 |----------|-----------|---------------------|------|------------------|
 | 1 | MainLine Takeoff (VOC-1) | SubDivision1에 **MAIN** + UtilityName에 **vent / vac / fore line·fore-line·foreline** | TOF로 **종료하지 않음**. Takeoff를 Step에 넣고 하류 continuation을 BFS 큐에 등록. **형제 큐 폐기**. 종료 후 EQP가 있으면 **최단 EQP 1건만** 남김 | 정상: **EQP**(TOF 경유). 실패: ING 등 |
-| 2 | Water Takeoff | UtilityGroupName에 **water** (대소문자 무시) | TOF로 **종료하지 않음**. continuation을 큐에 등록(형제 큐는 유지). 기존 BFS로 NOZ/CAP/EQP 계속 | 하류 종단 STATUS |
+| 2 | Water Takeoff | UtilityGroupName에 **water** (대소문자 무시) | 미방문 하류가 있으면 continuation을 큐에 등록(형제 큐는 유지). 이미 지나온 PipeId나 하류가 없으면 **TOF** | 하류가 있으면 그 STATUS, 없으면 **TOF** |
 | 3 | 일반 Takeoff | 위 둘 아님 | Takeoff에서 **TOF로 종료**. Tag 관련 여부는 `EquipmentTagMatcher` | **TOF** |
 
 ```
@@ -30,7 +30,7 @@ POC → Pipe → … → Takeoff?
 
 | No | 특례ID | 구분 | 적용 조건 | 엔진 동작(상세) | 결과/부작용 | 검수 연계 | 구현 파일 |
 |----|--------|------|-----------|-----------------|-------------|-----------|-----------|
-| 1 | SP-WATER-TOF | Trace 엔진 | 시작 POC `UtilityGroupName`에 "water" 포함 | Takeoff Step(`Damper[Tag]`, NodeType=Takeoff) 추가 후, `TryResolveTakeoffContinuationPoint`로 하류 Outlet을 구해 큐 Enqueue. 재방문 Takeoff는 역류로 **소멸(ING 미기록)**. continuation 없으면 **ING** (`Water Takeoff[…] - No connected pipe`) | 일반 TOF 종료 억제. Water는 형제 분기 큐를 비우지 않음 | TOF로 남으면 연결정보상이 Feedback에 `{UtilityGroup} Takeoff` 문구 가능. Water는 보통 TOF가 아닌 하류 STATUS | `TraceAlgorithm.WaterTakeoff.cs` |
+| 1 | SP-WATER-TOF | Trace 엔진 | 시작 POC `UtilityGroupName`에 "water" 포함 | 미방문 하류 Outlet이 있으면 큐 Enqueue. 재방문 Takeoff는 역류로 **소멸(ING 미기록)**. 이미 지나온 `PipeId`는 하류가 아니며, 미방문 하류가 없으면 **TOF** | Water는 형제 분기 큐를 비우지 않음. 하류가 없을 때 ING로 멈추지 않음 | 하류 STATUS 또는 TOF | `TraceAlgorithm.WaterTakeoff.cs` |
 | 2 | SP-MAINLINE-TOF | Trace 엔진 (VOC-1) | Owner Sub1에 "MAIN" + UtilityName이 vent/vac/fore line/fore-line/foreline 중 하나 **포함** | Water와 동일 continuation + BFS. **차이**: TOF 도달 시 `queue.Clear()`로 형제 분기 폐기 후 continuation만 진행. Trace 종료 시 `PreferMainLineEqpResult`: EQP 있으면 Length→Hop 순 **최단 EQP 1건**, 나머지 폐기. EQP 없으면 하류 결과 유지 | 연속 Takeoff에서도 자체 루프 ING 오탐 방지(구버전 버그 수정). 단일 최단 EQP 전제 | `MainLineTraceHelper.IsMainLineTofChaseResult` = EQP + MAIN + vent/vac/fore* + Steps에 Takeoff → 연결정보상이에서 S.Tag≠T.Tag 검사 | `TraceAlgorithm.MainLineTakeoff.cs`, `MainLineTraceHelper.cs` |
 | 3 | SP-TOF-DEFAULT | Trace 엔진 | MainLine·Water 아님 | Takeoff에서 종료. `AreRelated(takeoff.Tag, startEquipTag)`로 Match/Mismatch | STATUS=TOF | 연결정보상이: S.Tag vs T.Tag(Damper[…]) | `TraceAlgorithm.cs` |
 | 4 | SP-CONT-RESOLVE | 공통 해석 | Water·MainLine continuation | (1) `Takeoff.PipeId`가 유효 Pipe면 그 PipeId를 다음 Outlet. (2) 아니면 TakeoffId를 Outlet으로 갖는 **부모 Pipe**의 다른 Outlet 중 미방문 → 다른 Takeoff / Pipe / POC | continuation 실패 시 ING | — | `TryResolveTakeoffContinuationPoint` (Water 파일) |
@@ -49,24 +49,24 @@ POC → Pipe → … → Takeoff?
 | 항목 | Water | MainLine (VOC-1) |
 |------|-------|------------------|
 | 판정 키 | Utility**Group**에 water | Sub1에 MAIN + Utility**Name**에 vent/vac/fore* |
-| Takeoff에서 종료? | 아니오 | 아니오 |
+| Takeoff에서 종료? | 미방문 하류가 없으면 TOF | 아니오 |
 | 형제 BFS 큐 | 유지 | **Clear (폐기)** |
 | 종료 후 결과 필터 | 없음(다수 경로 가능) | EQP 있으면 **최단 1건만** |
 | 재방문 Takeoff | 소멸(결과 없음) | 동일 |
-| continuation 없음 | ING | ING |
+| continuation 없음 | TOF | ING |
 | 검수 포인트 | 하류 STATUS 기준 | EQP+TOF경유 시 Tag 연결정보상이 강화 |
 
 ---
 
 ## 4. continuation Outlet 해석 순서
 
-1. `TakeoffData.PipeId`가 캐시에 존재 → 다음 진입점 = 그 PipeId  
-2. 아니면 TakeoffId가 Outlet인 부모 Pipe의 Outlet1/2/3 중  
-   - 자기 Takeoff / 방문 노드 제외  
-   - 다른 Takeoff → 그 ID  
-   - Pipe → 그 PipeId  
-   - POC → 그 InstanceId  
-3. 모두 실패 → Broken(ING)
+1. `TakeoffData.PipeId`가 캐시에 있고 아직 방문하지 않은 배관이면 다음 진입점 = 그 PipeId. 이미 지나온 배관이면 하류가 아니다.
+2. 아니면 TakeoffId가 Outlet인 부모 Pipe의 Outlet1/2/3 중
+   - 자기 Takeoff / 방문 노드 제외
+   - 다른 Takeoff → 그 ID
+   - Pipe → 그 PipeId
+   - POC → 그 InstanceId
+3. Water는 모두 실패하면 TOF. MainLine은 Broken(ING)
 
 ---
 
@@ -74,7 +74,7 @@ POC → Pipe → … → Takeoff?
 
 | 현상 | 의심 |
 |------|------|
-| Water인데 STATUS가 TOF로만 끝남 | UtilityGroupName에 "water" 문자열 없음(오타·다른 그룹명) |
+| Water인데 댐퍼에서 ING | 미방문 하류가 없는데 ING로 남긴 옛 분기. 지금은 TOF |
 | MAIN vent인데 TOF로 끝남 | Sub1에 MAIN 없음, 또는 UT명에 vent/vac/fore* 미포함 |
 | MainLine이 자꾸 ING | continuation PipeId 미연결, 또는 EQP 미도달 |
 | MainLine EQP는 맞는데 다른 분기 결과 사라짐 | 정상(형제 큐 폐기 + Prefer 최단 EQP) |

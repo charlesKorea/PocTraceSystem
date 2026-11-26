@@ -14,7 +14,7 @@
 | 优先级 | 特例名称 | 条件（起始 POC/设备） | 行为 | STATUS 倾向 |
 |--------|----------|----------------------|------|-------------|
 | 1 | MainLine Takeoff (VOC-1) | SubDivision1 含 **MAIN**，且 UtilityName 含 **vent / vac / fore line·fore-line·foreline** | **不以 TOF 结束**。写入 Takeoff Step，将下游 continuation 入 BFS 队列。**清空兄弟队列**。结束后若有 EQP，只保留**最短 EQP 1 条** | 正常：**EQP**（经 TOF）。失败：ING 等 |
-| 2 | Water Takeoff | UtilityGroupName 含 **water**（忽略大小写） | **不以 TOF 结束**。continuation 入队（保留兄弟队列）。继续 BFS 至 NOZ/CAP/EQP | 下游终点 STATUS |
+| 2 | Water Takeoff | UtilityGroupName 含 **water**（忽略大小写） | 有未访问下游时 continuation 入队（保留兄弟队列）。已走过的 PipeId 或没有下游时 **TOF** | 有下游则为其 STATUS，否则 **TOF** |
 | 3 | 普通 Takeoff | 非以上 | 在 Takeoff **以 TOF 结束**。Tag 相关用 `EquipmentTagMatcher` | **TOF** |
 
 ```
@@ -30,10 +30,10 @@ POC → Pipe → … → Takeoff?
 
 | No | 特例ID | 类型 | 适用条件 | 引擎行为（详细） | 结果/副作用 | 检核关联 | 实现文件 |
 |----|--------|------|----------|------------------|-------------|----------|----------|
-| 1 | SP-WATER-TOF | Trace 引擎 | 起始 POC `UtilityGroupName` 含 "water" | 追加 Takeoff Step（`Damper[Tag]`），用 `TryResolveTakeoffContinuationPoint` 求下游 Outlet 并 Enqueue。再次访问同一 Takeoff 视为回流**消亡（不记 ING）**。无 continuation → **ING** | 抑制普通 TOF 结束。Water **不清空**兄弟队列 | 若仍为 TOF，连接信息不符 Feedback 可能含 `{UtilityGroup} Takeoff`。通常为下游 STATUS | `TraceAlgorithm.WaterTakeoff.cs` |
+| 1 | SP-WATER-TOF | Trace 引擎 | 起始 POC `UtilityGroupName` 含 "water" | 有未访问下游 Outlet 则 Enqueue。再次访问同一 Takeoff 视为回流**消亡（不记 ING）**。已走过的 `PipeId` 不是下游，没有未访问下游时 **TOF** | Water **不清空**兄弟队列。没有下游时不再记 ING | 下游 STATUS 或 TOF | `TraceAlgorithm.WaterTakeoff.cs` |
 | 2 | SP-MAINLINE-TOF | Trace 引擎 (VOC-1) | Owner Sub1 含 "MAIN"，且 UtilityName 包含 vent/vac/fore line/fore-line/foreline | 与 Water 相同 continuation+BFS。**差异**：到达 TOF 时 `queue.Clear()` 丢弃兄弟分支；结束时 `PreferMainLineEqpResult`：有 EQP 则按 Length→Hop 保留**最短 1 条**。无 EQP 则保留下游全部结果 | 修复旧版连续 Takeoff 误判 ING。前提为单一最短 EQP | `MainLineTraceHelper.IsMainLineTofChaseResult`（EQP+MAIN+vent/vac/fore*+Steps 含 Takeoff）→ 连接信息不符检查 S.Tag≠T.Tag | `TraceAlgorithm.MainLineTakeoff.cs`, `MainLineTraceHelper.cs` |
 | 3 | SP-TOF-DEFAULT | Trace 引擎 | 非 MainLine/Water | 在 Takeoff 结束；`AreRelated(takeoff.Tag, startEquipTag)` | STATUS=TOF | 连接信息不符：S.Tag vs T.Tag | `TraceAlgorithm.cs` |
-| 4 | SP-CONT-RESOLVE | 共用解析 | Water·MainLine | (1) 有效 `Takeoff.PipeId` → 下一 Outlet；(2) 否则父 Pipe 其他未访问 Outlet → Takeoff/Pipe/POC | 失败 → ING | — | `TryResolveTakeoffContinuationPoint` |
+| 4 | SP-CONT-RESOLVE | 共用解析 | Water·MainLine | (1) 未访问的 `Takeoff.PipeId` → 下一 Outlet；(2) 否则父 Pipe 其他未访问 Outlet → Takeoff/Pipe/POC | Water 失败 → TOF。MainLine 失败 → ING | — | `TryResolveTakeoffContinuationPoint` |
 | 5 | SP-TAG-MATCH | Tag 比较 | 搜索/检核/TOF Match | 精确匹配 · 双向包含 · `Damper[a,b]` 去括号 · 逗号/分号**令牌交集**（Scrubber） · 遗留 substring | 减少误报 | 设备信息/连接信息/TOF Match | `EquipmentTagMatcher.cs` |
 | 6 | SP-GCS-EQP-SKIP | 检核例外 | 设备信息不符 | Start 或 Target **Sub1 含 GCS** 则跳过 Tag 不符 | 防 GCS Stick 误报 | `EquipmentInfoMismatchRule` | 同左 |
 | 7 | SP-INOUT-SKIP | 检核例外 | 连接信息不符 EQP | Information 为 IN/OUT 则跳过 | — | `ConnectionInfoMismatchRule` | 同左 |
@@ -49,20 +49,20 @@ POC → Pipe → … → Takeoff?
 | 项目 | Water | MainLine (VOC-1) |
 |------|-------|------------------|
 | 判定键 | Utility**Group** 含 water | Sub1 含 MAIN + Utility**Name** 含 vent/vac/fore* |
-| 在 Takeoff 结束？ | 否 | 否 |
+| 在 Takeoff 结束？ | 没有未访问下游时 TOF | 否 |
 | 兄弟 BFS 队列 | 保留 | **清空** |
 | 结束后过滤 | 无（可多路径） | 有 EQP 则**只留最短 1 条** |
 | 再访 Takeoff | 消亡（无结果） | 相同 |
-| 无 continuation | ING | ING |
+| 无 continuation | TOF | ING |
 | 检核重点 | 下游 STATUS | EQP 经 TOF 时强化 Tag 连接检查 |
 
 ---
 
 ## 4. continuation Outlet 解析顺序
 
-1. `TakeoffData.PipeId` 在缓存中存在 → 下一入口 = 该 PipeId  
-2. 否则：以 TakeoffId 为 Outlet 的父 Pipe 的 Outlet1/2/3 中，排除自身与已访问 → 其他 Takeoff / Pipe / POC  
-3. 全失败 → Broken(ING)
+1. `TakeoffData.PipeId` 在缓存中且尚未访问 → 下一入口 = 该 PipeId。已经走过的配管不是下游。
+2. 否则：以 TakeoffId 为 Outlet 的父 Pipe 的 Outlet1/2/3 中，排除自身与已访问 → 其他 Takeoff / Pipe / POC
+3. Water 全失败则 TOF。MainLine 为 Broken(ING)
 
 ---
 
@@ -70,7 +70,7 @@ POC → Pipe → … → Takeoff?
 
 | 现象 | 可能原因 |
 |------|----------|
-| 是 Water 却以 TOF 结束 | UtilityGroupName 不含 "water" |
+| Water 在 damper 处变成 ING | 没有未访问下游时旧逻辑记了 ING。现在记 TOF |
 | MAIN vent 却以 TOF 结束 | Sub1 无 MAIN，或 UT 名无 vent/vac/fore* |
 | MainLine 常 ING | continuation 未连上，或未达 EQP |
 | MainLine EQP 正确但其他分支结果消失 | 正常（清队列 + Prefer 最短 EQP） |

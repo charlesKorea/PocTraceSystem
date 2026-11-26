@@ -47,6 +47,15 @@ namespace PocTrace.Core.Engine.Validation
             if (string.IsNullOrWhiteSpace(result.StartPocUtilityName))
                 MarkEquipmentIntegrity(result);
 
+            // X1, X2: Connector Use N인데 배관이 있으면 미사용이 아니다. ING/모델링 미완료로 두지 않는다.
+            if (IsS5dConnectorUseWithPipe(cache, result))
+            {
+                result.EndType = EndPointType.DataError;
+                SetInvalidPOC(result, "데이터 미정합", "Connector Use:N,배관존재");
+                result.FailCount = result.IssueList.Count;
+                return;
+            }
+
             // 3. 검수 로직
             if (검수제외PASS체크(result)) return; // EMP & 비대상
 
@@ -140,6 +149,33 @@ namespace PocTrace.Core.Engine.Validation
             }
 
             r.totalInvalidCount++;
+        }
+
+        /// <summary>X1, X2에서 Connector Use가 N이고 추적 경로에 배관이 있다.</summary>
+        private static bool IsS5dConnectorUseWithPipe(IGraphCache cache, TraceResult result)
+        {
+            if (result == null || cache == null)
+                return false;
+            if (DdwLine.IsCacheKey(cache.DbName))
+                return false;
+            if (!string.Equals(result.StartPocConnectorUse, "N", StringComparison.OrdinalIgnoreCase))
+                return false;
+            return HasDesignedPipe(result);
+        }
+
+        private static bool HasDesignedPipe(TraceResult result)
+        {
+            if (result?.Steps == null)
+                return false;
+            for (int i = 0; i < result.Steps.Count; i++)
+            {
+                var step = result.Steps[i];
+                if (step == null || string.IsNullOrEmpty(step.NodeType))
+                    continue;
+                if (step.NodeType.IndexOf("Pipe", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>POC Utility가 비어 있으면 데이터 정합 이슈. 오너는 ft 기술.</summary>
@@ -445,8 +481,10 @@ namespace PocTrace.Core.Engine.Validation
             if (r.StartEquipmentPZ > 100000) //10만 이상의 설비는 검수 제외
                 return true;
 
-            // Connector Use = N 은 미사용 POC — 검수 제외 (PASS)
-            if (string.Equals(r.StartPocConnectorUse, "N", StringComparison.OrdinalIgnoreCase))
+            // Connector Use = N 이고 배관이 없으면 미사용 POC — 검수 제외 (PASS).
+            // 배관이 있는 X1, X2는 Validate 앞에서 ERR로 처리한다.
+            if (string.Equals(r.StartPocConnectorUse, "N", StringComparison.OrdinalIgnoreCase)
+                && !HasDesignedPipe(r))
             {
                 r.IsValidationTarget = false;
                 return true;
