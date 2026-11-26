@@ -18,7 +18,7 @@
 -- 예. middle foreline (207669.97, 47104.53), (207669.97, 46604.53)
 --     POC (207666.97, 47054.53) 는 같은 키가 없다.
 --     POC (207669.97, 46604.53) 는 두 번째 피팅과 1:1 이다.
---     그 pump 는 첫 결과 집합에 남고, 둘째 결과에서 POC 별 상태가 보인다.
+--     그 pump 의 어긋난 POC 한 행이 결과에 남는다. pump 이름, tag, construction code, 좌표가 같이 있다.
 --
 -- 연결 서버나 카탈로그가 다르면 remote_monami.monami 를 바꾼다.
 -- live 는 version_sequence < 1000000000 이다.
@@ -37,6 +37,7 @@ SELECT
     src.instance_id,
     src.tag,
     src.instance_nm,
+    src.construction_code,
     src.sub1,
     src.sub2,
     src.xk,
@@ -52,6 +53,7 @@ SELECT
         ELSE CONVERT(nvarchar(512), mi.[tag])
     END AS tag,
     CONVERT(nvarchar(512), mi.INSTANCE_NM) AS instance_nm,
+    CONVERT(nvarchar(512), mi.[construction_code]) AS construction_code,
     LOWER(COALESCE(NULLIF(CONVERT(nvarchar(256), mt.[Subdivision_1_name]), N''), CONVERT(nvarchar(256), sub1.DIVISION_VALUE))) AS sub1,
     LOWER(COALESCE(NULLIF(CONVERT(nvarchar(256), mt.[Subdivision_2_name]), N''), CONVERT(nvarchar(256), sub2.DIVISION_VALUE))) AS sub2,
     ROUND(mi.POSX, 1) AS xk,
@@ -76,7 +78,7 @@ WHERE (src.sub1 = N'4-pcs' AND src.sub2 = N'pump')
         AND LOWER(ISNULL(src.instance_nm, N'')) LIKE N'%foreline%'
       );
 
-SELECT instance_id, tag, instance_nm
+SELECT instance_id, tag, instance_nm, construction_code, xk, yk, posz
 INTO #pump
 FROM #model
 WHERE sub1 = N'4-pcs'
@@ -88,6 +90,10 @@ SELECT
     pump.instance_id AS pump_id,
     pump.tag AS pump_tag,
     pump.instance_nm AS pump_name,
+    pump.construction_code AS pump_construction_code,
+    pump.xk AS pump_x,
+    pump.yk AS pump_y,
+    pump.posz AS pump_z,
     p.INSTANCE_ID AS poc_id,
     CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM) AS poc_name,
     ROUND(p.POSX, 1) AS xk,
@@ -138,6 +144,10 @@ SELECT
     v.pump_id,
     v.pump_tag,
     v.pump_name,
+    v.pump_construction_code,
+    v.pump_x,
+    v.pump_y,
+    v.pump_z,
     v.poc_id,
     v.poc_name,
     v.xk AS poc_x,
@@ -146,11 +156,11 @@ SELECT
     ISNULL(f.fit_count, 0) AS fitting_count_at_xy,
     pa.poc_count AS poc_count_at_xy,
     CASE
-        WHEN v.xk IS NULL OR v.yk IS NULL THEN N'no coordinate'
-        WHEN ISNULL(f.fit_count, 0) = 0 THEN N'no middle foreline'
-        WHEN f.fit_count > 1 THEN N'multiple middle foreline'
-        WHEN pa.poc_count > 1 THEN N'multiple vacuum poc'
-        ELSE N'match'
+        WHEN v.xk IS NULL OR v.yk IS NULL THEN N'좌표없음'
+        WHEN ISNULL(f.fit_count, 0) = 0 THEN N'middle foreline 없음'
+        WHEN f.fit_count > 1 THEN N'middle foreline 여러개'
+        WHEN pa.poc_count > 1 THEN N'진공POC 여러개'
+        ELSE N'일치'
     END AS align_result
 INTO #judged
 FROM #vac AS v
@@ -159,36 +169,22 @@ LEFT JOIN #fit_at AS f
 LEFT JOIN #poc_at AS pa
     ON pa.xk = v.xk AND pa.yk = v.yk;
 
--- 1. 진공 POC 중 하나라도 1:1 이 아닌 pump.
+-- 불일치 POC 한 행. pump 이름, tag, construction code, 좌표와 그 POC 정보를 같이 둔다.
 SELECT
-    pump_id,
-    pump_tag,
-    pump_name,
-    COUNT(*) AS vacuum_poc_count,
-    SUM(CASE WHEN align_result = N'match' THEN 1 ELSE 0 END) AS matched_count,
-    SUM(CASE WHEN align_result = N'match' THEN 0 ELSE 1 END) AS unmatched_count
-FROM #judged
-GROUP BY pump_id, pump_tag, pump_name
-HAVING SUM(CASE WHEN align_result = N'match' THEN 0 ELSE 1 END) > 0
-ORDER BY pump_tag, pump_name;
-
--- 2. 그 pump 의 진공 POC 전부. 맞는 POC 와 어긋난 POC 가 같이 보인다.
-SELECT
-    j.pump_tag,
+    j.align_result,
     j.pump_name,
+    j.pump_tag,
+    j.pump_construction_code,
+    j.pump_x,
+    j.pump_y,
+    j.pump_z,
     j.poc_id,
     j.poc_name,
     j.poc_x,
     j.poc_y,
     j.poc_z,
-    j.align_result,
     j.fitting_count_at_xy,
     j.poc_count_at_xy
 FROM #judged AS j
-WHERE EXISTS (
-    SELECT 1
-    FROM #judged AS bad
-    WHERE bad.pump_id = j.pump_id
-      AND bad.align_result <> N'match'
-)
-ORDER BY j.pump_tag, j.poc_name, j.poc_x, j.poc_y;
+WHERE j.align_result <> N'일치'
+ORDER BY j.pump_tag, j.pump_name, j.poc_name, j.poc_x, j.poc_y;
