@@ -341,7 +341,7 @@ namespace PocTrace.Core.Engine.Reporting
                 }
                 wsPath.Cells.AutoFitColumns();
 
-                if (cache != null && DdwLine.IsCacheKey(cache.DbName))
+                if (cache != null)
                 {
                     var wsTrace = package.Workbook.Worksheets.Add("Pipe");
                     for (int c = 0; c < DdwTraceSheet.Headers.Length; c++)

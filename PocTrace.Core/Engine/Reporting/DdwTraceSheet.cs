@@ -10,7 +10,8 @@ using Serilog;
 namespace PocTrace.Core.Engine.Reporting
 {
     /// <summary>
-    /// x2_m 추적 시트. Testbench 추적 시트의 한 홉을 UI 경로 스텝으로 적는다. Num은 1부터다.
+    /// 추적 Pipe 시트. 한 행은 경로의 한 홉이다. Num은 1부터다.
+    /// x2_m은 DDW id와 타입 이름을 쓴다. x1, x2는 숫자 id와 노드 종류를 쓰고, Takeoff hookup은 그 배관 id를 본다.
     /// </summary>
     public static class DdwTraceSheet
     {
@@ -28,8 +29,9 @@ namespace PocTrace.Core.Engine.Reporting
         public static List<object[]> Build(IGraphCache cache, IList<TraceResult> results)
         {
             var rows = new List<object[]>();
-            if (cache == null || results == null || !DdwLine.IsCacheKey(cache.DbName))
+            if (cache == null || results == null)
                 return rows;
+            bool ddw = DdwLine.IsCacheKey(cache.DbName);
 
             for (int r = 0; r < results.Count; r++)
             {
@@ -49,28 +51,27 @@ namespace PocTrace.Core.Engine.Reporting
                     string connectionTag;
                     Guid attributeOwner;
                     ResolveAttributes(cache, cur, endPocId, out tag, out connectionTag, out attributeOwner);
-                    string pipeNumber = Prop(cache, attributeOwner, true);
-                    // [DEBUG pipe number]
-                    if (LogPipeNumberLookupEnabled)
-                        LogPipeNumberLookup(cache, result, i, cur, endPocId, attributeOwner, pipeNumber);
+                    // [DEBUG pipe number] x2_m만. x1, x2 엑셀에 DDW SQL을 붙이지 않는다.
+                    if (ddw && LogPipeNumberLookupEnabled)
+                        LogPipeNumberLookup(cache, result, i, cur, endPocId, attributeOwner, Prop(cache, attributeOwner, true));
                     Guid ownerId;
                     string ownerName;
                     StartOwner(cache, startPocId, prev, out ownerId, out ownerName);
                     rows.Add(new object[]
                     {
-                        DdwId.Text(ownerId),
+                        IdText(cache, ownerId, ddw),
                         ownerName,
-                        PocLabel(cache, startPocId),
-                        DdwId.Text(startPocId),
+                        PocName(cache, startPocId, prev),
+                        IdText(cache, startPocId, ddw),
                         i,
                         UtilityGroup(cache, endPocId),
                         Utility(cache, endPocId, cur, endPipe),
                         PipeSize(cache, cur, endPipe),
                         endPipe ? PipeLength(cache, cur.NodeId) : 0d,
                         Prop(cache, attributeOwner, false),
-                        EndLabel(cache, endPocId),
+                        PocName(cache, endPocId, cur),
                         EndModelName(cache, cur, endPipe),
-                        EndType(cache, cur, endPipe),
+                        EndType(cache, cur, endPipe, ddw),
                         DivisionText(cache, cur, endPipe),
                         endPipe ? "" : (cache.GetSubdivision1(cur.NodeId) ?? ""),
                         endPipe ? "" : (cache.GetSubdivision2(cur.NodeId) ?? ""),
@@ -111,7 +112,7 @@ namespace PocTrace.Core.Engine.Reporting
             if (IsPipe(prev))
             {
                 var ep = EndpointLeaving(cache, prev.NodeId, prev.OutletUsed, cur.NodeId);
-                return ep == null ? Guid.Empty : ep.PocInstanceId;
+                return EndpointPoc(cache, ep);
             }
             PocData poc = PocOnOwner(cache, prev.NodeId, prev.OutletUsed, cur.NodeId);
             return poc == null ? Guid.Empty : poc.InstanceId;
@@ -123,7 +124,7 @@ namespace PocTrace.Core.Engine.Reporting
             {
                 Guid from = startPocId != Guid.Empty ? startPocId : (prev == null ? Guid.Empty : prev.NodeId);
                 var ep = EndpointArriving(cache, cur.NodeId, from, prev == null ? Guid.Empty : prev.NodeId);
-                return ep == null ? Guid.Empty : ep.PocInstanceId;
+                return EndpointPoc(cache, ep);
             }
             if (prev != null && prev.OutletUsed.HasValue && cache.TryGetPoc(prev.OutletUsed.Value, out _))
                 return prev.OutletUsed.Value;
@@ -188,6 +189,40 @@ namespace PocTrace.Core.Engine.Reporting
             return step != null && step.NodeType != null && step.NodeType.IndexOf("Pipe", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        /// <summary>DDW는 끝점의 POC id다. S5D outlet은 대상 id만 있고, 그 대상이 POC일 때 그 id를 쓴다.</summary>
+        private static Guid EndpointPoc(IGraphCache cache, PipeEndpoint ep)
+        {
+            if (ep == null)
+                return Guid.Empty;
+            if (ep.PocInstanceId != Guid.Empty)
+                return ep.PocInstanceId;
+            if (ep.NormalizedTarget.HasValue && cache.TryGetPoc(ep.NormalizedTarget.Value, out _))
+                return ep.NormalizedTarget.Value;
+            return Guid.Empty;
+        }
+
+        private static string IdText(IGraphCache cache, Guid id, bool ddw)
+        {
+            if (id == Guid.Empty)
+                return "";
+            if (ddw)
+                return DdwId.Text(id);
+            NodeInfo node;
+            if (cache.TryGetNode(id, out node) && node != null && node.InstanceNumericId != 0)
+                return TraceResultExcelExporter.FormatInstanceIdText(node.InstanceNumericId);
+            return id.ToString("D").ToUpperInvariant();
+        }
+
+        private static string PocName(IGraphCache cache, Guid pocId, TraceStep fallback)
+        {
+            string label = PocLabel(cache, pocId);
+            if (pocId != Guid.Empty || fallback == null || fallback.NodeType == null)
+                return label;
+            if (fallback.NodeType.Equals("Takeoff", StringComparison.OrdinalIgnoreCase))
+                return string.IsNullOrEmpty(fallback.NodeName) ? "Takeoff" : fallback.NodeName;
+            return label;
+        }
+
         private static string PocLabel(IGraphCache cache, Guid pocId)
         {
             PocData poc;
@@ -196,13 +231,10 @@ namespace PocTrace.Core.Engine.Reporting
             return "pipe";
         }
 
-        private static string EndLabel(IGraphCache cache, Guid pocId)
+        private static string EndType(IGraphCache cache, TraceStep step, bool endPipe, bool ddw)
         {
-            return PocLabel(cache, pocId);
-        }
-
-        private static string EndType(IGraphCache cache, TraceStep step, bool endPipe)
-        {
+            if (!ddw)
+                return step.NodeType ?? "";
             if (endPipe)
             {
                 PipeData pipe;
@@ -297,7 +329,12 @@ namespace PocTrace.Core.Engine.Reporting
                 {
                     tag = takeoff.Tag ?? "";
                     connectionTag = takeoff.ConnectionTag ?? "";
-                    attributeOwner = takeoff.DuctPipeId;
+                    if (DdwLine.IsCacheKey(cache.DbName))
+                        attributeOwner = takeoff.DuctPipeId;
+                    else if (takeoff.PipeId != Guid.Empty)
+                        attributeOwner = takeoff.PipeId;
+                    else
+                        attributeOwner = takeoff.TakeoffId;
                 }
                 return;
             }
