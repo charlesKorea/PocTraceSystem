@@ -296,85 +296,15 @@ PT.initDetailCharts = function(dto, history) {
         }
     });
   */
-            // ----------------------------
-    // B. Bar Chart (Process Stats — ProcessStats DTO 직접 사용, 0도 숫자 표기)
-    // ----------------------------
-    // 공정별 검수 현황: POC 기준 검수 설비 총 수량 / Fail 설비 수량 / Fail Rate
-    const dark = PT.isDark();
-    const procStats = {};
-    (dto.Equipments || []).forEach(function (e) {
-        const k = e.Process || '-';
-        const a = procStats[k] || (procStats[k] = { total: 0, fail: 0 });
-        a.total++;
-        if (e.Result === 'FAIL') a.fail++;
-    });
-    const failRateOf = function (k) {
-        const d = procStats[k];
-        return d && d.total > 0 ? d.fail / d.total * 100 : 0;
-    };
-    const categories = Object.keys(procStats).sort(function (a, b) {
-        return (failRateOf(b) - failRateOf(a)) || (procStats[b].total - procStats[a].total);
-    });
-
-    const nameTotal = T('proc_eqp_total');
-    const nameFail = T('proc_eqp_fail');
-    const nameRate = T('proc_fail_rate');
-    const rateColor = dark ? '#ffb703' : '#c1121f';
-    const countLabelColor = dark ? '#e5e5ea' : '#343a40';
-
-    const barChart = echarts.init(document.getElementById('barChart'));
-    PT.state.charts.push(barChart);
-    barChart.setOption({
-        tooltip: {
-            trigger: 'axis', axisPointer: { type: 'shadow' },
-            formatter: function(params) {
-                const key = categories[params[0].dataIndex];
-                const d = procStats[key] || { total: 0, fail: 0 };
-                return '<strong>' + key + '</strong><br/>' +
-                    nameTotal + ': <b>' + PT.formatNum(d.total) + '</b><br/>' +
-                    nameFail + ': <b>' + PT.formatNum(d.fail) + '</b><br/>' +
-                    nameRate + ': <b>' + Math.round(failRateOf(key)) + '%</b>';
-            }
-        },
-        legend: { bottom: 0 },
-        grid: { left: '3%', right: '4%', bottom: '14%', top: '12%', containLabel: true },
-        xAxis: { type: 'category', data: categories, axisLabel: { interval: 0, rotate: categories.length > 6 ? 30 : 0 } },
-        yAxis: [
-            { type: 'value', name: 'Count', minInterval: 1 },
-            { type: 'value', name: '%', min: 0, max: 100, splitLine: { show: false }, axisLabel: { formatter: '{value}%' } }
-        ],
-        series: [
-            {
-                name: nameTotal, type: 'bar', color: dark ? '#5b8def' : '#4895ef', barMaxWidth: 36,
-                data: categories.map(function (k) { return procStats[k].total; }),
-                label: { show: true, position: 'top', color: countLabelColor, fontWeight: 'bold', fontSize: 11, formatter: function (p) { return PT.formatNum(p.value); } }
-            },
-            {
-                name: nameFail, type: 'bar', color: '#e63946', barMaxWidth: 36,
-                data: categories.map(function (k) { return procStats[k].fail; }),
-                label: { show: true, position: 'top', color: countLabelColor, fontWeight: 'bold', fontSize: 11, formatter: function (p) { return PT.formatNum(p.value); } }
-            },
-            {
-                name: nameRate, type: 'line', yAxisIndex: 1, color: rateColor,
-                symbol: 'circle', symbolSize: 9, z: 10,
-                lineStyle: { width: 2, type: 'dashed' },
-                itemStyle: { color: rateColor, borderColor: dark ? '#1c1c1e' : '#ffffff', borderWidth: 2 },
-                data: categories.map(function (k) { return Math.round(failRateOf(k)); }),
-                label: {
-                    show: true, position: 'top', offset: [0, -6], formatter: '{c}%', fontWeight: 'bold', fontSize: 12,
-                    color: dark ? '#1c1c1e' : rateColor,
-                    backgroundColor: dark ? '#ffb703' : 'rgba(193,18,31,0.08)',
-                    borderRadius: 4, padding: [2, 6]
-                }
-            }
-        ]
-    });
-    barChart.on('click', (params) => {
-        const searchKey = categories[params.dataIndex] || params.name;
-        if (PT.state.dataTableInstance) {
-            PT.state.dataTableInstance.search(searchKey).draw();
-            if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
-        }
+            PT.state.detailEquipments = dto.Equipments || [];
+    (PT.state.detailEquipments).forEach(function (e) { e.FabProcess = PT.fabProcessOf(e); });
+    PT.renderProcessChart(PT.state.detailEquipments, PT.state.processMode || 'all');
+    $('#process-mode').off('click').on('click', 'button', function () {
+        $('#process-mode button').removeClass('active');
+        $(this).addClass('active');
+        PT.state.fabPick = '';
+        PT.renderProcessChart(PT.state.detailEquipments, $(this).data('mode'));
+        if (PT.state.dataTableInstance) PT.state.dataTableInstance.draw();
     });
   /*
     // ----------------------------
@@ -461,17 +391,168 @@ PT.groupByTime = function(data, unit) {
     return PT.aggregateHistory(data, unit);
 };
 
+PT.FAB_PROCESSES = ['PHOTO', 'ETCH', 'DIFF', 'CVD', 'METAL', 'CMP', 'IMP', 'CLN', 'MI'];
+
+PT.fabProcessOf = function (eq) {
+    const alias = {
+        PHOTO: 'PHOTO', PHO: 'PHOTO',
+        ETCH: 'ETCH',
+        DIFF: 'DIFF',
+        CVD: 'CVD',
+        METAL: 'METAL',
+        CMP: 'CMP',
+        IMP: 'IMP', IMPLANT: 'IMP',
+        CLN: 'CLN', CLEAN: 'CLN',
+        MI: 'MI', METRO: 'MI'
+    };
+    const proc = String((eq && eq.Process) || '').trim().toUpperCase();
+    if (alias[proc]) return alias[proc];
+    const tag = String((eq && (eq.Tag || eq.MainName)) || '').toUpperCase();
+    const keys = ['PHOTO', 'ETCH', 'DIFF', 'CVD', 'METAL', 'CMP', 'CLEAN', 'CLN', 'IMPLANT', 'IMP', 'METRO'];
+    for (let i = 0; i < keys.length; i++) {
+        if (tag.indexOf(keys[i]) >= 0) return alias[keys[i]] || keys[i];
+    }
+    const letter = { D: 'DIFF', E: 'ETCH', I: 'IMP', S: 'METAL', T: 'CVD', M: 'MI', W: 'CLN', P: 'PHOTO', C: 'CMP' };
+    return letter[tag.charAt(0)] || '';
+};
+
+PT.renderProcessChart = function (equipments, mode) {
+    mode = mode === 'nine' ? 'nine' : 'all';
+    PT.state.processMode = mode;
+    const list = equipments || [];
+    const nine = mode === 'nine';
+    const source = nine ? list.filter(function (e) { return PT.FAB_PROCESSES.indexOf(e.FabProcess) >= 0; }) : list;
+    const procStats = {};
+    source.forEach(function (e) {
+        const k = nine ? e.FabProcess : (e.Process || '-');
+        const a = procStats[k] || (procStats[k] = { total: 0, fail: 0 });
+        a.total++;
+        if (e.Result === 'FAIL') a.fail++;
+    });
+    const failRateOf = function (k) {
+        const d = procStats[k];
+        return d && d.total > 0 ? d.fail / d.total * 100 : 0;
+    };
+    const categories = nine
+        ? PT.FAB_PROCESSES.slice()
+        : Object.keys(procStats).sort(function (a, b) {
+            return (failRateOf(b) - failRateOf(a)) || ((procStats[b] || {}).total - (procStats[a] || {}).total);
+        });
+    categories.forEach(function (k) {
+        if (!procStats[k]) procStats[k] = { total: 0, fail: 0 };
+    });
+
+    const dark = PT.isDark();
+    const nameTotal = T('proc_eqp_total');
+    const nameFail = T('proc_eqp_fail');
+    const nameRate = T('proc_fail_rate');
+    const rateColor = dark ? '#ffb703' : '#c1121f';
+    const countLabelColor = dark ? '#e5e5ea' : '#343a40';
+    const dom = document.getElementById('barChart');
+    if (!dom) return;
+    if (PT.state.processChart) {
+        try { PT.state.processChart.dispose(); } catch (e) { /* ignore */ }
+    }
+    const barChart = echarts.init(dom);
+    PT.state.processChart = barChart;
+    PT.state.charts.push(barChart);
+    barChart.setOption({
+        tooltip: {
+            trigger: 'axis', axisPointer: { type: 'shadow' },
+            formatter: function (params) {
+                const key = categories[params[0].dataIndex];
+                const d = procStats[key] || { total: 0, fail: 0 };
+                return '<strong>' + key + '</strong><br/>' +
+                    nameTotal + ': <b>' + PT.formatNum(d.total) + '</b><br/>' +
+                    nameFail + ': <b>' + PT.formatNum(d.fail) + '</b><br/>' +
+                    nameRate + ': <b>' + Math.round(failRateOf(key)) + '%</b>';
+            }
+        },
+        legend: { bottom: 0 },
+        grid: { left: '3%', right: '4%', bottom: '14%', top: '12%', containLabel: true },
+        xAxis: { type: 'category', data: categories, axisLabel: { interval: 0, rotate: categories.length > 6 ? 30 : 0 } },
+        yAxis: [
+            { type: 'value', name: 'Count', minInterval: 1 },
+            { type: 'value', name: '%', min: 0, max: 100, splitLine: { show: false }, axisLabel: { formatter: '{value}%' } }
+        ],
+        series: [
+            {
+                name: nameTotal, type: 'bar', color: dark ? '#5b8def' : '#4895ef', barMaxWidth: 36,
+                data: categories.map(function (k) { return procStats[k].total; }),
+                label: { show: true, position: 'top', color: countLabelColor, fontWeight: 'bold', fontSize: 11, formatter: function (p) { return PT.formatNum(p.value); } }
+            },
+            {
+                name: nameFail, type: 'bar', color: '#e63946', barMaxWidth: 36,
+                data: categories.map(function (k) { return procStats[k].fail; }),
+                label: { show: true, position: 'top', color: countLabelColor, fontWeight: 'bold', fontSize: 11, formatter: function (p) { return PT.formatNum(p.value); } }
+            },
+            {
+                name: nameRate, type: 'line', yAxisIndex: 1, color: rateColor,
+                symbol: 'circle', symbolSize: 9, z: 10,
+                lineStyle: { width: 2, type: 'dashed' },
+                itemStyle: { color: rateColor, borderColor: dark ? '#1c1c1e' : '#ffffff', borderWidth: 2 },
+                data: categories.map(function (k) { return Math.round(failRateOf(k)); }),
+                label: {
+                    show: true, position: 'top', offset: [0, -6], formatter: '{c}%', fontWeight: 'bold', fontSize: 12,
+                    color: dark ? '#1c1c1e' : rateColor,
+                    backgroundColor: dark ? '#ffb703' : 'rgba(193,18,31,0.08)',
+                    borderRadius: 4, padding: [2, 6]
+                }
+            }
+        ]
+    });
+    barChart.off('click');
+    barChart.on('click', function (params) {
+        const searchKey = categories[params.dataIndex] || params.name;
+        if (!PT.state.dataTableInstance) return;
+        if (nine) {
+            PT.state.fabPick = PT.state.fabPick === searchKey ? '' : searchKey;
+            PT.state.dataTableInstance.search('').draw();
+        } else {
+            PT.state.fabPick = '';
+            PT.state.dataTableInstance.search(searchKey).draw();
+        }
+        if (typeof PT.scrollToNode === 'function') PT.scrollToNode('#mainTable');
+    });
+};
+
+PT.normalizeErrorStats = function (stats) {
+    const out = {};
+    Object.keys(stats || {}).forEach(function (key) {
+        const name = String(key || '').replace(/\s+/g, ' ').trim();
+        if (!name || name === '+') return;
+        out[name] = (out[name] || 0) + (Number(stats[key]) || 0);
+    });
+    return out;
+};
+
 PT.renderTopErrorTrend = function(errorStats, history) {
     const dom = document.getElementById('errorTopTrend');
     if (!dom) return;
-    const ranked = Object.keys(errorStats || {}).map(function (name) {
-        return { name: name, value: Number(errorStats[name]) || 0 };
-    }).filter(function (item) { return item.name && item.value > 0; })
+    const current = PT.normalizeErrorStats(errorStats);
+    const ranked = Object.keys(current).map(function (name) {
+        return { name: name, value: current[name] };
+    }).filter(function (item) { return item.value > 0; })
       .sort(function (a, b) { return b.value - a.value; })
       .slice(0, 2);
     let rows = (history || []).filter(function (row) { return row && row.Date; })
       .slice().sort(function (a, b) { return String(a.Date).localeCompare(String(b.Date)); });
-    if (!rows.length) rows = [{ Date: 'today', ErrorTypeStats: errorStats || {} }];
+    if (!rows.length) rows = [{ Date: 'today', ErrorTypeStats: current }];
+    let gapDays = 0;
+    const seriesStats = rows.map(function (row, rowIndex) {
+        const normalized = PT.normalizeErrorStats(row.ErrorTypeStats);
+        const hasType = Object.keys(normalized).length > 0;
+        if (!hasType && rowIndex === rows.length - 1 && Object.keys(current).length > 0)
+            return current;
+        if (!hasType) gapDays++;
+        return hasType ? normalized : null;
+    });
+    const hint = document.getElementById('errorTopHint');
+    if (hint) {
+        if (!ranked.length) hint.textContent = T('chart_error_top_empty');
+        else if (gapDays > 0) hint.textContent = T('chart_error_top_gap');
+        else hint.textContent = '';
+    }
     const colors = ['#f72585', '#0a84ff'];
     const series = ranked.map(function (item, index) {
         return {
@@ -479,12 +560,11 @@ PT.renderTopErrorTrend = function(errorStats, history) {
             type: 'line',
             smooth: true,
             symbol: 'circle',
-            symbolSize: 6,
+            symbolSize: 8,
             connectNulls: false,
             color: colors[index],
-            data: rows.map(function (row, rowIndex) {
-                let stats = row.ErrorTypeStats;
-                if (!stats && rowIndex === rows.length - 1) stats = errorStats;
+            label: { show: true, fontSize: 11, formatter: function (p) { return p.value == null ? '' : PT.formatNum(p.value); } },
+            data: seriesStats.map(function (stats) {
                 if (!stats) return null;
                 const value = stats[item.name];
                 return value == null ? 0 : (Number(value) || 0);
@@ -498,9 +578,10 @@ PT.renderTopErrorTrend = function(errorStats, history) {
     PT.state.errorTopTrend = chart;
     PT.state.charts.push(chart);
     chart.setOption({
+        title: ranked.length ? { show: false } : { text: T('chart_error_top_empty'), left: 'center', top: 'middle', textStyle: { color: '#999', fontSize: 13, fontWeight: 'normal' } },
         tooltip: { trigger: 'axis' },
         legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 10, textStyle: { fontSize: 11 } },
-        grid: { left: '4%', right: '4%', bottom: '8%', top: '22%', containLabel: true },
+        grid: { left: '3%', right: '4%', bottom: '8%', top: '18%', containLabel: true },
         xAxis: { type: 'category', data: rows.map(function (row) { return row.Date; }) },
         yAxis: { type: 'value', minInterval: 1 },
         series: series

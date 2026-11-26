@@ -21,6 +21,10 @@ namespace PocTrace.UI.Helpers
         public int SelectedPropListIndex { get; set; } = 0;
         public bool EnableLog { get; set; } = true;
         public bool EnableDebug { get; set; } = false;
+        /// <summary>null이면 exe.config의 EnableDetailedDebug를 쓴다.</summary>
+        public bool? WriteDetailLog { get; set; }
+        /// <summary>null이면 exe.config의 WritePipeSheet를 쓴다. x1, x2만 적용된다.</summary>
+        public bool? WritePipeSheet { get; set; }
         public List<string> RecentSearches { get; set; } = new List<string>();
         public int FormWidth { get; set; } = 1200;
         public int FormHeight { get; set; } = 800;

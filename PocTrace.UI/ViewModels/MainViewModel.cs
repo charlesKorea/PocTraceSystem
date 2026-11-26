@@ -37,6 +37,10 @@ namespace PocTrace.UI.ViewModels
         private readonly GraphCacheManager _cacheManager;
         private readonly TraceExcelReportService _excelReport;
         public bool WriteHtmlReport { get; set; }
+        /// <summary>Detail log. UI 체크박스가 config 초기값을 덮어쓴다.</summary>
+        public bool WriteDetailLog { get; set; }
+        /// <summary>x1, x2 Pipe 시트. x2_m은 엑셀 쪽이 항상 쓴다.</summary>
+        public bool WritePipeSheet { get; set; }
         private readonly IDialogService _dialog;
 
         private IGraphCache CurrentCache => _cacheManager;
@@ -316,8 +320,7 @@ namespace PocTrace.UI.ViewModels
                     throw new InvalidOperationException("Cache is not initialized. Please load data first.");
 
                 // [VOC-2] Viewer 대화형 검색: 콤마 토큰 부분매칭 포함(스크러버 "tag1,tag2" 등도 대상)
-                // EnableDetailedDebug는 PocTrace.UI.exe.config AppSettings를 따름 (TraceEngine이 algorithm에 전달)
-                bool detailedLog = GlobalConfig.EnableDetailedDebug;
+                bool detailedLog = WriteDetailLog;
                 var results = await _traceEngine.RunTraceAsync(tag, 0, detailedLog, includePartialTagMatch: true).ConfigureAwait(true);
 
                 if (results != null && results.Count > 0)
@@ -426,7 +429,7 @@ namespace PocTrace.UI.ViewModels
                         {
                             var engine = _engineFactory();
                             // [VOC-2] Viewer 배치도 대화형이므로 부분매칭 포함
-                            bool detailedLog = GlobalConfig.EnableDetailedDebug;
+                            bool detailedLog = WriteDetailLog;
                             var results = engine.RunBatchTag(tag, detailedLog, System.Threading.CancellationToken.None);
 
                             if (results == null || results.Count == 0)
@@ -441,7 +444,7 @@ namespace PocTrace.UI.ViewModels
                             {
                                 string fileName = SelectedDb + "_" + tag + "_" + firstSum.EquipmentCount + "_" + firstSum.TotalPocCount + ".xlsx";
                                 string fullPath = Path.Combine(outputDir, fileName);
-                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache, WriteHtmlReport, _batchUpload);
+                                _excelReport.SaveSingleFileReport(fullPath, results, CurrentCache, WriteHtmlReport, _batchUpload, WritePipeSheet);
                             }
 
                             foreach (var r in results) tempAllResults.Add(r);
@@ -569,7 +572,7 @@ namespace PocTrace.UI.ViewModels
                     var currentDetails = _allTraceResults;
 
                     // 2. Core 리포팅 서비스 호출
-                    _excelReport.SaveSingleFileReport(filePath, currentDetails, CurrentCache, WriteHtmlReport, _batchUpload);
+                    _excelReport.SaveSingleFileReport(filePath, currentDetails, CurrentCache, WriteHtmlReport, _batchUpload, WritePipeSheet);
                 });
 
                 StatusMessage = "Export Complete.";

@@ -460,7 +460,8 @@ namespace PocTrace.Web
                 bool truncated = false;
                 AppendIssues(results, issues, ref truncated);
                 string path = Path.Combine(JobDirectory(job), SafeFile(job.Db + "_" + tag) + ".xlsx");
-                _services.ExcelReport.SaveSingleFileReport(path, results, _services.CacheManager, job.WriteHtml);
+                _services.ExcelReport.SaveSingleFileReport(
+                    path, results, _services.CacheManager, job.WriteHtml, null, GlobalConfig.WritePipeSheet);
 
                 lock (_gate)
                 {
@@ -549,7 +550,8 @@ namespace PocTrace.Web
                                     results,
                                     _services.CacheManager,
                                     job.WriteHtml,
-                                    job.UploadRows);
+                                    job.UploadRows,
+                                    GlobalConfig.WritePipeSheet);
                                 savedFiles++;
                             }
                         }

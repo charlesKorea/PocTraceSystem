@@ -6,6 +6,19 @@ window.PocTrace = window.PocTrace || {};
   let currentModalPocs = [];
 
 PT.initGrid = function(eqList, dbName) {
+    if (PT.state.fabSearchFn) {
+        const idx = $.fn.dataTable.ext.search.indexOf(PT.state.fabSearchFn);
+        if (idx >= 0) $.fn.dataTable.ext.search.splice(idx, 1);
+    }
+    PT.state.fabSearchFn = function (settings, data, dataIndex) {
+        if (!PT.state.fabPick) return true;
+        const table = document.getElementById('mainTable');
+        if (!table || settings.nTable !== table) return true;
+        const row = new $.fn.dataTable.Api(settings).row(dataIndex).data();
+        return !!(row && row.FabProcess === PT.state.fabPick);
+    };
+    $.fn.dataTable.ext.search.push(PT.state.fabSearchFn);
+
     if (PT.state.dataTableInstance) { PT.state.dataTableInstance.destroy(); $('#mainTable').empty(); }
 
     const excelLink = `./Excel/${dbName}_Error_Detail.xlsx`;

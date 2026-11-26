@@ -18,6 +18,10 @@ namespace PocTrace.Core.Infrastructure
     public static bool EnableDetailedDebug =>
       GetBoolAppSetting("EnableDetailedDebug", false);
 
+    /// <summary>x1, x2, x2_2 설비 엑셀에 Pipe 시트를 넣을지. x2_m은 항상 넣는다. 기본은 끄다.</summary>
+    public static bool WritePipeSheet =>
+      GetBoolAppSetting("WritePipeSheet", false);
+
     public static double CacheStaleHours =>
       GetDoubleAppSetting("CacheStaleHours", CacheConstants.DefaultStaleHours);
 

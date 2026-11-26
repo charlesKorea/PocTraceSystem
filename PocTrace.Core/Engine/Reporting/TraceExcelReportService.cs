@@ -39,7 +39,8 @@ namespace PocTrace.Core.Engine.Reporting
             List<TraceResult> details,
             IGraphCache cache,
             bool includeSketch = false,
-            IList<EqCodeSheet.BatchUploadRow> upload = null)
+            IList<EqCodeSheet.BatchUploadRow> upload = null,
+            bool writePipeSheet = false)
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             details = BatchPlacement.ReportRows(details);
@@ -341,7 +342,7 @@ namespace PocTrace.Core.Engine.Reporting
                 }
                 wsPath.Cells.AutoFitColumns();
 
-                if (cache != null)
+                if (IncludePipeSheet(cache, lineName, writePipeSheet))
                 {
                     var wsTrace = package.Workbook.Worksheets.Add("Pipe");
                     for (int c = 0; c < DdwTraceSheet.Headers.Length; c++)
@@ -602,6 +603,15 @@ namespace PocTrace.Core.Engine.Reporting
             if (cache != null && step != null && cache.TryGetPipe(step.NodeId, out pipe) && pipe != null && !string.IsNullOrEmpty(pipe.UtilityName))
                 return pipe.UtilityName;
             return result == null ? "" : (result.StartPocUtilityGroup ?? "");
+        }
+
+        /// <summary>x2_m은 항상 Pipe 시트를 쓴다. x1, x2, x2_2는 writePipeSheet가 true일 때만 쓴다.</summary>
+        private static bool IncludePipeSheet(IGraphCache cache, string lineName, bool writePipeSheet)
+        {
+            string line = cache != null && !string.IsNullOrEmpty(cache.DbName) ? cache.DbName : (lineName ?? "");
+            if (DdwLine.IsCacheKey(line))
+                return cache != null;
+            return cache != null && writePipeSheet;
         }
     }
 }

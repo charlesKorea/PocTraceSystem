@@ -45,7 +45,7 @@ namespace PocTrace.UI
         {
             InitializeComponent();
             _viewModel = viewModel;
-            AddHtmlOption();
+            AddReportOptions();
             TraceAppVersion.Current = AppVersion.Text;
             lblVersion.Text = AppVersion.Text;
 
@@ -558,7 +558,7 @@ namespace PocTrace.UI
                 // [안전장치 2] DataGridView 데이터 소스 해제 (CurrencyManager 오류 방지)
                 gridResults.DataSource = null;
 
-                // ViewModel에 있는 검색 로직 호출
+                ApplyReportOptions();
                 await _viewModel.SearchAsync(searchText);
 
                 // [안전장치 3] 데이터 소스 재연결
@@ -622,8 +622,10 @@ namespace PocTrace.UI
         }
 
         private MetroFramework.Controls.MetroCheckBox chkHtmlReport;
+        private MetroFramework.Controls.MetroCheckBox chkDetailLog;
+        private MetroFramework.Controls.MetroCheckBox chkPipeSheet;
 
-        private void AddHtmlOption()
+        private void AddReportOptions()
         {
             chkHtmlReport = new MetroFramework.Controls.MetroCheckBox();
             chkHtmlReport.Name = "chkHtmlReport";
@@ -632,11 +634,29 @@ namespace PocTrace.UI
             chkHtmlReport.AutoSize = true;
             chkHtmlReport.TabIndex = 9;
             panelInput.Controls.Add(chkHtmlReport);
+
+            chkDetailLog = new MetroFramework.Controls.MetroCheckBox();
+            chkDetailLog.Name = "chkDetailLog";
+            chkDetailLog.Text = "Detail log";
+            chkDetailLog.Location = new System.Drawing.Point(430, 16);
+            chkDetailLog.AutoSize = true;
+            chkDetailLog.TabIndex = 12;
+            panelStatus.Controls.Add(chkDetailLog);
+
+            chkPipeSheet = new MetroFramework.Controls.MetroCheckBox();
+            chkPipeSheet.Name = "chkPipeSheet";
+            chkPipeSheet.Text = "Pipe 시트";
+            chkPipeSheet.Location = new System.Drawing.Point(560, 16);
+            chkPipeSheet.AutoSize = true;
+            chkPipeSheet.TabIndex = 13;
+            panelStatus.Controls.Add(chkPipeSheet);
         }
 
-        private void ApplyHtmlOption()
+        private void ApplyReportOptions()
         {
             _viewModel.WriteHtmlReport = chkHtmlReport != null && chkHtmlReport.Checked;
+            _viewModel.WriteDetailLog = chkDetailLog != null && chkDetailLog.Checked;
+            _viewModel.WritePipeSheet = chkPipeSheet != null && chkPipeSheet.Checked;
         }
 
         private async void btnExport_Click(object sender, EventArgs e)
@@ -669,7 +689,7 @@ namespace PocTrace.UI
                     try
                     {
                         // ViewModel에게는 "경로"만 전달 (ViewModel이 팝업 띄우지 않도록 주의)
-                        ApplyHtmlOption();
+                        ApplyReportOptions();
                         await _viewModel.ExportToExcelAsync(sfd.FileName);
                         MessageBox.Show("Export Complete!", "Success");
                     }
@@ -741,7 +761,7 @@ namespace PocTrace.UI
 
             try
             {
-                ApplyHtmlOption();
+                ApplyReportOptions();
                 string input = txtBatchInput.Text;
 
                 // 1. [중요] 작업 전 연결 끊기 (그리드가 변경사항을 못 보게 함)
@@ -849,6 +869,12 @@ namespace PocTrace.UI
                     cboProp2.SelectedIndex = _userSettings.SelectedPropListIndex;
                     cboProp2.SelectedIndex = _userSettings.SelectedPropListIndex;
                 }
+                if (chkDetailLog != null)
+                    chkDetailLog.Checked = _userSettings.WriteDetailLog ?? GlobalConfig.EnableDetailedDebug;
+                if (chkPipeSheet != null)
+                    chkPipeSheet.Checked = _userSettings.WritePipeSheet ?? GlobalConfig.WritePipeSheet;
+                ApplyReportOptions();
+
                 if (_userSettings.RecentSearches != null && _userSettings.RecentSearches.Count > 0)
                 {
                     _recentSearches = new List<string>(_userSettings.RecentSearches);
@@ -922,6 +948,10 @@ namespace PocTrace.UI
                 }
                 // 최근 검색어 목록
                 _userSettings.RecentSearches = new List<string>(_recentSearches);
+                if (chkDetailLog != null)
+                    _userSettings.WriteDetailLog = chkDetailLog.Checked;
+                if (chkPipeSheet != null)
+                    _userSettings.WritePipeSheet = chkPipeSheet.Checked;
 
                 // 폼 크기 및 위치 (최대화 상태가 아닐 때만 저장)
                 if (this.WindowState != FormWindowState.Maximized)

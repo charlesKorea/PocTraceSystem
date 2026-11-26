@@ -316,16 +316,19 @@ function renderDetailPage(dto, meta, history) {
                     <div id="pieChartError" class="chart-body"></div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="chart-container-wrapper">
-                    <h5 class="fw-bold">${T('chart_error_top')}</h5>
-                    <div id="errorTopTrend" class="chart-body"></div>
-                </div>
-            </div>
-                        <div class="col-md-3">
+            <div class="col-md-6">
                 <div class="chart-container-wrapper">
                     <h5 class="fw-bold"><i class="bi bi-check-circle"></i> ${T('label_hu_validation')}</h5>
                     <div id="pieChartHookup" class="chart-body"></div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="chart-container-wrapper">
+                    <h5 class="fw-bold">${T('chart_error_top')}</h5>
+                    <p class="text-muted small mb-1" id="errorTopHint"></p>
+                    <div id="errorTopTrend" class="chart-body"></div>
                 </div>
             </div>
         </div>
@@ -333,7 +336,13 @@ function renderDetailPage(dto, meta, history) {
         <div class="row mb-4">
             <div class="col-12">
                 <div class="chart-container-wrapper">
-                    <h5 class="fw-bold">${T('chart_process')}</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="fw-bold mb-0">${T('chart_process')}</h5>
+                        <div class="btn-group" role="group" id="process-mode">
+                            <button type="button" class="btn btn-outline-secondary btn-sm active" data-mode="all">${T('proc_all')}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-mode="nine">${T('proc_nine')}</button>
+                        </div>
+                    </div>
                     <div id="barChart" class="chart-body-lg"></div>
                 </div>
             </div>

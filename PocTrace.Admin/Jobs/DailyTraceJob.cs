@@ -446,8 +446,10 @@ namespace PocTrace.Admin.Jobs
                     }
 
                     // 2. 파이 차트용 (Error Stats)
-                    var allIssues = allResults.SelectMany(r => r.IssueList);
-                    reportDto.ErrorStats = allIssues
+                    reportDto.ErrorStats = allResults
+                        .SelectMany(r => r.IssueList)
+                        .Select(NormalizeIssueTitle)
+                        .Where(title => title.Length > 0)
                         .GroupBy(i => i)
                         .ToDictionary(g => g.Key, g => g.Count());
 
@@ -1022,6 +1024,17 @@ namespace PocTrace.Admin.Jobs
                     "[ExcelPerf][{Band}][{Db}][{Name}] Engine={Engine}, Rows={Rows:N0}, TunedMs={TunedMs:N0}, TunedRps={Rps:N0}",
                     band, dbName, exportName, metrics.WriterEngine, metrics.RowCount, metrics.TunedElapsedMs, metrics.TunedRowsPerSec);
             }
+        }
+
+        /// <summary>같은 오류의 앞뒤 공백을 묶고, 중복 표시 '+'는 유형에서 뺀다.</summary>
+        private static string NormalizeIssueTitle(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return "";
+            string title = raw.Trim();
+            if (title == "+")
+                return "";
+            return title;
         }
 
 }
