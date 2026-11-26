@@ -1,34 +1,29 @@
 -- pump fore-line POC 와 middle foreline 피팅의 X, Y 1:1.
 -- 높이 posz 는 비교하지 않는다. 명칭은 대소문자를 무시한다.
 --
--- 이 카탈로그는 monami TbStar 다. 캐시 DdwSql.SelectModels(TbStar) 와 SelectAttributes 와 같은 출처를 쓴다.
--- tb_modelinstances, tb_pocinstances 에 아래 열은 없다.
---   tag, s5_eqcode, construction_code, elementId_number
--- tb_modeltemplates 의 Subdivision_1_name, Subdivision_2_name 도 없다.
--- tb_pocinstances 의 tag, connectionTag 도 없다.
---
--- Subdivision1, Subdivision2 는 템플릿의 subdivision id 를 tb_division.division_value 로 읽는다.
+-- 이 카탈로그는 monami TbStar 다.
+-- Subdivision 은 tb_division.division_value 다.
 -- tag 는 tb_attributes.attribute_nm = 'tag' 이다.
 -- 건설코드는 tb_attributes.attribute_nm = 'Construction-code' 이다.
--- 좌표만 tb_modelinstances.posx, posy, posz 와 tb_pocinstances.posx, posy, posz 다.
+-- 좌표는 tb_modelinstances, tb_pocinstances 의 POSX, POSY, POSZ 다.
 --
--- 연결 서버 SELECT 를 파생 테이블로 감싼 뒤 src.x 처럼 별칭을 다시 읽지 않는다.
--- 그 별칭은 원격 테이블의 열로 묶여 Invalid column name 이 된다.
--- 임시 테이블은 CREATE TABLE 로 열을 먼저 선언한다. SELECT INTO 는 같은 세션에 남은 이전 열 이름을 컴파일 때 본다.
+-- POC 와 middle foreline 을 같은 기준으로 반올림한다. ROUND(좌표, 0), 즉 1mm 단위다.
+-- 77629.95 와 77630 은 둘 다 77630 이다.
+-- 소수 1자리는 77629.95 를 77629.9 로 떨어뜨릴 수 있어 쓰지 않는다.
+-- 같은 정수 키에 진공 POC 1개와 middle foreline 1개만 있으면 일치다.
+-- 주변 1mm 를 범위로 찾지 않는다. 그 조인이 시간을 늘렸다.
+--
+-- 연결 서버 SELECT 를 파생 테이블로 감싸 별칭을 다시 읽지 않는다.
+-- 임시 테이블은 CREATE TABLE 로 열을 먼저 선언한다.
 -- SSMS 에서 스크립트 전체를 실행한다. GO 가 배치를 나눈다.
 --
 -- pump: Subdivision1 = 4-pcs, Subdivision2 = pump
---   설비명에 _LL_ 이 있으면 로드락 펌프라 모수에서 뺀다. 대소문자는 무시한다.
+--   설비명에 _LL_ 이 있으면 로드락 펌프라 모수에서 뺀다.
 -- 진공 POC: owner_type 768, POC template name 에 fore-line
 --   POC 이름에 (LL) 또는 (PS) 가 있으면 그 POC 는 모수에서 뺀다.
 -- middle foreline: Subdivision1 = 기타, Subdivision2 = middle foreline, 객체명에 foreline
---
--- 비교 좌표는 소수 2자리. X 차이와 Y 차이가 각각 1 이하면 같은 위치다.
--- 77629.95 와 77630 은 일치다. 높이 posz 는 비교하지 않는다.
--- 같은 위치의 피팅이 1개이고, 그 피팅에서 1 이내인 진공 POC 도 1개일 때만 직선 대응이다.
---
--- 연결 서버나 카탈로그가 다르면 remote_monami.monami 를 바꾼다.
 -- live 는 version_sequence < 1000000000 이다.
+-- 연결 서버나 카탈로그가 다르면 remote_monami.monami 를 바꾼다.
 
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
@@ -39,8 +34,8 @@ IF OBJECT_ID('tempdb..#attr_named') IS NOT NULL DROP TABLE #attr_named;
 IF OBJECT_ID('tempdb..#pump_attr') IS NOT NULL DROP TABLE #pump_attr;
 IF OBJECT_ID('tempdb..#vac') IS NOT NULL DROP TABLE #vac;
 IF OBJECT_ID('tempdb..#mid') IS NOT NULL DROP TABLE #mid;
-IF OBJECT_ID('tempdb..#fit_for') IS NOT NULL DROP TABLE #fit_for;
-IF OBJECT_ID('tempdb..#poc_near') IS NOT NULL DROP TABLE #poc_near;
+IF OBJECT_ID('tempdb..#fit_at') IS NOT NULL DROP TABLE #fit_at;
+IF OBJECT_ID('tempdb..#poc_at') IS NOT NULL DROP TABLE #poc_at;
 IF OBJECT_ID('tempdb..#judged') IS NOT NULL DROP TABLE #judged;
 GO
 
@@ -52,12 +47,12 @@ CREATE TABLE #model (
     pos_x float NULL,
     pos_y float NULL,
     pos_z float NULL,
-    bucket_x int NULL,
-    bucket_y int NULL
+    key_x int NULL,
+    key_y int NULL
 );
 
 INSERT INTO #model (
-    instance_id, instance_nm, sub1, sub2, pos_x, pos_y, pos_z, bucket_x, bucket_y
+    instance_id, instance_nm, sub1, sub2, pos_x, pos_y, pos_z, key_x, key_y
 )
 SELECT
     TRY_CONVERT(uniqueidentifier, mi.INSTANCE_ID),
@@ -163,14 +158,14 @@ CREATE TABLE #vac (
     pos_x float NULL,
     pos_y float NULL,
     pos_z float NULL,
-    bucket_x int NULL,
-    bucket_y int NULL
+    key_x int NULL,
+    key_y int NULL
 );
 
 INSERT INTO #vac (
     pump_id, pump_tag, pump_name, pump_construction_code,
     pump_x, pump_y, pump_z,
-    poc_id, poc_name, pos_x, pos_y, pos_z, bucket_x, bucket_y
+    poc_id, poc_name, pos_x, pos_y, pos_z, key_x, key_y
 )
 SELECT
     pump.instance_id,
@@ -201,77 +196,51 @@ WHERE LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) LIKE N'%fore-line%'
   AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ll)%'
   AND LOWER(CONVERT(nvarchar(512), pt.POC_TEMPLATE_NM)) NOT LIKE N'%(ps)%';
 
-CREATE CLUSTERED INDEX ix_vac_xy ON #vac(bucket_x, bucket_y);
+CREATE CLUSTERED INDEX ix_vac_key ON #vac(key_x, key_y);
 
 CREATE TABLE #mid (
-    instance_id uniqueidentifier NOT NULL,
-    instance_nm nvarchar(512) NULL,
-    pos_x float NOT NULL,
-    pos_y float NOT NULL,
-    pos_z float NULL,
-    bucket_x int NULL,
-    bucket_y int NULL
+    key_x int NOT NULL,
+    key_y int NOT NULL
 );
 
-INSERT INTO #mid (instance_id, instance_nm, pos_x, pos_y, pos_z, bucket_x, bucket_y)
-SELECT instance_id, instance_nm, pos_x, pos_y, pos_z, bucket_x, bucket_y
+INSERT INTO #mid (key_x, key_y)
+SELECT key_x, key_y
 FROM #model
 WHERE sub1 = N'기타'
   AND sub2 = N'middle foreline'
   AND LOWER(ISNULL(instance_nm, N'')) LIKE N'%foreline%'
-  AND pos_x IS NOT NULL
-  AND pos_y IS NOT NULL;
+  AND key_x IS NOT NULL
+  AND key_y IS NOT NULL;
 
-CREATE CLUSTERED INDEX ix_mid_xy ON #mid(bucket_x, bucket_y);
+CREATE CLUSTERED INDEX ix_mid_key ON #mid(key_x, key_y);
 
-CREATE TABLE #fit_for (
-    poc_id uniqueidentifier NULL,
+CREATE TABLE #fit_at (
+    key_x int NOT NULL,
+    key_y int NOT NULL,
     fit_count int NOT NULL
 );
 
-INSERT INTO #fit_for (poc_id, fit_count)
-SELECT
-    v.poc_id,
-    COUNT(*)
-FROM #vac AS v
-INNER JOIN #mid AS m
-    ON m.bucket_x BETWEEN v.bucket_x - 1 AND v.bucket_x + 1
-   AND m.bucket_y BETWEEN v.bucket_y - 1 AND v.bucket_y + 1
-   AND ABS(m.pos_x - v.pos_x) <= 1
-   AND ABS(m.pos_y - v.pos_y) <= 1
-WHERE v.pos_x IS NOT NULL
-  AND v.pos_y IS NOT NULL
-GROUP BY v.poc_id;
+INSERT INTO #fit_at (key_x, key_y, fit_count)
+SELECT key_x, key_y, COUNT(*)
+FROM #mid
+GROUP BY key_x, key_y;
 
-CREATE CLUSTERED INDEX ix_fit_for ON #fit_for(poc_id);
+CREATE UNIQUE CLUSTERED INDEX ix_fit_at ON #fit_at(key_x, key_y);
 
-CREATE TABLE #poc_near (
-    poc_id uniqueidentifier NULL,
+CREATE TABLE #poc_at (
+    key_x int NOT NULL,
+    key_y int NOT NULL,
     poc_count int NOT NULL
 );
 
-INSERT INTO #poc_near (poc_id, poc_count)
-SELECT
-    v.poc_id,
-    COUNT(DISTINCT o.poc_id)
-FROM #vac AS v
-INNER JOIN #mid AS m
-    ON m.bucket_x BETWEEN v.bucket_x - 1 AND v.bucket_x + 1
-   AND m.bucket_y BETWEEN v.bucket_y - 1 AND v.bucket_y + 1
-   AND ABS(m.pos_x - v.pos_x) <= 1
-   AND ABS(m.pos_y - v.pos_y) <= 1
-INNER JOIN #vac AS o
-    ON o.bucket_x BETWEEN m.bucket_x - 1 AND m.bucket_x + 1
-   AND o.bucket_y BETWEEN m.bucket_y - 1 AND m.bucket_y + 1
-   AND o.pos_x IS NOT NULL
-   AND o.pos_y IS NOT NULL
-   AND ABS(o.pos_x - m.pos_x) <= 1
-   AND ABS(o.pos_y - m.pos_y) <= 1
-WHERE v.pos_x IS NOT NULL
-  AND v.pos_y IS NOT NULL
-GROUP BY v.poc_id;
+INSERT INTO #poc_at (key_x, key_y, poc_count)
+SELECT key_x, key_y, COUNT(*)
+FROM #vac
+WHERE key_x IS NOT NULL
+  AND key_y IS NOT NULL
+GROUP BY key_x, key_y;
 
-CREATE CLUSTERED INDEX ix_poc_near ON #poc_near(poc_id);
+CREATE UNIQUE CLUSTERED INDEX ix_poc_at ON #poc_at(key_x, key_y);
 
 CREATE TABLE #judged (
     pump_id uniqueidentifier NOT NULL,
@@ -311,19 +280,21 @@ SELECT
     v.pos_y,
     v.pos_z,
     ISNULL(f.fit_count, 0),
-    ISNULL(n.poc_count, 0),
+    ISNULL(pa.poc_count, 0),
     CASE
-        WHEN v.pos_x IS NULL OR v.pos_y IS NULL THEN N'좌표없음'
+        WHEN v.key_x IS NULL OR v.key_y IS NULL THEN N'좌표없음'
         WHEN ISNULL(f.fit_count, 0) = 0 THEN N'middle foreline 없음'
         WHEN f.fit_count > 1 THEN N'middle foreline 여러개'
-        WHEN ISNULL(n.poc_count, 0) > 1 THEN N'진공POC 여러개'
+        WHEN ISNULL(pa.poc_count, 0) > 1 THEN N'진공POC 여러개'
         ELSE N'일치'
     END
 FROM #vac AS v
-LEFT JOIN #fit_for AS f
-    ON f.poc_id = v.poc_id
-LEFT JOIN #poc_near AS n
-    ON n.poc_id = v.poc_id;
+LEFT JOIN #fit_at AS f
+    ON f.key_x = v.key_x
+   AND f.key_y = v.key_y
+LEFT JOIN #poc_at AS pa
+    ON pa.key_x = v.key_x
+   AND pa.key_y = v.key_y;
 
 SELECT
     align_result,
