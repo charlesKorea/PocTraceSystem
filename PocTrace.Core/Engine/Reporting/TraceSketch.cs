@@ -392,13 +392,13 @@ namespace PocTrace.Core.Engine.Reporting
                             continue;
                         if (prev.HasValue && segments < MaxSegments && Apart(prev.Value, point.Value))
                         {
-                            string ut = Short(carryUt);
+                            string segmentUt = Short(carryUt);
                             group.Segments.Add(new SketchSeg
                             {
                                 X1 = prev.Value.X, Y1 = prev.Value.Y, Z1 = prev.Value.Z,
                                 X2 = point.Value.X, Y2 = point.Value.Y, Z2 = point.Value.Z,
-                                Ut = ut,
-                                UtKey = ut,
+                                Ut = segmentUt,
+                                UtKey = segmentUt,
                                 Poc = pocName
                             });
                             segments++;
