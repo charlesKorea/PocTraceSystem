@@ -97,7 +97,12 @@ namespace PocTrace.Core.Engine.Reporting
             sb.Append(".draw-side{width:280px;flex:none;background:#fff;border:1px solid #e4e0d8;}");
             sb.Append(".draw-side h2{font-size:15px;margin:10px 12px;}");
             sb.Append(".st-ok{color:#128a3e;font-weight:700;} .st-bad{color:#d92d20;font-weight:700;} .st-emp{color:#1c1c1e;font-weight:700;}");
-            sb.Append("select{font:inherit;margin-left:8px;} p.hint{color:#5e6563;}");
+            sb.Append("p.hint{color:#5e6563;}");
+            sb.Append(".draw-picks,.draw-legend{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px;}");
+            sb.Append(".draw-picks label{display:inline-flex;align-items:center;gap:4px;border:1px solid #e4e0d8;background:#fff;border-radius:999px;padding:4px 10px;}");
+            sb.Append(".draw-legend button,.draw-picks button{font:inherit;border:1px solid #e4e0d8;background:#fff;border-radius:999px;padding:4px 10px;cursor:pointer;}");
+            sb.Append(".draw-legend button.on,.draw-picks button.on{background:#e7f3f1;border-color:#0c6e68;font-weight:700;}");
+            sb.Append("#drawStatusBody tr{cursor:pointer;} #drawStatusBody tr.on td{background:#e7f3f1;}");
             sb.Append("</style></head><body><h1>Summary</h1>");
             sb.Append("<table><thead><tr>");
             string[] headers = ddw
@@ -157,8 +162,9 @@ namespace PocTrace.Core.Engine.Reporting
             {
                 var groups = BuildGroups(details, cache);
                 sb.Append("<h1>Drawing</h1>");
-                sb.Append("<p class=\"hint\">드래그로 돌리고 휠로 확대합니다. 같은 UT는 같은 색이고, 이름은 연결된 가닥 중 가장 긴 곳에 한 번만 적습니다.</p>");
-                sb.Append("<p>설비<select id=\"drawPick\"></select></p>");
+                sb.Append("<p class=\"hint\">드래그로 돌리고 휠로 확대합니다. 설비를 여러 개 고를 수 있습니다. UT를 누르면 그 배관만, POC를 누르면 그 POC에 이어진 배관만 나옵니다. TOF 옆은 Tag, NOZ 옆은 Connection Tag입니다.</p>");
+                sb.Append("<div id=\"drawEquip\" class=\"draw-picks\"></div>");
+                sb.Append("<div id=\"drawUt\" class=\"draw-legend\"></div>");
                 sb.Append("<div class=\"draw-layout\"><canvas id=\"draw3d\" width=\"1100\" height=\"720\"></canvas>");
                 sb.Append("<div class=\"draw-side\"><h2>POC Status</h2><table><thead><tr><th>POC</th><th>Status</th></tr></thead><tbody id=\"drawStatusBody\"></tbody></table></div></div>");
                 sb.Append("<script>");
@@ -276,7 +282,7 @@ namespace PocTrace.Core.Engine.Reporting
                     float dy = -8f;
                     if (m.Status == "EMP" && NearObjectName(group, m))
                         dy = 16f;
-                    g.DrawString(m.Status, markFont, end ? statusInk : ink, mx + dx, my + dy);
+                    g.DrawString(string.IsNullOrEmpty(m.Label) ? m.Status : m.Label, markFont, end ? statusInk : ink, mx + dx, my + dy);
                 }
             }
             DrawStatusTable(g, group, x + w - tableW, y + 28, tableW - 8, bodyFont, ink);
@@ -367,9 +373,10 @@ namespace PocTrace.Core.Engine.Reporting
                 Point3? prev = Locate(cache, result.StartNodeGUID);
                 Point3? last = prev;
                 string carryUt = result.StartPocUtilityGroup ?? "";
+                string pocName = PocName(result);
                 if (prev.HasValue)
                     AddNameOnce(group, prev.Value, ObjectName(result));
-                AddStatusRow(group, result);
+                AddStatusRow(group, pocName, result.STATUS ?? "");
                 if (result.Steps != null)
                 {
                     for (int i = 0; i < result.Steps.Count; i++)
@@ -385,11 +392,14 @@ namespace PocTrace.Core.Engine.Reporting
                             continue;
                         if (prev.HasValue && segments < MaxSegments && Apart(prev.Value, point.Value))
                         {
+                            string ut = Short(carryUt);
                             group.Segments.Add(new SketchSeg
                             {
                                 X1 = prev.Value.X, Y1 = prev.Value.Y, Z1 = prev.Value.Z,
                                 X2 = point.Value.X, Y2 = point.Value.Y, Z2 = point.Value.Z,
-                                Ut = Short(carryUt)
+                                Ut = ut,
+                                UtKey = ut,
+                                Poc = pocName
                             });
                             segments++;
                         }
@@ -397,9 +407,9 @@ namespace PocTrace.Core.Engine.Reporting
                         last = point;
                     }
                 }
-                string end = result.STATUS;
+                string end = result.STATUS ?? "";
                 if (IsEndCode(end) && last.HasValue)
-                    AddMark(group, last.Value, end);
+                    AddMark(group, last.Value, end, EndCaption(result));
             }
             var list = new List<SketchGroup>();
             foreach (string key in order)
@@ -410,14 +420,34 @@ namespace PocTrace.Core.Engine.Reporting
             return list;
         }
 
-        private static void AddStatusRow(SketchGroup group, TraceResult result)
+        private static string PocName(TraceResult result)
         {
             string poc = result.StartPocName;
             if (string.IsNullOrEmpty(poc))
                 poc = result.StartPocNo;
             if (string.IsNullOrEmpty(poc))
                 poc = Short(result.StartPocId.ToString());
+            return poc ?? "";
+        }
+
+        private static string EndCaption(TraceResult result)
+        {
             string status = result.STATUS ?? "";
+            string extra = "";
+            if (status == "TOF")
+                extra = result.TargetNodeTag ?? "";
+            else if (status == "NOZ")
+                extra = result.TargetPocConnectionTag ?? "";
+            extra = extra.Trim();
+            if (extra.Length == 0)
+                return status;
+            if (extra.Length > 40)
+                extra = extra.Substring(0, 40);
+            return status + " " + extra;
+        }
+
+        private static void AddStatusRow(SketchGroup group, string poc, string status)
+        {
             for (int i = 0; i < group.Rows.Count; i++)
             {
                 if (string.Equals(group.Rows[i].Poc, poc, StringComparison.Ordinal)
@@ -469,7 +499,7 @@ namespace PocTrace.Core.Engine.Reporting
             int next = 0;
             for (int i = 0; i < n; i++)
             {
-                string key = string.IsNullOrEmpty(segs[i].Ut) ? "" : segs[i].Ut;
+                string key = string.IsNullOrEmpty(segs[i].UtKey) ? (segs[i].Ut ?? "") : segs[i].UtKey;
                 string color;
                 if (!colorOf.TryGetValue(key, out color))
                 {
@@ -591,18 +621,31 @@ namespace PocTrace.Core.Engine.Reporting
 
         private static void AddMark(SketchGroup group, Point3 point, string text)
         {
-            if (string.IsNullOrEmpty(text))
+            AddMark(group, point, text, text);
+        }
+
+        private static void AddMark(SketchGroup group, Point3 point, string status, string label)
+        {
+            if (string.IsNullOrEmpty(status) && string.IsNullOrEmpty(label))
                 return;
             for (int i = 0; i < group.Markers.Count; i++)
             {
                 var mark = group.Markers[i];
-                if (mark.Status == text
+                if (mark.Status == status
+                    && mark.Label == label
                     && Math.Abs(mark.X - point.X) < 0.05f
                     && Math.Abs(mark.Y - point.Y) < 0.05f
                     && Math.Abs(mark.Z - point.Z) < 0.05f)
                     return;
             }
-            group.Markers.Add(new SketchMark { X = point.X, Y = point.Y, Z = point.Z, Status = text });
+            group.Markers.Add(new SketchMark
+            {
+                X = point.X,
+                Y = point.Y,
+                Z = point.Z,
+                Status = status ?? "",
+                Label = string.IsNullOrEmpty(label) ? (status ?? "") : label
+            });
         }
 
         private static string Short(string value)
@@ -640,6 +683,8 @@ namespace PocTrace.Core.Engine.Reporting
                         sb.Append(',');
                     var s = group.Segments[i];
                     sb.Append("{\"ut\":").Append(Json(s.Ut));
+                    sb.Append(",\"uk\":").Append(Json(s.UtKey));
+                    sb.Append(",\"poc\":").Append(Json(s.Poc));
                     sb.Append(",\"a\":[").Append(Num(s.X1)).Append(',').Append(Num(s.Y1)).Append(',').Append(Num(s.Z1)).Append(']');
                     sb.Append(",\"b\":[").Append(Num(s.X2)).Append(',').Append(Num(s.Y2)).Append(',').Append(Num(s.Z2)).Append(']');
                     sb.Append(",\"c\":").Append(Json(s.Color)).Append('}');
@@ -660,6 +705,7 @@ namespace PocTrace.Core.Engine.Reporting
                         sb.Append(',');
                     var m = group.Markers[i];
                     sb.Append("{\"s\":").Append(Json(m.Status));
+                    sb.Append(",\"l\":").Append(Json(string.IsNullOrEmpty(m.Label) ? m.Status : m.Label));
                     sb.Append(",\"p\":[").Append(Num(m.X)).Append(',').Append(Num(m.Y)).Append(',').Append(Num(m.Z)).Append("]}");
                 }
                 sb.Append("]}");
@@ -704,26 +750,228 @@ namespace PocTrace.Core.Engine.Reporting
         }
 
         private const string ViewerScript =
-            "(function(){var cv=document.getElementById('draw3d');if(!cv)return;var ctx=cv.getContext('2d');var yaw=0.9,pitch=0.6,zoom=1,drag=null;" +
-            "var sel=document.getElementById('drawPick');var groups=(DRAW&&DRAW.groups)||[];" +
-            "function opt(v,t){var o=document.createElement('option');o.value=v;o.textContent=t;sel.appendChild(o);}" +
-            "opt('-1','전체');for(var i=0;i<groups.length;i++)opt(String(i),groups[i].title||(''+i));" +
-            "function pack(){var pick=Number(sel.value);var src=pick<0?groups:(groups[pick]?[groups[pick]]:[]);var segs=[],marks=[],rows=[];" +
-            "src.forEach(function(g){(g.segs||[]).forEach(function(s){segs.push(s);});(g.marks||[]).forEach(function(m){marks.push(m);});(g.rows||[]).forEach(function(r){rows.push(r);});});return {segs:segs,marks:marks,rows:rows};}" +
-            "function bounds(items){var b=null;function add(p){if(!b){b={x0:p[0],x1:p[0],y0:p[1],y1:p[1],z0:p[2],z1:p[2]};return;}b.x0=Math.min(b.x0,p[0]);b.x1=Math.max(b.x1,p[0]);b.y0=Math.min(b.y0,p[1]);b.y1=Math.max(b.y1,p[1]);b.z0=Math.min(b.z0,p[2]);b.z1=Math.max(b.z1,p[2]);}" +
-            "items.segs.forEach(function(s){add(s.a);add(s.b);});items.marks.forEach(function(m){add(m.p);});" +
-            "if(!b)b={x0:0,x1:1,y0:0,y1:1,z0:0,z1:1};b.cx=(b.x0+b.x1)/2;b.cy=(b.y0+b.y1)/2;b.cz=(b.z0+b.z1)/2;b.span=Math.max(1,b.x1-b.x0,b.y1-b.y0,b.z1-b.z0);return b;}" +
-            "function rot(p,b){var x=(p[0]-b.cx)/b.span,y=(p[1]-b.cy)/b.span,z=(p[2]-b.cz)/b.span;var c=Math.cos(yaw),s=Math.sin(yaw);var x1=x*c-y*s,y1=x*s+y*c;var cp=Math.cos(pitch),sp=Math.sin(pitch);return {x:x1,y:y1*cp-z*sp,z:y1*sp+z*cp};}" +
-            "function endCode(s){return s==='NOZ'||s==='TOF'||s==='CAP'||s==='EMP'||s==='ING'||s==='EQP'||s==='ERR';}" +
-            "function statusColor(s){if(s==='NOZ'||s==='TOF'||s==='CAP'||s==='EQP')return '#128a3e';if(s==='ING'||s==='ERR')return '#d92d20';if(s==='EMP')return '#1c1c1e';return '';}" +
-            "function statusClass(s){if(s==='NOZ'||s==='TOF'||s==='CAP'||s==='EQP')return 'st-ok';if(s==='ING'||s==='ERR')return 'st-bad';if(s==='EMP')return 'st-emp';return '';}" +
-            "function draw(){var w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);var items=pack();var body=document.getElementById('drawStatusBody');if(body){body.innerHTML='';(items.rows||[]).forEach(function(r){var tr=document.createElement('tr');var a=document.createElement('td');a.textContent=r.poc||'';var c=document.createElement('td');c.className=statusClass(r.st||'');c.textContent=r.st||'';tr.appendChild(a);tr.appendChild(c);body.appendChild(tr);});}if(!items.segs.length&&!items.marks.length){ctx.fillStyle='#5e6563';ctx.font='16px sans-serif';ctx.fillText('좌표가 있는 배관이 없습니다.',24,40);return;}var b=bounds(items);var scale=Math.min(w,h)*0.72*zoom;var taken=[];" +
-            "function scr(p){var r=rot(p,b);return {x:w/2+r.x*scale,y:h/2-r.y*scale,z:r.z};}" +
-            "ctx.lineWidth=2;items.segs.forEach(function(s){var a=scr(s.a),c=scr(s.b);ctx.strokeStyle=s.c||'#0c6e68';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();var dx=c.x-a.x,dy=c.y-a.y,pix=Math.sqrt(dx*dx+dy*dy);if(!s.ut||pix<42)return;var size=Math.max(11,Math.min(18,pix/7));ctx.font=size+'px sans-serif';var tw=ctx.measureText(s.ut).width,th=size+4;var tx=(a.x+c.x)/2-tw/2,ty=(a.y+c.y)/2-th/2;for(var i=0;i<taken.length;i++){var t=taken[i];if(!(tx>t.x+t.w||t.x>tx+tw||ty>t.y+t.h||t.y>ty+th))return;}taken.push({x:tx,y:ty,w:tw,h:th});ctx.fillStyle='rgba(255,255,255,0.88)';ctx.fillRect(tx-2,ty-1,tw+4,th);ctx.fillStyle='#083e3b';ctx.fillText(s.ut,tx,ty+size);});" +
-            "ctx.font='700 12px sans-serif';items.marks.forEach(function(m){var p=scr(m.p);var sc=statusColor(m.s);ctx.fillStyle=sc||'#1c1c1e';ctx.beginPath();ctx.arc(p.x,p.y,4,0,6.3);ctx.fill();if(!m.s)return;var dy=0;if(m.s==='EMP'){for(var i=0;i<items.marks.length;i++){var o=items.marks[i];if(!o.s||endCode(o.s))continue;if(Math.abs(o.p[0]-m.p[0])<0.05&&Math.abs(o.p[1]-m.p[1])<0.05&&Math.abs(o.p[2]-m.p[2])<0.05){dy=18;break;}}}ctx.fillStyle=sc||'#1c1c1e';ctx.fillText(m.s,p.x+8,p.y-4+dy);});}" +
-            "sel.onchange=draw;cv.onmousedown=function(e){drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};};window.addEventListener('mouseup',function(){drag=null;});" +
-            "window.addEventListener('mousemove',function(e){if(!drag)return;yaw=drag.yaw+(e.clientX-drag.x)*0.01;pitch=Math.max(-1.2,Math.min(1.2,drag.pitch+(e.clientY-drag.y)*0.01));draw();});" +
-            "cv.addEventListener('wheel',function(e){e.preventDefault();zoom=Math.max(0.4,Math.min(4,zoom*(e.deltaY>0?0.9:1.1)));draw();},{passive:false});draw();})();";
+            "(function(){" +
+            "  var cv=document.getElementById('draw3d');" +
+            "  if(!cv)return;" +
+            "  var ctx=cv.getContext('2d');" +
+            "  var yaw=0.9,pitch=0.6,zoom=1,drag=null;" +
+            "  var groups=(DRAW&&DRAW.groups)||[];" +
+            "  var utPick='';" +
+            "  var pocPick='';" +
+            "  var equip=document.getElementById('drawEquip');" +
+            "  var legend=document.getElementById('drawUt');" +
+            "  var allBtn=null;" +
+            "  function btn(parent,text,on,click){" +
+            "    var b=document.createElement('button');" +
+            "    b.type='button';" +
+            "    b.textContent=text;" +
+            "    b.className=on?'on':'';" +
+            "    b.onclick=click;" +
+            "    parent.appendChild(b);" +
+            "    return b;" +
+            "  }" +
+            "  function boxes(){return equip?equip.querySelectorAll('input'):[];}" +
+            "  function groupsOn(){" +
+            "    var src=[];" +
+            "    var list=boxes();" +
+            "    for(var i=0;i<list.length;i++){" +
+            "      if(list[i].checked&&groups[Number(list[i].value)]) src.push(groups[Number(list[i].value)]);" +
+            "    }" +
+            "    return src;" +
+            "  }" +
+            "  function syncAll(){" +
+            "    var list=boxes();" +
+            "    var on=list.length>0;" +
+            "    for(var i=0;i<list.length;i++) if(!list[i].checked) on=false;" +
+            "    if(allBtn) allBtn.className=on?'on':'';" +
+            "  }" +
+            "  if(equip){" +
+            "    allBtn=btn(equip,'전체',true,function(){" +
+            "      var list=boxes();" +
+            "      for(var i=0;i<list.length;i++) list[i].checked=true;" +
+            "      pocPick='';" +
+            "      syncAll();" +
+            "      renderLegend();" +
+            "      draw();" +
+            "    });" +
+            "    for(var gi=0;gi<groups.length;gi++){" +
+            "      (function(i){" +
+            "        var label=document.createElement('label');" +
+            "        var box=document.createElement('input');" +
+            "        box.type='checkbox';" +
+            "        box.value=String(i);" +
+            "        box.checked=true;" +
+            "        box.onchange=function(){pocPick='';syncAll();renderLegend();draw();};" +
+            "        label.appendChild(box);" +
+            "        label.appendChild(document.createTextNode(groups[i].title||(''+i)));" +
+            "        equip.appendChild(label);" +
+            "      })(gi);" +
+            "    }" +
+            "  }" +
+            "  function utKey(s){return ((s&&(s.uk||s.ut))||'').toLowerCase();}" +
+            "  function renderLegend(){" +
+            "    if(!legend)return;" +
+            "    legend.innerHTML='';" +
+            "    btn(legend,'전체 UT',!utPick,function(){utPick='';renderLegend();draw();});" +
+            "    var seen={};" +
+            "    groupsOn().forEach(function(g){" +
+            "      (g.segs||[]).forEach(function(s){" +
+            "        var raw=(s&&(s.uk||s.ut))||'';" +
+            "        var k=raw.toLowerCase();" +
+            "        if(!k||seen[k])return;" +
+            "        seen[k]={text:raw,color:s.c||'#0c6e68'};" +
+            "      });" +
+            "    });" +
+            "    Object.keys(seen).sort().forEach(function(k){" +
+            "      var b=btn(legend,seen[k].text,utPick===k,function(){" +
+            "        utPick=utPick===k?'':k;" +
+            "        renderLegend();" +
+            "        draw();" +
+            "      });" +
+            "      b.style.borderColor=seen[k].color;" +
+            "    });" +
+            "  }" +
+            "  function near(p,q){" +
+            "    return Math.abs(p[0]-q[0])<0.05&&Math.abs(p[1]-q[1])<0.05&&Math.abs(p[2]-q[2])<0.05;" +
+            "  }" +
+            "  function pack(){" +
+            "    var segs=[],marks=[],rows=[];" +
+            "    groupsOn().forEach(function(g){" +
+            "      (g.segs||[]).forEach(function(s){segs.push(s);});" +
+            "      (g.marks||[]).forEach(function(m){marks.push(m);});" +
+            "      (g.rows||[]).forEach(function(r){rows.push(r);});" +
+            "    });" +
+            "    var shown=segs.filter(function(s){" +
+            "      if(utPick&&utKey(s)!==utPick)return false;" +
+            "      if(pocPick&&s.poc!==pocPick)return false;" +
+            "      return true;" +
+            "    });" +
+            "    var shownMarks=marks;" +
+            "    if(utPick||pocPick){" +
+            "      shownMarks=marks.filter(function(m){" +
+            "        for(var i=0;i<shown.length;i++){" +
+            "          if(near(m.p,shown[i].a)||near(m.p,shown[i].b))return true;" +
+            "        }" +
+            "        return false;" +
+            "      });" +
+            "    }" +
+            "    return {segs:shown,marks:shownMarks,rows:rows};" +
+            "  }" +
+            "  function bounds(items){" +
+            "    var b=null;" +
+            "    function add(p){" +
+            "      if(!b){b={x0:p[0],x1:p[0],y0:p[1],y1:p[1],z0:p[2],z1:p[2]};return;}" +
+            "      b.x0=Math.min(b.x0,p[0]);b.x1=Math.max(b.x1,p[0]);" +
+            "      b.y0=Math.min(b.y0,p[1]);b.y1=Math.max(b.y1,p[1]);" +
+            "      b.z0=Math.min(b.z0,p[2]);b.z1=Math.max(b.z1,p[2]);" +
+            "    }" +
+            "    items.segs.forEach(function(s){add(s.a);add(s.b);});" +
+            "    items.marks.forEach(function(m){add(m.p);});" +
+            "    if(!b)b={x0:0,x1:1,y0:0,y1:1,z0:0,z1:1};" +
+            "    b.cx=(b.x0+b.x1)/2;b.cy=(b.y0+b.y1)/2;b.cz=(b.z0+b.z1)/2;" +
+            "    b.span=Math.max(1,b.x1-b.x0,b.y1-b.y0,b.z1-b.z0);" +
+            "    return b;" +
+            "  }" +
+            "  function rot(p,b){" +
+            "    var x=(p[0]-b.cx)/b.span,y=(p[1]-b.cy)/b.span,z=(p[2]-b.cz)/b.span;" +
+            "    var c=Math.cos(yaw),s=Math.sin(yaw);" +
+            "    var x1=x*c-y*s,y1=x*s+y*c;" +
+            "    var cp=Math.cos(pitch),sp=Math.sin(pitch);" +
+            "    return {x:x1,y:y1*cp-z*sp,z:y1*sp+z*cp};" +
+            "  }" +
+            "  function endCode(s){return s==='NOZ'||s==='TOF'||s==='CAP'||s==='EMP'||s==='ING'||s==='EQP'||s==='ERR';}" +
+            "  function statusColor(s){if(s==='NOZ'||s==='TOF'||s==='CAP'||s==='EQP')return '#128a3e';if(s==='ING'||s==='ERR')return '#d92d20';if(s==='EMP')return '#1c1c1e';return '';}" +
+            "  function statusClass(s){if(s==='NOZ'||s==='TOF'||s==='CAP'||s==='EQP')return 'st-ok';if(s==='ING'||s==='ERR')return 'st-bad';if(s==='EMP')return 'st-emp';return '';}" +
+            "  function draw(){" +
+            "    var w=cv.width,h=cv.height;" +
+            "    ctx.clearRect(0,0,w,h);" +
+            "    ctx.fillStyle='#fff';" +
+            "    ctx.fillRect(0,0,w,h);" +
+            "    var items=pack();" +
+            "    var body=document.getElementById('drawStatusBody');" +
+            "    if(body){" +
+            "      body.innerHTML='';" +
+            "      (items.rows||[]).forEach(function(r){" +
+            "        var tr=document.createElement('tr');" +
+            "        if(pocPick&&r.poc===pocPick) tr.className='on';" +
+            "        tr.onclick=function(){pocPick=pocPick===r.poc?'':r.poc;draw();};" +
+            "        var a=document.createElement('td');" +
+            "        a.textContent=r.poc||'';" +
+            "        var c=document.createElement('td');" +
+            "        c.className=statusClass(r.st||'');" +
+            "        c.textContent=r.st||'';" +
+            "        tr.appendChild(a);" +
+            "        tr.appendChild(c);" +
+            "        body.appendChild(tr);" +
+            "      });" +
+            "    }" +
+            "    if(!items.segs.length&&!items.marks.length){" +
+            "      ctx.fillStyle='#5e6563';" +
+            "      ctx.font='16px sans-serif';" +
+            "      ctx.fillText('좌표가 있는 배관이 없습니다.',24,40);" +
+            "      return;" +
+            "    }" +
+            "    var b=bounds(items);" +
+            "    var scale=Math.min(w,h)*0.72*zoom;" +
+            "    var taken=[];" +
+            "    function scr(p){var r=rot(p,b);return {x:w/2+r.x*scale,y:h/2-r.y*scale,z:r.z};}" +
+            "    ctx.lineWidth=2;" +
+            "    items.segs.forEach(function(s){" +
+            "      var a=scr(s.a),c=scr(s.b);" +
+            "      ctx.strokeStyle=s.c||'#0c6e68';" +
+            "      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();" +
+            "      var dx=c.x-a.x,dy=c.y-a.y,pix=Math.sqrt(dx*dx+dy*dy);" +
+            "      if(!s.ut||pix<42)return;" +
+            "      var size=Math.max(11,Math.min(18,pix/7));" +
+            "      ctx.font=size+'px sans-serif';" +
+            "      var tw=ctx.measureText(s.ut).width,th=size+4;" +
+            "      var tx=(a.x+c.x)/2-tw/2,ty=(a.y+c.y)/2-th/2;" +
+            "      for(var i=0;i<taken.length;i++){" +
+            "        var t=taken[i];" +
+            "        if(!(tx>t.x+t.w||t.x>tx+tw||ty>t.y+t.h||t.y>ty+th))return;" +
+            "      }" +
+            "      taken.push({x:tx,y:ty,w:tw,h:th});" +
+            "      ctx.fillStyle='rgba(255,255,255,0.88)';" +
+            "      ctx.fillRect(tx-2,ty-1,tw+4,th);" +
+            "      ctx.fillStyle='#083e3b';" +
+            "      ctx.fillText(s.ut,tx,ty+size);" +
+            "    });" +
+            "    ctx.font='700 12px sans-serif';" +
+            "    items.marks.forEach(function(m){" +
+            "      var p=scr(m.p);" +
+            "      var sc=statusColor(m.s);" +
+            "      ctx.fillStyle=sc||'#1c1c1e';" +
+            "      ctx.beginPath();ctx.arc(p.x,p.y,4,0,6.3);ctx.fill();" +
+            "      var label=m.l||m.s;" +
+            "      if(!label)return;" +
+            "      var dy=0;" +
+            "      if(m.s==='EMP'){" +
+            "        for(var i=0;i<items.marks.length;i++){" +
+            "          var o=items.marks[i];" +
+            "          if(!o.s||endCode(o.s))continue;" +
+            "          if(Math.abs(o.p[0]-m.p[0])<0.05&&Math.abs(o.p[1]-m.p[1])<0.05&&Math.abs(o.p[2]-m.p[2])<0.05){dy=18;break;}" +
+            "        }" +
+            "      }" +
+            "      ctx.fillStyle=sc||'#1c1c1e';" +
+            "      ctx.fillText(label,p.x+8,p.y-4+dy);" +
+            "    });" +
+            "  }" +
+            "  renderLegend();" +
+            "  cv.onmousedown=function(e){drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};};" +
+            "  window.addEventListener('mouseup',function(){drag=null;});" +
+            "  window.addEventListener('mousemove',function(e){" +
+            "    if(!drag)return;" +
+            "    yaw=drag.yaw+(e.clientX-drag.x)*0.01;" +
+            "    pitch=Math.max(-1.2,Math.min(1.2,drag.pitch+(e.clientY-drag.y)*0.01));" +
+            "    draw();" +
+            "  });" +
+            "  cv.addEventListener('wheel',function(e){" +
+            "    e.preventDefault();" +
+            "    zoom=Math.max(0.4,Math.min(4,zoom*(e.deltaY>0?0.9:1.1)));" +
+            "    draw();" +
+            "  },{passive:false});" +
+            "  draw();" +
+            "})();";
 
         private struct Point3
         {
@@ -756,6 +1004,8 @@ namespace PocTrace.Core.Engine.Reporting
         {
             public float X1, Y1, Z1, X2, Y2, Z2;
             public string Ut;
+            public string UtKey;
+            public string Poc;
             public string Color;
         }
 
@@ -763,6 +1013,7 @@ namespace PocTrace.Core.Engine.Reporting
         {
             public float X, Y, Z;
             public string Status;
+            public string Label;
         }
     }
 }

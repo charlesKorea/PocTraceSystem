@@ -274,7 +274,7 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/traces")
                 {
                     var body = ReadJson(context.Request);
-                    string id = _portal.StartTrace(Value(body, "db"), Value(body, "tag"), Flag(body, "html"));
+                    string id = _portal.StartTrace(Value(body, "db"), Value(body, "tag"), Flag(body, "html"), Flag(body, "pipe"));
                     WriteJson(context, 202, new { jobId = id });
                     return;
                 }
@@ -282,7 +282,7 @@ namespace PocTrace.Web
                 if (method == "POST" && path == "/api/batches")
                 {
                     var body = ReadJson(context.Request);
-                    string id = _portal.StartBatch(Value(body, "db"), Value(body, "text"), Flag(body, "html"), body["rows"]);
+                    string id = _portal.StartBatch(Value(body, "db"), Value(body, "text"), Flag(body, "html"), Flag(body, "pipe"), body["rows"]);
                     WriteJson(context, 202, new { jobId = id });
                     return;
                 }

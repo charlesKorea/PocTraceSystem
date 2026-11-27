@@ -109,6 +109,10 @@
         <span data-i18n="htmlOpt">HTML 생성 (Summary, Drawing)</span>
         <input type="checkbox" id="htmlOpt" />
       </div>
+      <div class="option-panel">
+        <span data-i18n="pipeOpt">Pipe 시트 (x1, x2, x2_2, 기본 끔)</span>
+        <input type="checkbox" id="pipeOpt" />
+      </div>
       <article class="card">
         <p class="eyebrow" data-i18n="stepTag">2 · Tag</p>
         <p class="hint" id="traceGate" data-i18n="traceGate">Cache가 메모리에 올라온 뒤에 Tag를 입력합니다.</p>
@@ -329,6 +333,7 @@
         batchBtn: "배치 Trace",
         excel: "Excel 받기",
         htmlOpt: "HTML 생성 (Summary, Drawing)",
+        pipeOpt: "Pipe 시트 (x1, x2, x2_2, 기본 끔)",
         htmlTrace: "HTML 받기",
         excelZip: "전체 ZIP 받기 (개별 + Summary)",
         hEq: "설비",
@@ -467,6 +472,7 @@
         batchBtn: "Batch Trace",
         excel: "下载 Excel",
         htmlOpt: "生成 HTML（Summary、Drawing）",
+        pipeOpt: "Pipe 表（x1、x2、x2_2，默认关）",
         htmlTrace: "下载 HTML",
         excelZip: "下载全部 ZIP（单独 + Summary）",
         hEq: "设备",
@@ -1629,7 +1635,7 @@
       if (!$("db").value) { rejectInput("needTag"); return; }
       rememberTag(tag);
       localStorage.setItem(DB_KEY, $("db").value);
-      start("/api/traces", { db: $("db").value, tag: tag, html: $("htmlOpt").checked });
+      start("/api/traces", { db: $("db").value, tag: tag, html: $("htmlOpt").checked, pipe: $("pipeOpt").checked });
     }
     function startBatch() {
       if (!cacheReady) { rejectInput("needCache"); return; }
@@ -1639,7 +1645,7 @@
       if (!count) { rejectInput("needBatch"); return; }
       if (count > max) { rejectInput("overBatch", { max: max, n: count }); return; }
       localStorage.setItem(DB_KEY, $("db").value);
-      start("/api/batches", { db: $("db").value, text: text, html: $("htmlOpt").checked, rows: batchRows });
+      start("/api/batches", { db: $("db").value, text: text, html: $("htmlOpt").checked, pipe: $("pipeOpt").checked, rows: batchRows });
     }
     function startNozzle() {
       if (!cacheReady) { rejectInput("needCache"); return; }

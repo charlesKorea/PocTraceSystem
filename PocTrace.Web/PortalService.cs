@@ -349,7 +349,7 @@ namespace PocTrace.Web
             return job.Id;
         }
 
-        public string StartTrace(string db, string tag, bool writeHtml)
+        public string StartTrace(string db, string tag, bool writeHtml, bool writePipe)
         {
             db = RequireDb(db);
             tag = (tag ?? "").Trim();
@@ -360,11 +360,12 @@ namespace PocTrace.Web
 
             JobRecord job = BeginJob("trace", db, tag);
             job.WriteHtml = writeHtml;
+            job.WritePipe = writePipe;
             Task.Run(() => RunSingle(job, tag));
             return job.Id;
         }
 
-        public string StartBatch(string db, string text, bool writeHtml, JToken rows = null)
+        public string StartBatch(string db, string text, bool writeHtml, bool writePipe, JToken rows = null)
         {
             db = RequireDb(db);
             var tags = SplitTags(text);
@@ -377,6 +378,7 @@ namespace PocTrace.Web
 
             JobRecord job = BeginJob("batch", db, tags.Count + " tags");
             job.WriteHtml = writeHtml;
+            job.WritePipe = writePipe;
             job.UploadRows = ReadUploadRows(rows);
             Task.Run(() => RunBatch(job, tags));
             return job.Id;
@@ -461,7 +463,7 @@ namespace PocTrace.Web
                 AppendIssues(results, issues, ref truncated);
                 string path = Path.Combine(JobDirectory(job), SafeFile(job.Db + "_" + tag) + ".xlsx");
                 _services.ExcelReport.SaveSingleFileReport(
-                    path, results, _services.CacheManager, job.WriteHtml, null, GlobalConfig.WritePipeSheet);
+                    path, results, _services.CacheManager, job.WriteHtml, null, job.WritePipe);
 
                 lock (_gate)
                 {
@@ -551,7 +553,7 @@ namespace PocTrace.Web
                                     _services.CacheManager,
                                     job.WriteHtml,
                                     job.UploadRows,
-                                    GlobalConfig.WritePipeSheet);
+                                    job.WritePipe);
                                 savedFiles++;
                             }
                         }
@@ -1664,6 +1666,7 @@ namespace PocTrace.Web
         public string ZipPath { get; set; }
         public string HtmlPath { get; set; }
         public bool WriteHtml { get; set; }
+        public bool WritePipe { get; set; }
         public List<EqCodeSheet.BatchUploadRow> UploadRows { get; set; }
         public string OutputDirectory { get; set; }
         public DateTime CreatedUtc { get; set; }
